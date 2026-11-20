@@ -34,5 +34,7 @@ jobs:
         run: npm test
       - name: Generate setter policy comparison report
         run: npm run setter-policy:report
+      - name: Generate expected attack value report
+        run: npm run attack-value:report
       - name: Type-check and production build
         run: npm run build
