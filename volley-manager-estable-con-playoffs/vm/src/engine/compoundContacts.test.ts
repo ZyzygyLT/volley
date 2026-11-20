@@ -83,6 +83,7 @@ describe('compound rally contacts: isolated model', () => {
   it('flags simultaneous opponents over the net as a special allowance reset', () => {
     const result = deriveTeamHits(action({
       opponentSimultaneousOverNet: true,
+      receivingTeam: 1,
       groups: [{
         relation: 'simultaneous',
         contacts: [{ playerId: 'p1', team: 0 }, { playerId: 'p2', team: 1 }]
@@ -90,7 +91,7 @@ describe('compound rally contacts: isolated model', () => {
     }));
     expect(result).toMatchObject({
       teamHits: 0,
-      resetsReceivingTeamAllowance: true,
+      allowanceResetFor: 1,
       issues: []
     });
   });
