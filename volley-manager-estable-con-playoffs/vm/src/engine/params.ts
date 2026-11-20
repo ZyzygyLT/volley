@@ -24,7 +24,7 @@ export interface Params {
   digBase: number; digW: number; digNoise: number; coverQ: number; // [DISEÑO]
   keepProb: number;                                 // [AJUSTE] 1-c (preprint)
   otherErr: number;                                 // [AJUSTE] errores de manejo por intercambio (PlusLiga: 2,4 % de los rallies)
-  maxExchanges: number;
+
 }
 const R = (S: number, OH: number, MB: number, OP: number, L: number): ByRole => ({ S, OH, MB, OP, L });
 export const P: Params = {
@@ -76,7 +76,7 @@ export const P: Params = {
   coverQ: 0.45,
   keepProb: 0.2002,
   otherErr: 0.0205,
-  maxExchanges: 14,
+
 };
 /** Desviación típica de la fuerza (puntos de valoración) entre equipos de una liga. [AJUSTE] a la distribución de marcadores de PlusLiga */
 export const TEAM_SD = 3.6;
