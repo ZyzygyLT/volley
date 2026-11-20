@@ -33,6 +33,17 @@ describe('rally rule state: explicit transitions', () => {
     });
   });
 
+  it('starts the rally with a serve that consumes no team hit', () => {
+    const result = transitionRallyRuleState(
+      createRallyRuleState(0),
+      action(1, 0, 'serve', 'server'),
+      { continues: true, nextTeam: 1 }
+    );
+    expect(result.issues).toEqual([]);
+    expect(result.state?.hits).toEqual({ 0: 0, 1: 0 });
+    expect(result.state?.nextTeam).toBe(1);
+  });
+
   it('keeps the same team hit count while its actions continue', () => {
     let state = createRallyRuleState(0);
     const first = transitionRallyRuleState(state, action(1, 0), { continues: true, nextTeam: 0 });
