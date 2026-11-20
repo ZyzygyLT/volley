@@ -51,7 +51,8 @@ export interface CompoundContactIssue {
     | 'receiving-team-not-in-contact'
     | 'multiple-block-teams'
     | 'block-team-mismatch'
-    | 'unexpected-receiving-team';
+    | 'unexpected-receiving-team'
+    | 'invalid-serve-action';
   actionId: string;
   groupIndex?: number;
   message: string;
@@ -145,6 +146,15 @@ export function validateCompoundAction(
     }
   });
 
+  if (action.kind === 'serve' && (
+    action.groups.length !== 1 ||
+    action.groups[0].relation !== 'single' ||
+    action.groups[0].contacts.length !== 1 ||
+    action.groups[0].contacts[0].team !== action.actingTeam
+  )) {
+    issues.push(issue(action, 'invalid-serve-action', 'El saque debe representarse como un único contacto individual del equipo sacador.'));
+  }
+
   if (action.kind === 'block' && blockTeams.size > 1) {
     issues.push(issue(action, 'multiple-block-teams', 'Una acción de bloqueo no puede mezclar equipos.'));
   }
@@ -194,6 +204,12 @@ export function deriveTeamHits(action: CompoundRallyAction): TeamHitDerivation {
 
   if (action.kind === 'block') {
     return { teamHits: 0, isBlock: true, allowanceResetFor: action.actingTeam, issues: [] };
+  }
+
+  // El saque inicia el rally, pero no es uno de los tres golpes del
+  // equipo receptor ni consume un golpe del equipo sacador.
+  if (action.kind === 'serve') {
+    return { teamHits: 0, isBlock: false, allowanceResetFor: null, issues: [] };
   }
 
   if (action.opponentSimultaneousOverNet) {
