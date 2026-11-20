@@ -87,6 +87,23 @@ describe('elegibilidad básica de bloqueo', () => {
     expect(state.teams[0].libero.id).toBe(squad[6].id);
   });
 
+  it('recalcula la elegibilidad sobre la alineación después de cada rotación', () => {
+    const [squad] = makeSquads(3111);
+    const team = teamFrom(squad.slice(0, 6), squad[6]);
+    const originalFrontRow = getEligibleBlockers(team).map(player => player.id);
+
+    for (let rotation = 0; rotation < 3; rotation += 1) {
+      team.lineup = [team.lineup[5], ...team.lineup.slice(0, 5)];
+      expect(getEligibleBlockers(team).map(player => player.id)).toEqual(
+        team.lineup.slice(3, 6).map(player => player.id),
+      );
+    }
+
+    const afterThreeRotations = getEligibleBlockers(team).map(player => player.id);
+    expect(afterThreeRotations).not.toEqual(originalFrontRow);
+    expect(originalFrontRow.every(id => !afterThreeRotations.includes(id))).toBe(true);
+  });
+
   it('no incorpora al líbero, que permanece separado de la alineación', () => {
     const [squad] = makeSquads(3105);
     const team = teamFrom(squad.slice(0, 6), squad[6]);
