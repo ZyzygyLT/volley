@@ -37,7 +37,7 @@ En `src/engine/compoundContacts.ts`:
 - `ContactGroup` usa `single`, `simultaneous` o `consecutive-within-action`.
 - `validateCompoundAction` comprueba la estructura y la coherencia local sin inventar contactos.
 - `deriveTeamHits` deriva golpes para una acción ya validada: bloqueo = cero; contacto simultáneo de compañeros = uno por contacto; primer golpe con contactos corporales consecutivos del mismo jugador = uno.
-- El contacto simultáneo de adversarios sobre la red se representa como una señal explícita de reinicio del derecho a tres golpes. El módulo no determina qué equipo recibe ni actualiza el estado del rally.
+- El contacto simultáneo de adversarios sobre la red exige que el productor indique `receivingTeam`; `deriveTeamHits` devuelve ese equipo como `allowanceResetFor`. El módulo no decide qué equipo recibe: valida y utiliza el hecho explícito.
 - `canPlayerMakeNextHit` comprueba la restricción local de jugador consecutivo y la excepción explícita del primer golpe después del bloqueo propio.
 
 El modelo usa hechos explícitos. No deduce el primer golpe, la continuidad del balón, el equipo receptor ni la posesión. Si falta contexto requerido o la combinación no está soportada, devuelve incidencias y no una interpretación silenciosa.
@@ -51,11 +51,12 @@ El modelo usa hechos explícitos. No deduce el primer golpe, la continuidad del 
 
 ## Alcance actual y limitaciones
 
-El módulo implementa solo el contrato local descrito arriba. No es todavía un árbitro reglamentario completo ni una máquina de estados del rally.
+El módulo implementa solo el contrato local descrito arriba. La máquina de estados inicial está en `src/engine/rallyRuleState.ts`; no es todavía un árbitro reglamentario completo ni un simulador físico.
 
 En particular, aún no resuelve:
 
-- transición de posesión/equipo que continúa ni acumulación global de golpes;
+- posesión física ni cálculo del equipo que continúa: `transitionRallyRuleState` exige que el simulador suministre explícitamente `nextTeam`;
+- validación de faltas reglamentarias completas ni adjudicación del ganador: el resultado `continues` y `pointWinner` también son hechos explícitos;
 - qué equipo recibe el balón tras un contacto simultáneo adversario sobre la red;
 - validación completa de doble golpe, retención y todas las excepciones del primer contacto;
 - legalidad del bloqueo, invasión, penetración o contacto con la red;
@@ -84,8 +85,8 @@ No se debe deducir una colocación porque el motor eligió un atacante, una defe
 - Mantener `rallySequence.ts` como validador de secuencia normalizada y simplificada.
 - No adaptar automáticamente `atk`, `dig`, `cont`, `blk`, `k1` o `k2` a contactos físicos.
 - No conectar este módulo a `rally.ts` hasta que el motor produzca los hechos necesarios.
-- Cualquier transición global futura deberá ser otra función pura, con estado explícito y tests de reglas FIVB.
+- `rallyRuleState.ts` aplica una transición pura y aislada sobre golpes acumulados, orden, equipo autorizado y terminación; no se conecta a `rally.ts`.
 
 ## Criterio para avanzar
 
-Antes de integrar el modelo, completar una máquina de estados que derive golpes acumulados y equipo que continúa, cubrir las excepciones reglamentarias aplicables y demostrar con tests que los eventos se producen a partir de acciones realmente resueltas. El registro actual no sustituye ni altera las estadísticas existentes.
+Antes de integrar el modelo, ampliar la cobertura de excepciones reglamentarias y demostrar que el simulador produce hechos reales para `nextTeam`, continuidad y terminación. La máquina actual solo valida transiciones con esos resultados explícitos; no los deduce. El registro no sustituye ni altera las estadísticas existentes.
