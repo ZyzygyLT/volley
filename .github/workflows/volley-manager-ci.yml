@@ -73,3 +73,6 @@ jobs:
             sleep 1
           done
           python scripts/ui-test.py
+          python scripts/ui-test-playoffs.py
+          python scripts/ui-test-season.py
+          python scripts/ui-test-extras.py
