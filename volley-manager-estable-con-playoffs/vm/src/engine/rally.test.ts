@@ -107,17 +107,17 @@ describe('rally: contrato del ciclo actual', () => {
       const result = playRally(roster, 0, mulberry32(seed * 61));
       const observations = result.trace.setPlayObservations ?? [];
       const attackEvents = result.trace.ev.filter(event => event.k === 'atk');
-      const setterId = roster[0].lineup.find(player => player.role === 'S')!.id;
+      const setterIds = roster.map(team => team.lineup.find(player => player.role === 'S')!.id);
 
       expect(observations).toHaveLength(attackEvents.length);
       expect(observations).toHaveLength(result.trace.atks.length);
       for (let index = 0; index < observations.length; index++) {
         const observation = observations[index];
         const attack = attackEvents[index];
-        expect(observation.setterId).toBe(setterId);
+        expect(setterIds).toContain(observation.setterId);
         expect(observation.selectedAttackerId).toBe(attack.p);
         expect(observation.selection).toBe(
-          attack.p === setterId ? 'setter-second-touch' : 'teammate-target',
+          attack.p === observation.setterId ? 'setter-second-touch' : 'teammate-target',
         );
         expect(observation.source).toBe('legacy-weighted-target-selector');
         expect(['perfect', 'positive', 'negative']).toContain(observation.receptionQuality);
