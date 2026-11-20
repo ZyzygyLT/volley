@@ -1,0 +1,38 @@
+name: Validate Volley Manager
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "volley-manager-estable-con-playoffs/vm/**"
+      - ".github/workflows/volley-manager-ci.yml"
+  push:
+    branches: [develop]
+    paths:
+      - "volley-manager-estable-con-playoffs/vm/**"
+      - ".github/workflows/volley-manager-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: volley-manager-estable-con-playoffs/vm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: volley-manager-estable-con-playoffs/vm/package-lock.json
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run unit tests
+        run: npm test
+      - name: Type-check and production build
+        run: npm run build
