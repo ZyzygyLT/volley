@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Volley Manager · prototipo v0</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#14181f;--mu:#5d6675;--bd:#d9dee6;--a:#1f6feb;--b:#d9480f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1318;--card:#1a2029;--tx:#e8ecf2;--mu:#98a2b3;--bd:#2b3441;--a:#5b9bff;--b:#ff8a50}}
+:root[data-theme=dark]{--bg:#0f1318;--card:#1a2029;--tx:#e8ecf2;--mu:#98a2b3;--bd:#2b3441;--a:#5b9bff;--b:#ff8a50}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,sans-serif;padding:12px;max-width:980px;margin-inline:auto}
+h1{font-size:18px;margin:0 0 2px}.mu{color:var(--mu);font-size:13px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-top:10px}
+.sb{display:flex;justify-content:space-around;align-items:center;text-align:center}.sb b{font-size:34px}.sb .t{font-size:13px;color:var(--mu)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:620px){.g2{grid-template-columns:1fr}}
+.court{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px}
+.p{border:1px solid var(--bd);border-radius:8px;padding:5px;font-size:12px;text-align:center}.p b{display:block;font-size:13px}.p.sv{outline:2px solid var(--a)}
+.p small{color:var(--mu)}
+button{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);cursor:pointer}
+button.pr{background:var(--a);color:#fff;border-color:var(--a)}
+#log{max-height:240px;overflow:auto;font-size:13px}#log div{padding:2px 0;border-bottom:1px solid var(--bd)}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:3px 6px;text-align:center;border-bottom:1px solid var(--bd)}
+input[type=range]{width:100%}
+</style></head><body>
+<h1>Volley Manager · prototipo v0</h1>
+<div class="mu">Motor original punto a punto (saque → recepción → colocación → ataque → bloqueo/defensa). Valores sin calibrar: es una base de arquitectura, no un simulador fiel.</div>
+<div class="card"><div class="sb"><div><div class="t" id="n0"></div><b id="s0"></b></div><div><div class="t" id="info"></div><b id="sets"></b></div><div><div class="t" id="n1"></div><b id="s1"></b></div></div></div>
+<div class="card"><div class="mu">Táctica de tu equipo: riesgo al saque <b id="rv">50</b>% (más riesgo = más aces y más errores, y recepción rival más difícil)</div><input type="range" min="0" max="100" value="50" id="risk"></div>
+<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="pr" onclick="pt()">Jugar punto</button><button onclick="ps()">Jugar set</button><button onclick="pm()">Jugar partido</button><button onclick="nm()">Nuevo partido</button></div>
+<div class="g2" id="courts"></div>
+<div class="g2"><div class="card"><b>Estadísticas</b><div id="st"></div></div><div class="card"><b>Registro de puntos</b><div id="log"></div></div></div>
+<script>
+const R=(a,b)=>a+Math.random()*(b-a),cl=(x,a,b)=>Math.max(a,Math.min(b,x)),avg=a=>a.reduce((s,x)=>s+x,0)/a.length;
+const roles=['S','OH','MB','OP','OH','MB'];
+const prof={S:{srv:65,rec:55,set:80,atk:55,blk:60,def:68},OH:{srv:68,rec:76,set:50,atk:74,blk:62,def:72},MB:{srv:62,rec:50,set:45,atk:72,blk:78,def:55},OP:{srv:72,rec:55,set:45,atk:80,blk:68,def:58}};
+const NAMES=['Ruiz','Costa','Vega','Lima','Soto','Mena','Paz','Gil','Roca','Luna','Vera','Núñez'];
+let T,score,sets,setNo,serving,log,over;
+function mk(boost,off){return roles.map((r,i)=>{const p={n:NAMES[off+i],role:r};for(const k in prof[r])p[k]=Math.round(cl(prof[r][k]+boost+R(-8,8),30,95));return p})}
+function pick(a){let t=a.reduce((s,x)=>s+x[1],0),r=Math.random()*t;for(const x of a){r-=x[1];if(r<=0)return x[0]}return a[0][0]}
+function nm(){const e=()=>({ace:0,kill:0,blk:0,err:0});T=[{name:'Tu equipo',risk:+document.getElementById('risk').value,st:e(),base:mk(2,0)},{name:'Rival',risk:50,st:e(),base:mk(0,6)}];sets=[0,0];setNo=1;log=[];over=false;ss();draw()}
+function ss(){T.forEach(t=>t.lu=t.base.slice());score=[0,0];serving=setNo%2?0:1}
+function rot(t){t.lu=[t.lu[5],...t.lu.slice(0,5)]}
+function rally(){
+ const s=serving,r=1-s,S=T[s],Rc=T[r],sv=S.lu[0],k=S.risk/100;
+ const end=(w,t)=>({w,t});
+ const pass=Rc.lu.filter(p=>p.role!=='S'&&p.role!=='MB'),rec=avg(pass.map(p=>p.rec));
+ if(Math.random()<cl(.05+.11*k-(sv.srv-70)/500,.02,.3)){S.st.err++;return end(r,`${sv.n} falla el saque`)}
+ if(Math.random()<cl(.03+.11*k+(sv.srv-rec)/450,0,.25)){S.st.ace++;return end(s,`Ace de ${sv.n}`)}
+ const pas=pass[Math.floor(Math.random()*pass.length)];
+ let q=cl(.55+(pas.rec-70)/110-k*.15+R(-.2,.2),.05,1),A=r,D=s;
+ for(let i=0;i<8;i++){
+  const At=T[A],Df=T[D],c=[];
+  At.lu.forEach((p,ix)=>{if(p.role==='S')return;if(ix>=3)c.push([p,p.atk*(p.role==='MB'&&q<.5?.3:1)]);else if(p.role!=='MB')c.push([p,p.atk*.45])});
+  const at=pick(c),fr=Df.lu.slice(3),bA=avg(fr.map(p=>p.blk)),dA=avg(Df.lu.slice(0,3).map(p=>p.def));
+  const aq=at.atk*(.6+.4*q),pE=cl(.06+(1-q)*.10-(at.atk-70)/600,.02,.25),pB=cl(.07+(bA-65)/350,.02,.2),pK=cl(.40+(aq-70)/200-(dA-70)/260,.12,.65),x=Math.random();
+  if(x<pE){At.st.err++;return end(D,`Error de ataque de ${at.n}`)}
+  if(x<pE+pB){Df.st.blk++;return end(D,`Bloqueo de ${pick(fr.map(p=>[p,p.blk])).n}`)}
+  if(x<pE+pB+pK){At.st.kill++;return end(A,`Ataque ganador de ${at.n} (${i?'transición':'side-out'})`)}
+  const dg=pick(Df.lu.slice(0,3).map(p=>[p,p.def]));q=cl(.4+(dg.def-70)/140+R(-.2,.2),.05,.9);[A,D]=[D,A];
+ }
+ return end(Math.random()<.5?s:r,'Rally larga')
+}
+function pt(){if(over)return;const o=rally(),w=o.w;score[w]++;log.unshift(`${score[0]}-${score[1]} · ${o.t}`);if(log.length>80)log.pop();
+ if(w!==serving){serving=w;rot(T[w])}
+ const tg=setNo===5?15:25;
+ if(score[w]>=tg&&score[w]-score[1-w]>=2){sets[w]++;log.unshift(`— Set ${setNo} para ${T[w].name} —`);if(sets[w]===3){over=true;log.unshift(`PARTIDO: ${T[w].name} gana ${sets[0]}-${sets[1]}`)}else{setNo++;ss()}}
+ draw()}
+function ps(){if(over)return;const c=setNo;while(!over&&setNo===c)pt()}
+function pm(){while(!over)pt()}
+function draw(){
+ const $=i=>document.getElementById(i);$('n0').textContent=T[0].name;$('n1').textContent=T[1].name;$('s0').textContent=score[0];$('s1').textContent=score[1];
+ $('sets').textContent=sets[0]+' - '+sets[1];$('info').textContent=over?'Final':'Set '+setNo+' · saca '+T[serving].name;
+ $('courts').innerHTML=T.map((t,ti)=>{const c=i=>{const p=t.lu[i],sv=ti===serving&&i===0;return `<div class="p${sv?' sv':''}"><b>${p.n}</b>${p.role}${sv?' · saque':''}<br><small>ATA ${p.atk} BLO ${p.blk} REC ${p.rec} DEF ${p.def}</small></div>`};
+  return `<div class="card" style="border-top:3px solid ${ti?'var(--b)':'var(--a)'}"><b>${t.name}</b><div class="mu">Red (zonas 4-3-2)</div><div class="court">${c(3)}${c(4)}${c(5)}</div><div class="mu" style="margin-top:6px">Fondo (zonas 5-6-1)</div><div class="court">${c(2)}${c(1)}${c(0)}</div></div>`}).join('');
+ $('st').innerHTML=`<table><tr><th></th><th>${T[0].name}</th><th>${T[1].name}</th></tr>`+[['Aces','ace'],['Ataques ganadores','kill'],['Bloqueos','blk'],['Errores','err']].map(([l,k])=>`<tr><td>${l}</td><td>${T[0].st[k]}</td><td>${T[1].st[k]}</td></tr>`).join('')+'</table>';
+ $('log').innerHTML=log.map(l=>`<div>${l}</div>`).join('')}
+document.getElementById('risk').oninput=e=>{document.getElementById('rv').textContent=e.target.value;T[0].risk=+e.target.value};
+nm();
+</script></body></html>
