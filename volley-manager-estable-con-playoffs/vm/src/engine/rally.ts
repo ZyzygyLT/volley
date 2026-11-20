@@ -1,5 +1,6 @@
 import type { Team, Side, RallyResult, Trace, AtkOut, Player, Ev } from './types';
 import { P, type Params } from './params';
+import { buildAttackOptions } from './attackOptions';
 
 const cl = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 const avg = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
@@ -46,14 +47,8 @@ export function playRally(teams: [Team, Team], serving: Side, rnd: () => number,
       ev.push({ k: 'oerr', p: hs.id });
       return { winner: D, text: `Error de manejo de ${hs.name}`, stat: { team: A, key: 'err' }, trace };
     }
-    const cands: [Player, number][] = [];
-    att.forEach((pl, ix) => {
-      const w = p.atkWeight[pl.role];
-      if (w <= 0) return;
-      if (ix >= 3) cands.push([pl, w * (pl.atk / 70) * (pl.role === 'MB' && q < 0.5 ? 0.3 : 1)]);
-      else if (pl.role !== 'MB' && pl.role !== 'S') cands.push([pl, w * (pl.atk / 70) * 0.45]); // ataque de zaga (el colocador solo ataca en la red)
-    });
-    const at = pick(cands, rnd);
+    const options = buildAttackOptions(att, q, p);
+    const at = pick(options.map(option => [option.attacker, option.weight]), rnd);
     const setter = att.find(x => x.role === 'S');
     const front = def.slice(3), bA = avg(front.map(x => x.blk)), dA = avg(effD.slice(0, 3).map(x => x.def));
     const qd = q - 0.55, sd = setter ? setter.set - 70 : 0;
