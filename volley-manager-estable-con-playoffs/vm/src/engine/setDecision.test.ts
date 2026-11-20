@@ -59,4 +59,26 @@ describe('decisión de colocación baseline v1', () => {
     expect(decision).not.toHaveProperty('probability');
     expect(decision).not.toHaveProperty('weight');
   });
+
+  it('mantiene una decisión entre candidatos elegibles en las seis rotaciones y calidades de recepción', () => {
+    const [squad] = makeSquads(52);
+    const lineup = [...squad.slice(0, 6)];
+
+    for (let rotation = 0; rotation < 6; rotation += 1) {
+      for (const reception of [0.7, 0.5, 0.3]) {
+        const context = buildAttackContext(lineup, reception, P);
+        const available = buildSetCandidateProfiles(context);
+        const decision = decideSetTarget(available);
+
+        expect(available.length).toBeGreaterThan(0);
+        expect(available).toContain(decision.target);
+        expect(decision.target.player.id).not.toBe(context.setter?.player.id);
+        expect(decision.target.attackSkill).toBe(
+          Math.max(...available.map(candidate => candidate.attackSkill)),
+        );
+      }
+
+      lineup.unshift(lineup.pop()!);
+    }
+  });
 });
