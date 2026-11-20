@@ -35,7 +35,7 @@ describe('adaptRallyTermination', () => {
     });
   });
 
-  it('does not invent a termination for a capped rally', () => {
+  it('does not invent a termination when the result has no termination evidence', () => {
     expect(adaptRallyTermination(result({
       winner: 0,
       termination: undefined,
@@ -43,8 +43,7 @@ describe('adaptRallyTermination', () => {
         serve: 'in',
         serveType: 'FS',
         atks: [],
-        ev: [],
-        capped: true
+        ev: []
       }
     }))).toBeNull();
   });
