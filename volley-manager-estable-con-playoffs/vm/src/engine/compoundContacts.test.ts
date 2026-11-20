@@ -20,6 +20,30 @@ describe('compound rally contacts: isolated model', () => {
     expect(deriveTeamHits(action()).teamHits).toBe(1);
   });
 
+  it('does not count the serve as one of the three team hits', () => {
+    const result = deriveTeamHits(action({
+      kind: 'serve',
+      groups: [{ relation: 'single', contacts: [{ playerId: 'server', team: 0 }] }]
+    }));
+    expect(result).toMatchObject({
+      teamHits: 0,
+      isBlock: false,
+      allowanceResetFor: null,
+      issues: []
+    });
+  });
+
+  it('rejects a serve represented by multiple physical contacts', () => {
+    const result = deriveTeamHits(action({
+      kind: 'serve',
+      groups: [{ relation: 'simultaneous', contacts: [
+        { playerId: 'server-a', team: 0 },
+        { playerId: 'server-b', team: 0 }
+      ] }]
+    }));
+    expect(result.issues.map(issue => issue.code)).toContain('invalid-serve-action');
+  });
+
   it('counts consecutive body contacts during the first team hit as one', () => {
     const result = deriveTeamHits(action({
       isFirstTeamHit: true,
