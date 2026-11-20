@@ -35,7 +35,7 @@ El informe también desglosa, para cada rol atacante elegible (OH, MB y OP), el 
 
 Una concentración extrema de selecciones en una posición se considera una señal para investigar, no una recomendación deportiva. En particular, el bonus `roleKill` es una diferencia agregada por rol y no describe el emparejamiento concreto entre un atacante y los bloqueadores que tiene enfrente.
 
-El informe incluye además un contrafactual diagnóstico que repite la selección óptima con `roleKill = 0` para todos los roles, manteniendo el resto de las ecuaciones y candidatos. Sirve para medir cuánto depende la preferencia por una posición de ese único término. No representa una calibración alternativa ni justifica borrar las diferencias observadas en VNL; las tasas por posición pueden incorporar diferencias de tempo, calidad de colocación, distribución y tipo de ataque que el motor todavía no separa.
+El informe incluye contrafactuales de ablación: neutraliza por separado `roleKill`, `roleErr` y `atkSkillScale`, y luego neutraliza los tres términos a la vez. En cada escenario conserva los candidatos y el resto de las ecuaciones, y vuelve a calcular la selección óptima. Esto permite medir la sensibilidad de la política a cada factor, pero no representa calibraciones alternativas ni justifica borrar diferencias observadas en VNL. Las tasas por posición pueden incorporar diferencias de tempo, calidad de colocación, distribución y tipo de ataque que el motor todavía no separa.
 
 ## Límites
 
