@@ -117,7 +117,7 @@ export default function App() {
     if (!autoOn) return;
     const flush = () => {
       try {
-        store.put('auto', serialize(game), metaOf('auto', game, new Date().toISOString()))
+        store.put('auto', serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString()))
           .catch(e => setMsg(`No se pudo completar el autoguardado al salir: ${(e as Error).message}`));
       } catch (e) {
         setMsg(`No se pudo preparar el autoguardado al salir: ${(e as Error).message}`);
