@@ -4,10 +4,19 @@ import { simulateSeason } from './playoffs';
 import { validateLineup, MIN_BY_ROLE, ROSTER_SLOTS, MAX_ROSTER, lineupToSquad, overall } from './roster';
 import { ECON } from './economy';
 import { AGE, retireProb } from './ages';
-import { makeYouth, progressPlayer } from './offseason';
+import { makeYouth, progressPlayer, seasonalAgentRoles } from './offseason';
 import { mulberry32 } from '../engine/rng';
 import { deserialize, serialize } from './save';
 const playSeason = (seed: number) => simulateSeason(newGame(seed));
+describe('distribución de agentes libres por temporada', () => {
+  it('rota el rol adicional y equilibra las altas en ciclos de cinco temporadas', () => {
+    const roles = Array.from({ length: 5 }, (_, i) => seasonalAgentRoles(i + 1, 6)).flat();
+    for (const role of ['S', 'OH', 'MB', 'OP', 'L'] as const) {
+      expect(roles.filter(x => x === role)).toHaveLength(6);
+    }
+  });
+});
+
 describe('perfiles de saque de la cantera', () => {
   it('alterna las plazas de central y conserva el perfil flotado en el segundo puesto', () => {
     const jump = makeYouth(mulberry32(101), 'MB', 'y-mb-1', new Set(), 0, 0);
