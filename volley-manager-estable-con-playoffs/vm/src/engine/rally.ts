@@ -14,6 +14,9 @@ function pick<T>(items: [T, number][], rnd: () => number): T {
 /** Alineación efectiva: el líbero ocupa el lugar del central cuando éste está en la zaga. */
 export const effective = (t: Team): Player[] => t.lineup.map((p, ix) => (p.role === 'MB' && ix <= 2 ? t.libero : p));
 
+// Protección ante un generador aleatorio defectuoso; nunca adjudica un punto al alcanzar el límite.
+export const MAX_RALLY_EXCHANGES_SAFETY = 256;
+
 /** Juega un rally completo. No muta equipos ni estadísticas: devuelve resultado y traza (con eventos por jugador). */
 export function playRally(teams: [Team, Team], serving: Side, rnd: () => number, p: Params = P): RallyResult {
   const s = serving, r = (1 - serving) as Side;
@@ -41,7 +44,7 @@ export function playRally(teams: [Team, Team], serving: Side, rnd: () => number,
   ev.push({ k: 'rec', p: pas.id, q });
   let A: Side = r, D: Side = s;
 
-  for (let i = 0; i < p.maxExchanges; i++) {
+  for (let i = 0; i < MAX_RALLY_EXCHANGES_SAFETY; i++) {
     const phase = i === 0 ? 'k1' : 'k2';
     const att = teams[A].lineup, def = teams[D].lineup, effD = effective(teams[D]);
     if (rnd() < p.otherErr) { // error de manejo antes de atacar (toque de red, doble, rotación…)
@@ -98,6 +101,5 @@ export function playRally(teams: [Team, Team], serving: Side, rnd: () => number,
       [A, D] = [D, A];
     }
   }
-  trace.capped = true;
-  return { winner: rnd() < 0.5 ? s : r, text: 'Rally larga', trace };
+  throw new Error(`Rally superó el límite técnico de ${MAX_RALLY_EXCHANGES_SAFETY} intercambios; no se adjudicó ningún punto`);
 }
