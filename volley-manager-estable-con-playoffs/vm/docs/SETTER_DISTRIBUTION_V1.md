@@ -69,6 +69,22 @@ La función `decideSetTarget`:
 - no consume RNG si la política es determinista;
 - no escribe eventos ni modifica el rally en esta etapa.
 
+
+## Observación del selector heredado en la traza
+
+`Trace.setPlayObservations` registra ahora, en paralelo, el objetivo que seleccionó el selector ponderado histórico para cada ataque:
+
+- identificador del colocador del equipo que ataca;
+- jugador elegido como objetivo ofensivo;
+- si el objetivo fue un compañero o el propio colocador (segundo toque heredado);
+- fase `k1`/`k2`;
+- calidad categórica de recepción;
+- origen explícito `legacy-weighted-target-selector`.
+
+**No es un evento de contacto ni prueba que el colocador haya ejecutado una colocación física.** El motor todavía selecciona directamente al atacante y no modela trayectoria, toque de colocación, tempo ni ejecución técnica. Por eso esta observación no se agrega a `Ev`, no crea un evento `set`, no cambia estadísticas y no se usa para validar contactos FIVB.
+
+El registro se genera a partir del mismo objetivo que ya devolvió `selectAttackTarget`; no hace una segunda selección ni consume una muestra adicional de RNG. Sirve para auditar el comportamiento heredado y comparar futuras políticas sin confundir selección abstracta con acción real.
+
 ## Pruebas implementadas
 
 El módulo aislado y sus pruebas cubren: máximo `atk`, desempate estable por orden, error sin candidatos, determinismo, ausencia de mutación y pertenencia del resultado al conjunto de entrada. Los tests de perfiles/objetivos cubren además la exclusión del colocador y la estructura de candidatos.
