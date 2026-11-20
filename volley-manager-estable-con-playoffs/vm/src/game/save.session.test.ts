@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stepPoint } from '../engine/match';
+import { legalSubs, stepPoint, substitute } from '../engine/match';
 import { finishRound, matchFor, newGame, regularSeasonOver } from './season';
 import { matchForSeries, startPlayoffs, userSeries } from './playoffs';
 import { deserialize, deserializeSession, serialize, serializeSession, SaveError } from './save';
@@ -16,6 +16,9 @@ describe('sesiones con partido en curso', () => {
     const fixture = game.fixtures.find(f => f.round === game.round && (f.home === game.userTeam || f.away === game.userTeam))!;
     let live = matchFor(game, fixture);
     for (let i = 0; i < 9; i++) live = stepPoint(live);
+    const sub = legalSubs(live, 0)[0];
+    expect(sub).toBeDefined();
+    live = substitute(live, 0, sub.out.id, sub.inn.id);
     const json = serializeSession(game, live, 'liga');
     const restored = deserializeSession(json);
     expect(restored.game).toEqual(game);
