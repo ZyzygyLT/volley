@@ -10,7 +10,7 @@ En `src/engine/rally.ts` el flujo es:
 
 1. Se resuelve el saque (error, ace o saque en juego).
 2. Se elige un receptor según pesos por rol y se calcula una calidad continua `q`.
-3. Se selecciona directamente un atacante con pesos por rol y valoración de ataque.
+3. Se construye el contexto ofensivo y se selecciona un atacante mediante el sorteo ponderado histórico.
 4. La calidad de recepción y la habilidad del colocador modifican la probabilidad de éxito, pero no determinan una distribución real.
 5. El bloqueo se representa mediante promedios de los tres jugadores delanteros.
 6. Si el ataque continúa, el rally alterna entre continuidad/cobertura y defensa/transición.
@@ -24,6 +24,14 @@ Por tanto, el motor ya tiene fases y eventos, pero todavía no representa una de
 `src/engine/reception.ts` clasifica la calidad continua usando exclusivamente `params.perfQ` y `params.posQ`, los mismos umbrales que ya utiliza `applyEvents` para las estadísticas: `perfect`, `positive` y `negative`. La función es pura y no cambia `q`, las probabilidades ni los resultados del rally. Una recepción marcada como error (por ejemplo, un ace) sigue siendo un evento distinto y no se fuerza dentro de estas tres categorías.
 
 `src/engine/attackContext.ts` reúne el valor continuo de recepción, su categoría y las opciones de atacante construidas por `attackOptions.ts`. Es el contrato de entrada para la futura decisión del colocador. Conserva el valor original y los pesos actuales; no elige un atacante ni altera el rally. Importante: la elegibilidad actual aún usa el valor continuo histórico (`q < 0.5` para la penalización existente al central), no una regla táctica derivada de las tres categorías. También expone el colocador identificado por rol, su índice rotacional y si ocupa zaga o primera línea. Esa posición se recalcula desde la alineación actual (incluidas las rotaciones); si falta el colocador, el contexto lo representa como `null` en lugar de inventar una ubicación. Esto todavía no representa el segundo toque ni determina qué distribución puede ejecutar.
+
+### Selección ponderada de compatibilidad (implementada; no es distribución táctica)
+
+`src/engine/distribution.ts` extrae el sorteo que antes estaba inline en `rally.ts`. Recibe el contexto ofensivo y la función RNG, recorre las mismas opciones en el mismo orden y utiliza sus pesos históricos. La integración sustituye el bloque inline por esta función sin añadir una muestra aleatoria ni consumirla de otra manera: con las mismas entradas y semilla debe seleccionar el mismo atacante.
+
+Esta extracción formaliza el comportamiento legado para que la futura política táctica pueda reemplazarlo de forma controlada. No simula que el colocador esté leyendo el bloqueo o eligiendo una combinación. La habilidad `set` tampoco influye en esta selección: actualmente sigue afectando genéricamente la probabilidad de kill a través de `setW`. No se han añadido tempos, familias, eventos ni multiplicadores nuevos.
+
+## Ciclo objetivo
 
 La evolución debe separar la decisión de la resolución:
 
@@ -108,14 +116,16 @@ Cada punto debe seguir siendo atribuible y explicable. Una asistencia solo se ac
 
 1. **Caracterización:** pruebas del contrato del rally, determinismo, orden de eventos y validez de atribuciones. No cambia la simulación.
 2. **Estado y contexto ofensivo:** clasificar la recepción con umbrales existentes, extraer opciones de ataque según rotación y reunir ambas piezas en `AttackContext`. Implementado como funciones puras; todavía no altera la selección ni el resultado del rally.
-3. **Distribución:** incorporar una decisión explícita del colocador y eventos, manteniendo temporalmente una estrategia de compatibilidad para comparar.
-4. **Tipos de ataque:** añadir tempos y ataques de zaguero/primer tiempo de forma incremental.
-5. **Bloqueo contextual:** sustituir promedios únicamente cuando el nuevo contexto esté probado.
-6. **Calibración y regresión:** comparar muchas semillas con el motor de referencia y con objetivos observados; documentar qué métricas se mantienen, cuáles cambian y por qué.
+3. **Selección de compatibilidad:** extraer e integrar el sorteo ponderado histórico en `distribution.ts`, con pruebas de intervalos y consumo RNG. Implementado; no equivale todavía a una decisión táctica del colocador.
+4. **Distribución táctica real:** definir objetivos/familias disponibles, política de selección y uso justificable de la habilidad `set`; añadir eventos solo cuando el contrato esté probado.
+5. **Tipos de ataque:** añadir tempos y ataques de zaguero/primer tiempo de forma incremental.
+6. **Bloqueo contextual:** sustituir promedios únicamente cuando el nuevo contexto esté probado.
+7. **Calibración y regresión:** comparar muchas semillas con el motor de referencia y con objetivos observados; documentar qué métricas se mantienen, cuáles cambian y por qué.
 
 ## Criterios de aceptación
 
 - Misma semilla y mismas entradas producen el mismo rally.
+- La selección de compatibilidad conserva el orden, pesos y consumo RNG del comportamiento anterior.
 - No aparecen opciones ilegales para la rotación o la calidad de recepción.
 - El colocador solo distribuye a atacantes disponibles.
 - Las decisiones tácticas quedan reflejadas en eventos tipados.
