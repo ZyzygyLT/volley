@@ -35,9 +35,9 @@ Un repositorio sin licencia **no** es de uso libre: por defecto rige el copyrigh
 - Plantel de gestión de 13 jugadores (2 colocadores, 4 receptores, 3 centrales, 2 opuestos, 2 líberos) con alineación elegible.
 
 ## Resultados (`npm test` / `scripts/calibrate-cli.ts report`): 47 de 47
-41 métricas comparadas con objetivos (nivel de liga PlusLiga + diferencias por posición VNL; las métricas VNL `error+bloqueado` por rol son diagnósticas y no se usan para ajustar `roleErr`) y **6 de validación independiente**: side-out 68,2 % (preprint 65–70 %), ataques por rally 1,14 (PlusLiga 1,13), rallies por set 44,9 (PlusLiga 45,0) y la **composición del final de los rallies** (ver abajo). Tolerancias elegidas por el autor del proyecto.
+41 métricas comparadas con objetivos (nivel de liga PlusLiga + diferencias por posición VNL; las métricas VNL `error+bloqueado` por rol son diagnósticas y no se usan para ajustar `roleErr`) y **6 validaciones complementarias no usadas para ajustar**: side-out 68,2 % (preprint 65–70 %), ataques por rally 1,14 (PlusLiga 1,13), rallies por set 44,9 (PlusLiga 45,0) y la **composición del final de los rallies** (ver abajo). Tolerancias elegidas por el autor del proyecto.
 
-### Cómo terminan los rallies (validación independiente de las tasas por acción)
+### Cómo terminan los rallies (comprobación complementaria de composición, no usada para ajustar)
 | Final del rally | PlusLiga (106.556 rallies) | Motor |
 |---|---|---|
 | Ace | 6,3 % | 6,2 % |
@@ -47,7 +47,7 @@ Un repositorio sin licencia **no** es de uso libre: por defecto rige el copyrigh
 | Error de ataque | 7,6 % | 7,5 % |
 | Otros errores | 2,4 % | 2,4 % |
 
-## Validaciones adicionales (no usadas para ajustar)
+## Otras comprobaciones complementarias (no usadas para ajustar)
 **1. Variabilidad real entre equipos-partido** (desviación típica en pp, descontando el ruido de muestreo), PlusLiga vs motor: ace 1,4 vs 1,7; error de saque 1,8 vs 1,9; recepción perfecta 4,3 vs 5,2; kill 4,3 vs 4,6; error de ataque 0,6 vs 0,8; bloqueado 1,6 vs 1,0. *(Esta comprobación detectó que antes el motor era ~2× más variable en error de saque, recepción y error de ataque; se corrigió reduciendo pendientes y la aleatoriedad en la composición de tipos de saque.)*
 **2. De tasas a victorias** (regresión logística de ganar sobre diferencias de tasas; 628 partidos reales vs 2.500 simulados; coeficiente por punto porcentual): ace 0,303 vs 0,362; error de saque −0,223 vs −0,208; recepción perfecta 0,023 vs 0,006; kill 0,325 vs 0,359; error de ataque −0,341 vs −0,256; bloqueado −0,298 vs −0,252. **Los seis dentro de 1,5 errores estándar de PlusLiga.** Acierto al predecir el ganador: 92,5 % real vs 91,3 % motor. *(Con el motor sin errores de manejo, ace y kill pesaban 30–40 % más que en la liga real: esos errores eran la pieza que faltaba.)*
 **3. Marcadores en una liga** (`TEAM_SD`=3,6; 1.300 partidos, ±1,4 pp): 3-0 / 3-1 / 3-2 = 41,1 / 34,9 / 24,0 % vs PlusLiga (2.639 partidos) 41,8 / 34,1 / 24,0 %; rallies por set 45,1.
