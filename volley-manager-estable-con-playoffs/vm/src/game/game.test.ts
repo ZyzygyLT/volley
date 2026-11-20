@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { chooseTeam, endSeason, finishRound, fixturesOfRound, leaguePoints, matchFor, newGame, roundRobin, standings, totalRounds, userFixture, leaders } from './season';
+import { finishRound, fixturesOfRound, leaguePoints, matchFor, newGame, roundRobin, standings, totalRounds, userFixture, leaders } from './season';
 import { autoLineup, lineupToSquad, validateLineup, MAX_ROSTER, MIN_BY_ROLE } from './roster';
 import { deserialize, memoryStore, metaOf, SaveError, serialize, validateGame } from './save';
 import { ECON, marketValue, sell, sign, roundWages } from './economy';
