@@ -24,6 +24,9 @@ describe('rally rule state: explicit transitions', () => {
       status: 'in-play',
       nextTeam: 0,
       hits: { 0: 0, 1: 0 },
+      lastContactTeam: null,
+      lastContactPlayerIds: [],
+      postBlockFirstHitPendingFor: null,
       nextActionOrder: 1,
       pointWinner: null,
       lastActionId: null
