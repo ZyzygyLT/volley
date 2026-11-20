@@ -43,7 +43,7 @@ Cada `RallyContact` tiene estos campos:
 | `teamHitNumber` | Número de toque reglamentario del equipo, o ausencia explícita cuando no cuenta |
 | `phase` | Fase de juego si el motor la conserva; no sustituye al orden de contacto |
 
-El registro debe ser inmutable y estar ordenado. No debe depender de textos de interfaz ni de inferencias posteriores a partir de estadísticas. `validateContactSequence` exige secuencia consecutiva desde 1, identidad de jugador, equipo 0/1, posesiones contiguas y de un solo equipo, máximo de tres golpes contabilizables por posesión, bloqueo como primer contacto de la posesión bloqueadora y saque único al inicio.
+El registro debe ser inmutable y estar ordenado. No debe depender de textos de interfaz ni de inferencias posteriores a partir de estadísticas. En el validador aislado actual, cada evento contabilizable representa un golpe lógico ya normalizado, no cada contacto físico del balón. `validateContactSequence` exige secuencia consecutiva desde 1, identidad de jugador, equipo 0/1, posesiones contiguas y de un solo equipo, máximo de tres golpes contabilizables por posesión, bloqueo como primer contacto de la posesión bloqueadora y saque único al inicio.
 
 ## Reglas de secuencia que debe respetar
 
@@ -55,6 +55,25 @@ El registro debe ser inmutable y estar ordenado. No debe depender de textos de i
 - Una defensa, recepción o cobertura solo se registra cuando el modelo ha determinado que ese jugador realizó el contacto.
 - Un balón que toca el bloqueo puede volver al equipo atacante o permanecer jugable por el equipo defensor. El resultado debe especificar el equipo que continúa la jugada; no se debe inferir una alternancia automática por el mero hecho de que haya habido bloqueo.
 - Los errores que terminan el rally deben conservar el punto de terminación y el equipo responsable sin fabricar contactos posteriores.
+
+### Precisiones FIVB 2025–2028 que condicionan el contrato
+
+La edición vigente distingue contacto físico, golpe del equipo y acción:
+
+- Regla 9.1: el equipo dispone de hasta tres golpes, además del bloqueo.
+- Regla 9.1.1: un jugador no puede golpear dos veces consecutivas, salvo las excepciones reglamentarias.
+- Regla 9.1.2.1: contactos simultáneos de dos o tres compañeros cuentan como dos o tres golpes; el bloqueo es excepción.
+- Regla 9.1.2.2: si dos adversarios tocan simultáneamente el balón por encima de la red y este sigue en juego, el equipo que lo recibe dispone de otros tres golpes.
+- Regla 9.2.3.1 y 14.2: durante una misma acción de bloqueo se permiten contactos consecutivos rápidos y continuos de uno o varios bloqueadores.
+- Regla 9.2.3.2: en el primer golpe del equipo, el balón puede tocar consecutivamente varias partes del cuerpo durante una misma acción.
+- Regla 14.4.1: el contacto de bloqueo no cuenta como golpe del equipo; después del bloqueo el equipo dispone de tres golpes.
+- Regla 14.4.2: el primer golpe después del bloqueo puede realizarlo cualquier jugador, incluido el bloqueador.
+
+Fuente primaria: FIVB, *Official Volleyball Rules 2025–2028*, reglas 9.1–9.2.3 y 14.2–14.4. Disponible en [la página oficial de reglas FIVB](https://www.fivb.com/volleyball/the-game/official-volleyball-rules/).
+
+Estas reglas muestran que una secuencia de contactos físicos no equivale directamente a una secuencia de golpes contabilizables. El modelo completo necesitará identificar la acción que agrupa contactos consecutivos, distinguir contactos simultáneos y representar el resultado de un toque simultáneo entre adversarios sobre la red. El esquema actual, con un entero `sequence` único y un evento por jugador, todavía no representa esos casos.
+
+**Alcance del validador aislado actual:** `validateContactSequence` valida una secuencia normalizada y simplificada: cada evento contabilizable representa un golpe de equipo ya resuelto, y los eventos `block` representan el bloqueo como acción no contabilizable. No debe recibir contactos físicos individuales de una misma acción como si cada uno fuera un golpe separado. Tampoco valida contactos simultáneos, doble contacto, legalidad del bloqueo, jugador que puede tocar consecutivamente ni reinicio de los tres golpes tras contactos simultáneos sobre la red.
 
 Las excepciones reglamentarias y los casos especiales (primer contacto del equipo, contactos múltiples en una misma acción, bloqueo colectivo, contactos simultáneos, invasiones y faltas) deberán formalizarse con reglas FIVB antes de habilitar validación reglamentaria completa.
 
@@ -104,9 +123,10 @@ Esas equivalencias no están justificadas por los datos actuales.
 1. Caracterizar y documentar las transiciones que el motor sí resuelve hoy.
 2. [x] Definir tipos de contacto y validador estructural en un módulo aislado.
 3. [x] Validar orden, identidad, equipo, posesiones contiguas, límite de tres golpes, bloqueo y saque.
-4. [ ] Formalizar excepciones FIVB, repetición de jugador y transiciones completas de posesión.
-5. Diseñar una evolución del simulador que resuelva la colocación y los contactos intermedios antes de emitirlos.
-6. Integrar el registro solo cuando las acciones se determinen realmente, manteniendo las estadísticas actuales y comparando resultados con el motor de referencia.
+4. [x] Contrastar el alcance con las reglas FIVB 2025–2028 y documentar las excepciones no representables por el esquema actual.
+5. [ ] Ampliar el contrato para acciones compuestas y contactos simultáneos, sin confundir contactos físicos con golpes contabilizables.
+6. Diseñar una evolución del simulador que resuelva la colocación y los contactos intermedios antes de emitirlos.
+7. Integrar el registro solo cuando las acciones se determinen realmente, manteniendo las estadísticas actuales y comparando resultados con el motor de referencia.
 
 ## Criterio de aceptación
 
