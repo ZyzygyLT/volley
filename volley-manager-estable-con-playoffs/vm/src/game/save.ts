@@ -127,7 +127,7 @@ function checkPlayoffs(p: unknown, n: number, regularOver: boolean, teams: unkno
   if (stage === 'final' && finalSeries && bronzeSeries && finalSeries.winner !== undefined && bronzeSeries.winner !== undefined)
     e.push('Playoffs: etapa final cerrada sin actualizar el estado');
   if (stage === 'done') {
-    const r = p.ranking, fWinner = finalSeries?.winner, bWinner = bronzeSeries?.winner;
+    const r = p.ranking, fWinner = finalSeries?.winner;
     const f = finalSeries, b = bronzeSeries;
     const expectedTop = f && f.winner !== undefined && b && b.winner !== undefined
       ? [f.winner, f.winner === f.high ? f.low : f.high, b.winner, b.winner === b.high ? b.low : b.high] : [];
