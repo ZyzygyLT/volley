@@ -15,6 +15,13 @@ const PHASES = ['k1', 'k2'] as const;
 const roleCounts = (): Record<Role, number> => ({ S: 0, OH: 0, MB: 0, OP: 0, L: 0 });
 const legacyRoles = roleCounts();
 const expectedPolicyRoles = roleCounts();
+const candidateOutcomeByRole = Object.fromEntries(
+  (['OH', 'MB', 'OP'] as const).map(role => [role, {
+    evaluations: 0, expectedPointValue: 0, kill: 0, error: 0, blocked: 0, front: 0, backrow: 0,
+  }]),
+) as Record<'OH' | 'MB' | 'OP', {
+  evaluations: number; expectedPointValue: number; kill: number; error: number; blocked: number; front: number; backrow: number;
+}>;
 const byReception = Object.fromEntries(RECEPTIONS.map(({ label }) => [label, {
   contexts: 0,
   legacyExpectedPointValue: 0,
@@ -76,10 +83,16 @@ for (let rosterIndex = 0; rosterIndex < ROSTERS; rosterIndex += 1) {
         receptionRow.legacyExpectedPointValue += legacyExpected;
         receptionRow.bestExpectedPointValue += best.outcome.expectedPointValue;
         receptionRow.contexts += 1;
-        legacyRoles.S += 0;
-        for (const item of candidates) {
+        for (const item of evaluated) {
           totalCandidates += 1;
-          legacyRoles[item.attacker.role] += item.weight / totalWeight;
+          legacyRoles[item.candidate.attacker.role] += item.candidate.weight / totalWeight;
+          const diagnostic = candidateOutcomeByRole[item.candidate.attacker.role as 'OH' | 'MB' | 'OP'];
+          diagnostic.evaluations += 1;
+          diagnostic.expectedPointValue += item.outcome.expectedPointValue;
+          diagnostic.kill += item.outcome.kill;
+          diagnostic.error += item.outcome.error;
+          diagnostic.blocked += item.outcome.blocked;
+          diagnostic[item.candidate.zone === 'front' ? 'front' : 'backrow'] += 1;
         }
         expectedPolicyRoles[best.candidate.attacker.role] += 1;
         contextsCount += 1;
@@ -94,6 +107,16 @@ for (const row of Object.values(byReception)) {
   row.bestExpectedPointValue = rounded(row.bestExpectedPointValue / row.contexts);
   row.improvement = rounded(row.bestExpectedPointValue - row.legacyExpectedPointValue);
 }
+
+const candidateOutcomeSummary = Object.fromEntries(Object.entries(candidateOutcomeByRole).map(([role, row]) => [role, {
+  evaluations: row.evaluations,
+  meanExpectedPointValue: rounded(row.expectedPointValue / row.evaluations),
+  meanKillProbability: rounded(row.kill / row.evaluations),
+  meanErrorProbability: rounded(row.error / row.evaluations),
+  meanBlockProbability: rounded(row.blocked / row.evaluations),
+  frontRowEvaluations: row.front,
+  backRowEvaluations: row.backrow,
+}]));
 
 const roleShare = (counts: Record<Role, number>, denominator: number) =>
   Object.fromEntries(Object.entries(counts).filter(([, value]) => value > 0)
@@ -112,6 +135,7 @@ console.log(JSON.stringify({
   meanDifference: rounded((bestTotal - legacyTotal) / contextsCount),
   legacyWeightedRoleShare: roleShare(legacyRoles, contextsCount),
   bestExpectedRoleShare: roleShare(expectedPolicyRoles, contextsCount),
+  candidateOutcomeByRole: candidateOutcomeSummary,
   byReception,
   candidatesEvaluated: totalCandidates,
   limitations: [
