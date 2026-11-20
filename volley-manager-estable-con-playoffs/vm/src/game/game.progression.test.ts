@@ -7,6 +7,7 @@ import { AGE, retireProb } from './ages';
 import { progressPlayer } from './offseason';
 import { mulberry32 } from '../engine/rng';
 import { deserialize, serialize } from './save';
+const playSeason = (seed: number) => simulateSeason(newGame(seed));
 describe('edades, progresión, retiros y fichajes de la computadora', () => {
   it('las edades iniciales siguen la distribución por posición de VNL y están entre 18 y 40', () => {
     const by: Record<string, number[]> = {};
