@@ -149,4 +149,77 @@ describe('observación explícita de intento de bloqueo', () => {
     const input = observed();
     expect(validateBlockObservation(input)).toEqual(validateBlockObservation(input));
   });
+
+  it('valida atacante y elegibles contra las alineaciones actuales', () => {
+    const [home, away] = makeSquads(4101);
+    const match = createMatch(4101, 50, { squads: [home, away] });
+    const eligible = getEligibleBlockers(match.teams[1]).map(player => player.id);
+    const observation = observed({
+      attackerId: match.teams[0].lineup[3].id,
+      eligibleBlockerIds: eligible,
+      attemptingBlockerIds: [eligible[0]],
+    });
+
+    expect(validateBlockObservationContext(observation, match.teams)).toEqual([]);
+  });
+
+  it('rechaza un atacante que no pertenece a la alineación atacante actual', () => {
+    const [home, away] = makeSquads(4102);
+    const match = createMatch(4102, 50, { squads: [home, away] });
+    const observation = observed({
+      attackerId: 'unknown-attacker',
+      eligibleBlockerIds: getEligibleBlockers(match.teams[1]).map(player => player.id),
+    });
+
+    expect(validateBlockObservationContext(observation, match.teams).map(issue => issue.code))
+      .toContain('attacker-not-in-attacking-team');
+  });
+
+  it('rechaza elegibles de una rotación anterior', () => {
+    const [home, away] = makeSquads(4103);
+    const match = createMatch(4103, 50, { squads: [home, away] });
+    const staleEligible = getEligibleBlockers(match.teams[1]).map(player => player.id);
+    match.teams[1].lineup = [match.teams[1].lineup[5], ...match.teams[1].lineup.slice(0, 5)];
+    const observation = observed({
+      attackerId: match.teams[0].lineup[3].id,
+      eligibleBlockerIds: staleEligible,
+      attemptingBlockerIds: [staleEligible[0]],
+    });
+
+    expect(validateBlockObservationContext(observation, match.teams).map(issue => issue.code))
+      .toContain('eligible-blockers-do-not-match-lineup');
+  });
+
+  it('actualiza los elegibles de contexto después de una sustitución delantera', () => {
+    const [home, away] = makeSquads(4104);
+    const bench = { ...home[4], id: 'context-bench-oh', name: 'Context Bench OH' };
+    const match = createMatch(4104, 50, { squads: [home, away], benches: [[bench], []] });
+    const replaced = match.teams[0].lineup[4];
+    const changed = substitute(match, 0, replaced.id, bench.id);
+    const eligible = getEligibleBlockers(changed.teams[1]).map(player => player.id);
+    const observation = observed({
+      attackerId: changed.teams[0].lineup[3].id,
+      eligibleBlockerIds: eligible,
+    });
+
+    expect(validateBlockObservationContext(observation, changed.teams)).toEqual([]);
+    expect(changed.teams[0].lineup[4].id).toBe(bench.id);
+  });
+
+  it('valida la identidad del atacante aunque la observación no esté disponible', () => {
+    const [home, away] = makeSquads(4105);
+    const match = createMatch(4105, 50, { squads: [home, away] });
+    const unavailable: BlockObservation = {
+      attackId: 'attack-context',
+      attackerId: 'missing',
+      attackingTeam: 0,
+      defendingTeam: 1,
+      source: 'external-observation',
+      status: 'unavailable',
+    };
+
+    expect(validateBlockObservationContext(unavailable, match.teams).map(issue => issue.code))
+      .toContain('attacker-not-in-attacking-team');
+  });
+
 });
