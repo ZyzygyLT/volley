@@ -40,7 +40,7 @@ describe('legalidad del segundo toque ofensivo del colocador', () => {
       ballHeightAtContact: 'not-entirely-above-net',
     })).toEqual({
       legal: true,
-      reason: 'back-row-front-zone-ball-below-net',
+      reason: 'back-row-front-zone-ball-not-entirely-above-net',
     });
   });
 
