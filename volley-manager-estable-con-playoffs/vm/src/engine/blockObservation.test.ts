@@ -207,6 +207,21 @@ describe('observación explícita de intento de bloqueo', () => {
     expect(changed.teams[0].lineup[4].id).toBe(bench.id);
   });
 
+  it('rechaza una alineación atacante inválida aunque contenga al atacante declarado', () => {
+    const [home, away] = makeSquads(4109);
+    const match = createMatch(4109, 50, { squads: [home, away] });
+    const lineup = [...match.teams[0].lineup];
+    lineup[5] = lineup[4];
+    match.teams[0].lineup = lineup;
+    const observation = observed({
+      attackerId: lineup[3].id,
+      eligibleBlockerIds: getEligibleBlockers(match.teams[1]).map(player => player.id),
+    });
+
+    expect(validateBlockObservationContext(observation, match.teams).map(issue => issue.code))
+      .toContain('invalid-attacking-lineup');
+  });
+
   it('rechaza una alineación defensora inválida sin lanzar una excepción', () => {
     const [home, away] = makeSquads(4106);
     const match = createMatch(4106, 50, { squads: [home, away] });

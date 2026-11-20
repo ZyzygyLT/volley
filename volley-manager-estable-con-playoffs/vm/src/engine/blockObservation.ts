@@ -53,6 +53,7 @@ export type BlockObservationIssueCode =
   | 'contact-team-mismatch'
   | 'contact-without-attempt'
   | 'attacker-not-in-attacking-team'
+  | 'invalid-attacking-lineup'
   | 'invalid-defending-lineup'
   | 'eligible-blockers-do-not-match-lineup';
 
@@ -159,6 +160,16 @@ export function validateBlockObservationContext(
 
   const attackingTeam = teams[observation.attackingTeam];
   const defendingTeam = teams[observation.defendingTeam];
+
+  try {
+    getEligibleBlockers(attackingTeam);
+  } catch {
+    issues.push({
+      code: 'invalid-attacking-lineup',
+      message: 'No se puede validar la observación porque la alineación atacante no es válida.',
+    });
+    return issues;
+  }
 
   if (!attackingTeam.lineup.some(player => player.id === observation.attackerId)) {
     issues.push({

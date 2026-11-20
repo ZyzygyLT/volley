@@ -153,6 +153,7 @@ Este contrato es una frontera de datos y una base para pruebas; **no es todavía
 
 Se añadió `validateBlockObservationContext` como comprobación separada de la validación local. Recibe las dos alineaciones actuales del partido y comprueba que:
 
+- la alineación atacante tenga seis jugadores únicos y no coloque al líbero en primera línea;
 - el atacante pertenezca a la alineación actual del equipo atacante;
 - la lista declarada de elegibles coincida con los tres ocupantes actuales de primera línea del equipo defensor;
 - una observación `unavailable` siga permitiendo validar la identidad del atacante sin exigir datos de elegibilidad.
