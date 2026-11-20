@@ -158,9 +158,14 @@ export default function App() {
 
   // Boxscore: la plantilla actual y los suplentes que tuvieron acciones.
   const squadsOf = (m: MatchState) => [0, 1].map(i => [...m.base[i], ...m.benches[i].filter(b => m.box[b.id])]);
-  const mySide = (live ? sideForTeam(live, me.name) ?? 0 : 0) as Side;
-  const subOpts = live ? legalSubs(live, mySide) : [];
-  const doSub = () => { if (!live) return; const [o, i] = subPick.split('|'); try { setLive(substitute(live, mySide, o, i)); setSubPick(''); setMsg(''); } catch (e) { setMsg((e as Error).message); } };
+  const mySide = live ? sideForTeam(live, me.name) : null;
+  const subOpts = live && mySide !== null ? legalSubs(live, mySide) : [];
+  const doSub = () => {
+    if (!live || mySide === null) { setMsg('No se pudo identificar tu equipo en este partido; no se aplicó ningún cambio.'); return; }
+    const [o, i] = subPick.split('|');
+    try { setLive(substitute(live, mySide, o, i)); setSubPick(''); setMsg(''); }
+    catch (e) { setMsg((e as Error).message); }
+  };
   const allPlayers = [...game.teams.flatMap(t => t.roster), ...game.market];
   const card = cardId ? allPlayers.find(p => p.id === cardId) : undefined;
   const Name = ({ p }: { p: Player }) => <button className="lnk" onClick={() => setCardId(p.id)}>{p.name}</button>;
@@ -281,12 +286,13 @@ export default function App() {
             <button onClick={() => setLive(m => (m ? playMatch(m) : m))} disabled={live.over}>Partido completo</button>{' '}
             {live.over && <button onClick={close}>{liveKind === 'playoff' ? 'Cerrar partido de playoffs' : 'Cerrar jornada'}</button>}
           </p>
-          {!live.over && <p>
+          {!live.over && mySide !== null && <p>
             <label>Cambio ({live.subState[mySide].count}/{MAX_SUBS} en el set): <select value={subPick} onChange={(e: { target: { value: string } }) => setSubPick(e.target.value)}>
               <option value="">— elegir —</option>
               {subOpts.map(o => <option key={`${o.out.id}|${o.inn.id}`} value={`${o.out.id}|${o.inn.id}`}>{o.isLibero ? 'Líbero: ' : ''}sale {o.out.name} ({o.out.role}), entra {o.inn.name}</option>)}</select></label>{' '}
             <button onClick={doSub} disabled={!subPick}>Cambiar</button>
           </p>}
+          {!live.over && mySide === null && <p role="alert">No se pudo identificar tu equipo en este partido. Los cambios están bloqueados para proteger al rival.</p>}
           <ol reversed style={{ maxHeight: 160, overflow: 'auto' }}>{live.log.slice(0, 40).map((l, i) => <li key={i}>{l}</li>)}</ol>
           <Box title={`Estadísticas del partido — ${live.teams[0].name}`} players={squadsOf(live)[0]} box={live.box} />
           <Box title={`Estadísticas del partido — ${live.teams[1].name}`} players={squadsOf(live)[1]} box={live.box} />
