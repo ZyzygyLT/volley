@@ -136,3 +136,9 @@ Cada punto debe seguir siendo atribuible y explicable. Una asistencia solo se ac
 ## Fuera de alcance de esta primera etapa
 
 Fatiga, lesiones, tiempos muertos, tácticas de entrenador, scouting y nuevas variables de habilidades. Se abordarán después de estabilizar el ciclo recepción–distribución–ataque.
+
+## Objetivos de colocación: contrato inicial
+
+El módulo `src/engine/setTargets.ts` separa los objetivos de una colocación de la selección histórica de atacante. Solo expone opciones etiquetadas como `hitter-attack`, excluyendo al colocador. Conserva jugador, slot y zona rotacional, pero deliberadamente no asigna pesos: los pesos actuales representan la selección heredada de atacante y no probabilidades de distribución del colocador.
+
+Este contrato todavía no simula una colocación real. No decide entre central, punta u opuesto; tampoco representa calidad del pase, tempo, combinación, velocidad/altura de la colocación, lectura del bloqueo ni ataque propio del colocador. El rally sigue usando sin cambios `selectAttackTarget`, incluido el caso heredado del colocador en primera línea. La integración táctica queda pendiente de definir y validar un modelo de decisión y sus eventos.
