@@ -35,7 +35,7 @@ describe('rally rule state: explicit transitions', () => {
     const first = transitionRallyRuleState(state, action(1, 0), { continues: true, nextTeam: 0 });
     expect(first.issues).toEqual([]);
     state = first.state!;
-    const second = transitionRallyRuleState(state, action(2, 0, 'set'), { continues: true, nextTeam: 0 });
+    const second = transitionRallyRuleState(state, action(2, 0, 'set', 'p2'), { continues: true, nextTeam: 0 });
     expect(second.state?.hits[0]).toBe(2);
   });
 
@@ -44,7 +44,7 @@ describe('rally rule state: explicit transitions', () => {
     for (let order = 1; order <= 3; order++) {
       const result = transitionRallyRuleState(
         state,
-        action(order, 0, order === 1 ? 'reception' : order === 2 ? 'set' : 'attack'),
+        action(order, 0, order === 1 ? 'reception' : order === 2 ? 'set' : 'attack', `p${order}`),
         { continues: true, nextTeam: 0 }
       );
       expect(result.issues).toEqual([]);
@@ -58,12 +58,12 @@ describe('rally rule state: explicit transitions', () => {
     for (let order = 1; order <= 3; order++) {
       state = transitionRallyRuleState(
         state,
-        action(order, 0, order === 1 ? 'reception' : order === 2 ? 'set' : 'cover'),
+        action(order, 0, order === 1 ? 'reception' : order === 2 ? 'set' : 'cover', `p${order}`),
         { continues: true, nextTeam: 0 }
       ).state!;
     }
     const before = structuredClone(state);
-    const result = transitionRallyRuleState(state, action(4, 0, 'attack'), { continues: true, nextTeam: 0 });
+    const result = transitionRallyRuleState(state, action(4, 0, 'attack', 'p4'), { continues: true, nextTeam: 0 });
     expect(result.state).toBeNull();
     expect(result.issues.map(issue => issue.code)).toContain('too-many-team-hits');
     expect(state).toEqual(before);
