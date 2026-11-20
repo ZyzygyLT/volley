@@ -248,6 +248,22 @@ function validLiveMatch(input: unknown): input is MatchState {
   return (m.totals as number[])[0] === expectedA && (m.totals as number[])[1] === expectedB;
 }
 
+function sessionTeamNames(game: GameState, kind: 'liga' | 'playoff'): [string, string] | null {
+  if (kind === 'liga') {
+    if (game.playoffs) return null;
+    const fixture = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam));
+    if (!fixture) return null;
+    return [game.teams[fixture.home]?.name, game.teams[fixture.away]?.name];
+  }
+  const playoffs = game.playoffs;
+  if (!playoffs || playoffs.stage === 'done') return null;
+  const series = playoffs.series.find(x => x.winner === undefined && (x.high === game.userTeam || x.low === game.userTeam));
+  if (!series) return null;
+  const home = (series.games.length + 1) % 2 === 1 ? series.high : series.low;
+  const away = home === series.high ? series.low : series.high;
+  return [game.teams[home]?.name, game.teams[away]?.name];
+}
+
 export interface SaveSession {
   game: GameState;
   liveMatch: MatchState | null;
@@ -259,11 +275,9 @@ export function serializeSession(game: GameState, liveMatch: MatchState | null, 
   const gameJson = serialize(game);
   if (liveMatch && !validLiveMatch(liveMatch)) throw new SaveError('No se puede guardar: el estado del partido en curso es inválido');
   if (liveMatch) {
-    const participants = liveKind === 'liga'
-      ? (() => { const f = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam)); return f ? [f.home, f.away] : []; })()
-      : (() => { const s = game.playoffs?.series.find(x => x.winner === undefined && (x.high === game.userTeam || x.low === game.userTeam)); return s ? [s.high, s.low] : []; })();
-    if (participants.length !== 2 || !participants.every(i => game.teams.some(t => t.id === i && liveMatch.teams.some(mt => mt.name === t.name)))
-      || liveMatch.teams.some(mt => !participants.some(i => game.teams[i].name === mt.name))) throw new SaveError('El partido en curso no corresponde a la partida guardada');
+    const expected = sessionTeamNames(game, liveKind);
+    if (!expected || liveMatch.teams[0].name !== expected[0] || liveMatch.teams[1].name !== expected[1])
+      throw new SaveError('El partido en curso no corresponde a la partida guardada');
   }
   return JSON.stringify({ format: 'volley-session-v1', game: JSON.parse(gameJson), liveMatch, liveKind });
 }
@@ -281,10 +295,9 @@ export function deserializeSession(json: string): SaveSession {
   if (!liveKind || (parsed.liveMatch !== null && !validLiveMatch(parsed.liveMatch))) throw new SaveError('La sesión guardada contiene un partido en curso inválido');
   const liveMatch = parsed.liveMatch as MatchState | null;
   if (liveMatch) {
-    const participants = liveKind === 'liga'
-      ? (() => { const f = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam)); return f ? [f.home, f.away] : []; })()
-      : (() => { const s = game.playoffs?.series.find(x => x.winner === undefined && (x.high === game.userTeam || x.low === game.userTeam)); return s ? [s.high, s.low] : []; })();
-    if (participants.length !== 2 || liveMatch.teams.some(mt => !participants.some(i => game.teams[i].name === mt.name))) throw new SaveError('El partido guardado no corresponde a la partida');
+    const expected = sessionTeamNames(game, liveKind);
+    if (!expected || liveMatch.teams[0].name !== expected[0] || liveMatch.teams[1].name !== expected[1])
+      throw new SaveError('El partido guardado no corresponde a la partida o a su modalidad');
   }
   return { game, liveMatch, liveKind };
 }
