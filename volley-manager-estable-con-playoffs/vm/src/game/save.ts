@@ -65,7 +65,7 @@ function checkPlayoffs(p: unknown, n: number, regularOver: boolean, teams: unkno
   const stage = p.stage as 'semi' | 'final' | 'done';
   const expectedIds = stage === 'semi' ? ['SF1', 'SF2'] : ['SF1', 'SF2', 'F', 'B'];
   if (p.series.length !== expectedIds.length) { e.push('Playoffs: cantidad de series inválida'); return; }
-  const ranked = standings({ teams, results } as GameState).map(x => x.team);
+  const ranked = standings({ teams, results } as unknown as GameState).map(x => x.team);
   const rank = new Map(ranked.map((team, i) => [team, i]));
   const better = (a: number, b: number): [number, number] => (rank.get(a)! < rank.get(b)! ? [a, b] : [b, a]);
   const expectedSemi: [number, number][] = [[ranked[0], ranked[3]], [ranked[1], ranked[2]]];
