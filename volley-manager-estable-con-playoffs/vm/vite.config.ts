@@ -10,8 +10,9 @@ export default defineConfig({
   test: {
     testTimeout: 60_000,
     hookTimeout: 30_000,
-    // The integration suite contains long-running season and fuzz tests.
-    // Running files concurrently caused Vitest worker RPC timeouts on CI.
+    // Keep the long-running integration suite sequential and isolate it from
+    // the Vitest coordinator so CPU-heavy simulations cannot starve worker RPC.
+    pool: 'forks',
     fileParallelism: false,
     maxWorkers: 1,
     minWorkers: 1
