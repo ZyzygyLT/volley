@@ -131,10 +131,16 @@ export function validateCompoundAction(
     if (group.relation === 'simultaneous' && teams.size > 1 && !action.opponentSimultaneousOverNet) {
       issues.push(issue(action, 'invalid-opponent-simultaneous-context', 'Los contactos simultáneos de adversarios requieren contexto explícito sobre la red.', groupIndex));
     }
-    if (group.relation === 'consecutive-within-action' &&
-        (new Set(group.contacts.map(contact => contact.playerId)).size !== 1 ||
-         group.contacts.some(contact => contact.team !== action.actingTeam))) {
-      issues.push(issue(action, 'unsupported-consecutive-group', 'Este contrato solo normaliza contactos corporales consecutivos del mismo jugador y equipo.', groupIndex));
+    if (group.relation === 'consecutive-within-action') {
+      const players = new Set(group.contacts.map(contact => contact.playerId));
+      const wrongTeam = group.contacts.some(contact => contact.team !== action.actingTeam);
+      // Durante una misma acción de bloqueo pueden producirse contactos
+      // consecutivos de uno o varios bloqueadores (FIVB 9.2.3.1).
+      // Fuera del bloqueo, este contrato solo normaliza contactos corporales
+      // consecutivos del mismo jugador en el primer golpe del equipo.
+      if (wrongTeam || (action.kind !== 'block' && players.size !== 1)) {
+        issues.push(issue(action, 'unsupported-consecutive-group', 'Los contactos consecutivos deben pertenecer al equipo actuante; fuera de una acción de bloqueo deben ser del mismo jugador.', groupIndex));
+      }
     }
   });
 
