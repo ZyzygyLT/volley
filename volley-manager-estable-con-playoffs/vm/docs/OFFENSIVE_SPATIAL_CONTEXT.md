@@ -75,3 +75,36 @@ Este contrato no define velocidades, aceleraciones, altura de salto, tiempos de 
 ## Criterio para avanzar
 
 No integrar una regla espacial hasta que podamos producir todos sus datos requeridos sin inventarlos, explicar su procedencia y probar los casos límite. Hasta entonces, el evaluador FIVB permanece aislado y el rally conserva exactamente su modelo actual.
+
+
+## Decisión de arquitectura del proveedor
+
+Se evaluaron tres enfoques:
+
+| Enfoque | Ventaja | Problema | Decisión |
+|---|---|---|---|
+| Deducir posiciones desde la rotación y los roles | Muy barato | Confunde posición inicial reglamentaria con ubicación durante la jugada | Rechazado |
+| Simular continuamente a los doce jugadores y el balón | Puede representar desplazamientos y trayectorias | Exige reglas de movimiento, parámetros físicos y calibración que el proyecto aún no tiene | Pospuesto |
+| Contexto espacial local por acción, alimentado por hechos explícitos | Limita el alcance y permite introducir reglas espaciales gradualmente | Necesita un proveedor válido para cada hecho; no puede inventarlos | Elegido como arquitectura objetivo |
+
+### Alcance de la primera versión futura
+
+El primer proveedor no será un motor físico completo. Será un adaptador de hechos espaciales para una acción concreta. Solo podrá producir un contexto cuando disponga de datos explícitos para todos los campos obligatorios.
+
+No se aceptará como proveedor una función que genere coordenadas pseudoaleatorias, posiciones promedio o ubicaciones fijas por rol/slot. Tampoco se permitirá que la calidad de recepción determine por sí sola dónde o a qué altura está el balón.
+
+### Condición para implementarlo
+
+Antes de escribir el proveedor deben existir reglas de origen para:
+
+- cómo se obtiene la posición de despegue del jugador;
+- cómo se obtiene la posición y altura del balón en el contacto;
+- cómo se conserva la procedencia del balón entre contactos;
+- cómo se determina el espacio de juego propio;
+- cómo se configura la altura de red de la competición.
+
+Si alguna de estas fuentes no existe, el proveedor debe devolver explícitamente «no disponible» y la regla espacial no debe ejecutarse.
+
+### Consecuencia para el roadmap
+
+El siguiente trabajo no es añadir coordenadas al rally. Es definir el modelo de contactos y posesión que hoy falta entre recepción, colocación y ataque. El motor actual comprime esa secuencia en una resolución probabilística; mientras siga así, no hay una fuente honesta para generar la geometría del segundo toque. La evolución debe empezar por representar la secuencia de contactos sin cambiar todavía las probabilidades ni los resultados.
