@@ -11,7 +11,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={'width':1100,'height':900}); pg=ctx.new_page()
     pg.on('console',lambda m: errs.append(m.text) if m.type=='error' else None); pg.on('pageerror',lambda e: errs.append('PAGEERROR '+str(e)))
     pg.goto(URL); pg.wait_for_selector('h1')
-    chk('7 pestañas',len(pg.query_selector_all('nav button'))==7)
+    chk('8 pestañas',len(pg.query_selector_all('nav button'))==8)
     chk('clasificación con columna Fuerza',pg.query_selector_all('section table')[0].inner_text().count('Fuerza')==1 and len(pg.query_selector_all('section table tbody tr'))==8)
     b0=budget(pg); chk('presupuesto inicial 1.000.000',b0==1000000,b0)
     # --- Plantel: alineación inválida
@@ -29,6 +29,12 @@ with sync_playwright() as p:
     chk('el marcador avanza con "Punto"',pg.inner_text('.score')!=s0,pg.inner_text('.score'))
     pg.select_option('section select',index=1); pg.click('button:has-text("Cambiar")')
     chk('cambio aplicado (1/6) y en el registro',('1/6' in pg.inner_text('section')) and ('Cambio (' in pg.inner_text('ol')))
+    # Guardar y recuperar exactamente el partido activo, no solo la gestión de la liga.
+    score_saved=pg.inner_text('.score')
+    pg.click('nav >> text=Guardar'); pg.click('section button:text-is("Guardar") >> nth=0'); pg.wait_for_timeout(300)
+    pg.reload(); pg.wait_for_selector('h1'); pg.click('nav >> text=Guardar'); pg.wait_for_timeout(200)
+    pg.click('section button:text-is("Cargar") >> nth=0'); pg.wait_for_timeout(200)
+    chk('recupera el partido activo con su marcador y vuelve a Partido',pg.inner_text('.score')==score_saved and pg.is_visible('button:has-text("Punto")'),pg.inner_text('.score'))
     pg.click('button:has-text("Partido completo")'); chk('partido terminado',pg.is_visible('button:has-text("Cerrar jornada")'))
     chk('boxscore con suplente',len(pg.query_selector_all('section table tbody tr'))>=14)
     pg.click('button:has-text("Cerrar jornada")'); chk('vuelve a Liga, jornada 2',('Jornada 2' in pg.inner_text('main')))
@@ -43,7 +49,7 @@ with sync_playwright() as p:
     # --- Guardar / IndexedDB / recarga
     pg.click('nav >> text=Guardar'); pg.click('section button:text-is("Guardar") >> nth=0'); pg.wait_for_timeout(300)
     chk('guardado en ranura 1',('jornadas jugadas' in pg.inner_text('main')) or ('Ranura 1: ' in pg.inner_text('main') and 'vacía' not in pg.inner_text('main').split('Ranura 2')[0]),pg.inner_text('main').split('Ranura 2')[0][-90:])
-    bsave=budget(pg); pg.click('button:has-text("Mostrar texto de la partida")'); txt=pg.input_value('textarea'); chk('texto exportado es JSON',re.match(r'^\{"version":\d+',txt) is not None,len(txt))
+    bsave=budget(pg); pg.click('button:has-text("Mostrar texto de la partida")'); txt=pg.input_value('textarea'); chk('texto exportado es JSON',re.match(r'^\{"format":"volley-session-v1"',txt) is not None,len(txt))
     pg.reload(); pg.wait_for_selector('h1'); pg.click('nav >> text=Guardar'); pg.wait_for_timeout(400)
     chk('la ranura 1 sobrevive a la recarga (IndexedDB)','vacía' not in pg.inner_text('main').split('Ranura 2')[0])
     bnew=budget(pg); pg.click('section button:text-is("Cargar") >> nth=0'); pg.wait_for_timeout(200)
