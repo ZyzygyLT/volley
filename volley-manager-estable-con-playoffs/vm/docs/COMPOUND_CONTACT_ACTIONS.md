@@ -38,7 +38,7 @@ En `src/engine/compoundContacts.ts`:
 - `validateCompoundAction` comprueba la estructura y la coherencia local sin inventar contactos.
 - `deriveTeamHits` deriva golpes para una acción ya validada: bloqueo = cero; contacto simultáneo de compañeros = uno por contacto; primer golpe con contactos corporales consecutivos del mismo jugador = uno.
 - El contacto simultáneo de adversarios sobre la red exige que el productor indique `receivingTeam`; `deriveTeamHits` devuelve ese equipo como `allowanceResetFor`. El módulo no decide qué equipo recibe: valida y utiliza el hecho explícito.
-- `canPlayerMakeNextHit` comprueba la restricción local de jugador consecutivo y la excepción explícita del primer golpe después del bloqueo propio.
+- `canPlayerMakeNextHit` se conserva como utilidad local aislada. La máquina de estados valida la restricción de jugador consecutivo usando el último grupo de contactos del equipo actuante y registra todos los jugadores de contactos simultáneos. La excepción del primer golpe posterior al bloqueo se deriva del historial del estado (`postBlockFirstHitPendingFor`); una bandera externa no puede concederla.
 
 El modelo usa hechos explícitos. No deduce el primer golpe, la continuidad del balón, el equipo receptor ni la posesión. Si falta contexto requerido o la combinación no está soportada, devuelve incidencias y no una interpretación silenciosa.
 
@@ -58,7 +58,7 @@ En particular, aún no resuelve:
 - posesión física ni cálculo del equipo que continúa: `transitionRallyRuleState` exige que el simulador suministre explícitamente `nextTeam`;
 - validación de faltas reglamentarias completas ni adjudicación del ganador: el resultado `continues` y `pointWinner` también son hechos explícitos;
 - qué equipo recibe el balón tras un contacto simultáneo adversario sobre la red;
-- validación completa de doble golpe, retención y todas las excepciones del primer contacto;
+- validación completa de doble golpe, retención y todas las excepciones del primer contacto; la restricción de jugador consecutivo y la excepción post-bloqueo están cubiertas solo para las acciones explícitas de este contrato;
 - legalidad del bloqueo, invasión, penetración o contacto con la red;
 - contactos fuera de las antenas, trayectorias y posiciones espaciales;
 - faltas de ataque, rotación, posición o restricciones específicas del líbero;
