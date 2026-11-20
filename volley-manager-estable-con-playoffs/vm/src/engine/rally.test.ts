@@ -100,6 +100,32 @@ describe('rally: contrato del ciclo actual', () => {
     }
   });
 
+
+  it('registra la selección ofensiva heredada sin convertirla en contacto físico de colocación', () => {
+    for (let seed = 1; seed <= 250; seed++) {
+      const roster = teams(seed);
+      const result = playRally(roster, 0, mulberry32(seed * 61));
+      const observations = result.trace.setPlayObservations ?? [];
+      const attackEvents = result.trace.ev.filter(event => event.k === 'atk');
+      const setterId = roster[0].lineup.find(player => player.role === 'S')!.id;
+
+      expect(observations).toHaveLength(attackEvents.length);
+      expect(observations).toHaveLength(result.trace.atks.length);
+      for (let index = 0; index < observations.length; index++) {
+        const observation = observations[index];
+        const attack = attackEvents[index];
+        expect(observation.setterId).toBe(setterId);
+        expect(observation.selectedAttackerId).toBe(attack.p);
+        expect(observation.selection).toBe(
+          attack.p === setterId ? 'setter-second-touch' : 'teammate-target',
+        );
+        expect(observation.source).toBe('legacy-weighted-target-selector');
+        expect(['perfect', 'positive', 'negative']).toContain(observation.receptionQuality);
+      }
+      expect(result.trace.ev.some(event => event.k === 'set')).toBe(false);
+    }
+  });
+
   it('todo ataque registrado tiene una resolución válida', () => {
     for (let seed = 1; seed <= 250; seed++) {
       const result = playRally(teams(seed), 0, mulberry32(seed * 43));
