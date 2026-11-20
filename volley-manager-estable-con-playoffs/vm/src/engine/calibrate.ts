@@ -83,10 +83,13 @@ export function fit(p0: Params, N: number, iters: number): Params {
     for (const r of SR) { p.roleAce[r] += d * (dA[r] - mA); p.roleServeErr[r] += d * (dE[r] - mE); }
     p.serveAceOff += d * (PL.ace - m.ace); p.serveErrOff += d * (PL.serr - m.serr);
     // ataque
-    const dK: Record<string, number> = {}, dB: Record<string, number> = {};
-    for (const r of AR) { dK[r] = T[`kill.${r}`] - m[`kill.${r}`]; dB[r] = T[`eb.${r}`] - m[`eb.${r}`]; }
-    const mK = sum(AR, r => (raw.at[r].n / nA) * dK[r]), mB = sum(AR, r => (raw.at[r].n / nA) * dB[r]);
-    for (const r of AR) { p.roleKill[r] += d * (dK[r] - mK); p.roleErr[r] += d * (dB[r] - mB); }
+    const dK: Record<string, number> = {};
+    for (const r of AR) dK[r] = T[`kill.${r}`] - m[`kill.${r}`];
+    const mK = sum(AR, r => (raw.at[r].n / nA) * dK[r]);
+    // VNL solo publica error+bloqueado por posición. No permite separar ambos
+    // desenlaces, por lo que ese objetivo combinado NO puede ajustar roleErr:
+    // roleErr solo modifica el error de ataque, no el bloqueo.
+    for (const r of AR) p.roleKill[r] += d * (dK[r] - mK);
     const gk = d * (PL.kill - m.kill); p.killK1 += gk; p.killK2 += gk;
     const ge = d * (PL.aerr - m.aerr); p.errK1 += ge; p.errK2 += ge;
     const gb = d * (PL.blkd - m.blkd); p.blkK1 += gb; p.blkK2 += gb;
