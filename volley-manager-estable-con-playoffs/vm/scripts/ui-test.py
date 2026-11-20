@@ -63,7 +63,9 @@ with sync_playwright() as p:
     # --- capturas
     pg.click('nav >> text=Liga'); pg.screenshot(path='dist/shot_liga.png')
     pg.click('button:has-text("Jugar mi partido")'); [pg.click('button:has-text("Punto")') for _ in range(10)]; pg.screenshot(path='dist/shot_partido.png')
-    pg.emulate_media(color_scheme='dark'); pg.screenshot(path='dist/shot_dark.png')
-    m=b.new_context(viewport={'width':390,'height':844},device_scale_factor=2).new_page(); m.goto(URL); m.wait_for_selector('h1'); m.click('nav >> text=Plantel'); m.screenshot(path='dist/shot_mobile.png')
+    light_bg=pg.evaluate('getComputedStyle(document.body).backgroundColor')
+    pg.emulate_media(color_scheme='dark'); dark_bg=pg.evaluate('getComputedStyle(document.body).backgroundColor')
+    chk('modo oscuro cambia el fondo',dark_bg!=light_bg,f'{light_bg} -> {dark_bg}'); pg.screenshot(path='dist/shot_dark.png')
+    m=b.new_context(viewport={'width':390,'height':844},device_scale_factor=2).new_page(); m.goto(URL); m.wait_for_selector('h1'); m.click('nav >> text=Plantel'); chk('vista móvil sin desbordamiento horizontal',m.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1')); m.screenshot(path='dist/shot_mobile.png')
     b.close()
 print('errores de consola:',errs or 'ninguno'); print(f'RESULTADO: {sum(res)}/{len(res)}')
