@@ -36,7 +36,9 @@ export type Ev =
 export interface Trace {
   serve: 'ace' | 'err' | 'in'; serveType: ServeType;
   atks: { phase: 'k1' | 'k2'; out: AtkOut; q: number; swap?: boolean }[];
-  ev: Ev[]; capped: boolean;\n  /** Observaciones tácticas del selector; no son contactos físicos ni eventos estadísticos. */\n  setPlayObservations?: SetPlayObservation[];
+  ev: Ev[]; capped: boolean;
+  /** Observaciones tácticas del selector; no son contactos físicos ni eventos estadísticos. */
+  setPlayObservations?: SetPlayObservation[];
 }
 export type RallyTermination =
   | { kind: 'fault'; responsibleTeam: Side }
