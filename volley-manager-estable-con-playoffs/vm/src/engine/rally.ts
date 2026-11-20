@@ -2,6 +2,7 @@ import type { Team, Side, RallyResult, Trace, AtkOut, Player, Ev } from './types
 import { P, type Params } from './params';
 import { buildAttackContext } from './attackContext';
 import { selectAttackTarget } from './distribution';
+import { evaluateAttackOutcome } from './attackOutcome';
 
 const cl = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 const avg = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
@@ -62,14 +63,19 @@ export function playRally(teams: [Team, Team], serving: Side, rnd: () => number,
       });
     }
     const front = def.slice(3), bA = avg(front.map(x => x.blk)), dA = avg(effD.slice(0, 3).map(x => x.def));
-    const qd = q - 0.55, sd = setter ? setter.set - 70 : 0;
-    const baseK = phase === 'k1' ? p.killK1 : p.killK2, baseE = phase === 'k1' ? p.errK1 : p.errK2, baseB = phase === 'k1' ? p.blkK1 : p.blkK2;
-    const pK = cl(baseK + p.roleKill[at.role] + (at.atk - 70) * p.atkW * p.atkSkillScale[at.role] + sd * p.setW - (dA - 65) * p.defW - (bA - 65) * p.blkKillW + qd * p.qKill, 0.05, 0.85);
-    const pE = cl(baseE + p.roleErr[at.role] - (at.atk - 70) * p.errAtkW - (at.cons - 70) * p.errConsW - qd * p.errQ, 0.01, 0.35);
-    const pB = cl(baseB + (bA - 65) * p.blkW, 0.01, 0.3);
+    const outcome = evaluateAttackOutcome(at, {
+      phase,
+      receptionValue: q,
+      setterSkill: setter?.set ?? 70,
+      averageOpponentDefense: dA,
+      averageOpponentBlock: bA,
+      params: p,
+    });
     const u = rnd();
     let out: AtkOut = 'cont';
-    if (u < pE) out = 'err'; else if (u < pE + pB) out = 'blk'; else if (u < pE + pB + pK) out = 'kill';
+    if (u < outcome.error) out = 'err';
+    else if (u < outcome.error + outcome.blocked) out = 'blk';
+    else if (u < outcome.error + outcome.blocked + outcome.kill) out = 'kill';
     const rec_ = { phase, out, q } as Trace['atks'][number];
     trace.atks.push(rec_);
     const ast = out === 'kill' && setter && setter.id !== at.id ? setter.id : undefined; // el ataque del propio colocador no suma asistencia
