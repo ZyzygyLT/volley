@@ -90,7 +90,9 @@ Una futura máquina de estados deberá mantener, como mínimo:
 - estado del rally: en juego o terminado;
 - motivo y equipo responsable de terminación, cuando corresponda.
 
-La transición debe recibir un evento explícito y devolver un estado nuevo o un error de validación. No debe mutar el estado anterior ni utilizar RNG. La validación actual no implementa todavía esa máquina de estados: comprueba la estructura y el límite de golpes dentro de los identificadores de posesión que le proporciona la simulación.
+La transición debe recibir un evento explícito y devolver un estado nuevo o un error de validación. No debe mutar el estado anterior ni utilizar RNG.
+
+Cuando el punto termina, la máquina de estados exige además una causa explícita: `fault` con el equipo responsable de la falta, o `winning-action` con el equipo que produjo la acción ganadora. Conserva esa causa junto al ganador del punto y rechaza combinaciones contradictorias (por ejemplo, declarar ganador al mismo equipo responsable de una falta). La clasificación es deliberadamente general: no inventa si el error fue de saque, ataque, red, rotación u otra infracción; esa especificidad solo puede venir de la resolución real del motor. La validación actual no implementa todavía esa máquina de estados: comprueba la estructura y el límite de golpes dentro de los identificadores de posesión que le proporciona la simulación.
 
 El contador de golpes no puede reiniciarse simplemente porque cambia el equipo que toca el balón: debe reiniciarse de acuerdo con la continuidad real de la jugada y las reglas del bloqueo. Un toque de bloqueo requiere tratamiento específico.
 
