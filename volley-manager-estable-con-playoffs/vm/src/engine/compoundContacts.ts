@@ -115,7 +115,7 @@ export function validateCompoundAction(
       if (action.kind === 'block') blockTeams.add(contact.team);
     }
 
-    if (group.relation !== 'simultaneous' && group.contacts.some(contact => contact.team !== action.actingTeam)) {
+    if ((group.relation !== 'simultaneous' || teams.size === 1) && group.contacts.some(contact => contact.team !== action.actingTeam)) {
       issues.push(issue(action, 'contact-team-mismatch', 'Los contactos de otro equipo solo se admiten en el grupo simultáneo adversario explícito.', groupIndex));
     }
     if (group.relation === 'single' && group.contacts.length !== 1) {
@@ -140,7 +140,7 @@ export function validateCompoundAction(
   if (action.kind === 'block' && blockTeams.size > 1) {
     issues.push(issue(action, 'multiple-block-teams', 'Una acción de bloqueo no puede mezclar equipos.'));
   }
-  if (action.isFirstTeamHit && action.kind === 'block') {
+  if (action.kind === 'block' && [...blockTeams].some(team => team !== action.actingTeam)) {\n    issues.push(issue(action, 'block-team-mismatch', 'Los contactos del bloqueo deben pertenecer al equipo actuante.'));\n  }\n  if (action.isFirstTeamHit && action.kind === 'block') {
     issues.push(issue(action, 'invalid-first-hit-context', 'Una acción de bloqueo no puede ser un golpe del equipo.'));
   }
   if (action.isFirstHitAfterOwnBlock && action.kind === 'block') {
