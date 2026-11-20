@@ -124,14 +124,28 @@ No se debe convertir automáticamente:
 
 Esas equivalencias no están justificadas por los datos actuales.
 
+
+## Primera proyección real: apertura del rally
+
+`src/engine/rallyOpeningActions.ts` proyecta, de forma opt-in, los dos hechos iniciales que `playRally` ya conoce:
+
+- El jugador que ejecutó el saque, usando el evento `serve`.
+- Si el saque fue válido, el jugador que el motor seleccionó como receptor, usando el evento `rec`.
+
+El adaptador asigna el equipo receptor como el opuesto al sacador, pero no decide la continuidad posterior. No genera colocación, ataque, defensa ni cobertura. En un ace, el evento `rec` actual solo atribuye el fallo al receptor seleccionado; no demuestra que haya existido contacto físico, por lo que el adaptador no lo registra como recepción. Tampoco genera recepción después de un error de saque.
+
+La función recibe un `rallyId` del llamador para construir identificadores de acción estables y no consume RNG. Las acciones emitidas se validan con `validateCompoundAction`; todavía no se aplican a `RallyRuleState` ni se incorporan a `Trace`. Es una proyección paralela y no cambia estadísticas ni resultados.
+
+Pruebas: saque válido con receptor identificado, error de saque, ace sin contacto ficticio de recepción, identificador vacío e inmutabilidad.
+
 ## Plan incremental
 
-1. Caracterizar y documentar las transiciones que el motor sí resuelve hoy.
+1. [x] Caracterizar y documentar las transiciones que el motor sí resuelve hoy.
 2. [x] Definir tipos de contacto y validador estructural en un módulo aislado.
 3. [x] Validar orden, identidad, equipo, posesiones contiguas, límite de tres golpes, bloqueo y saque.
 4. [x] Contrastar el alcance con las reglas FIVB 2025–2028 y documentar las excepciones no representables por el esquema actual.
 5. [ ] Ampliar el contrato para acciones compuestas y contactos simultáneos, sin confundir contactos físicos con golpes contabilizables.
-6. Diseñar una evolución del simulador que resuelva la colocación y los contactos intermedios antes de emitirlos.
+6. [ ] Diseñar una evolución del simulador que resuelva la colocación y los contactos intermedios antes de emitirlos.
 7. Integrar el registro solo cuando las acciones se determinen realmente, manteniendo las estadísticas actuales y comparando resultados con el motor de referencia.
 
 ## Criterio de aceptación
