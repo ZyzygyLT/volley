@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { createMatch, playMatch, stepPoint, makeSquads, makePlayer, legalSubs, substitute, MAX_SUBS } from './match';
+import { createMatch, playMatch, stepPoint, makeSquads, makePlayer, legalSubs, substitute, MAX_SUBS, sideForTeam } from './match';
 import { mulberry32 } from './rng';
 import { mergeBox, points, hitEff } from './stats';
+
+describe('identificación de lado en partido', () => {
+  it('resuelve ambos lados y no asigna por defecto un equipo ajeno al visitante', () => {
+    const m = createMatch(17);
+    expect(sideForTeam(m, m.teams[0].name)).toBe(0);
+    expect(sideForTeam(m, m.teams[1].name)).toBe(1);
+    expect(sideForTeam(m, 'Equipo que no participa')).toBeNull();
+  });
+});
 
 describe('motor', () => {
   it('es determinista: misma semilla, mismo resultado', () => {
