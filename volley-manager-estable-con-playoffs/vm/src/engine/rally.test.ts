@@ -35,8 +35,11 @@ describe('rally: contrato del ciclo actual', () => {
         const firstAttack = events.findIndex(event => event.k === 'atk');
         const reception = events.findIndex(event => event.k === 'rec');
         if (firstAttack !== -1) expect(reception).toBeLessThan(firstAttack);
-      } else {
+      } else if (result.trace.serve === 'err') {
         expect(events.some(event => event.k === 'rec' || event.k === 'atk')).toBe(false);
+      } else {
+        expect(events.some(event => event.k === 'rec' && event.err === true)).toBe(true);
+        expect(events.some(event => event.k === 'atk')).toBe(false);
       }
     }
   });
