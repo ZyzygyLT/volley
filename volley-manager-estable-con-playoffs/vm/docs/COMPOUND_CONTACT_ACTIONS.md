@@ -2,150 +2,90 @@
 
 ## Objetivo y límites
 
-Definir cómo representar hechos físicos del rally antes de convertirlos en golpes reglamentarios. Este documento amplía el contrato de `RALLY_CONTACT_SEQUENCE.md`; no cambia el motor, las probabilidades, el RNG, las estadísticas ni las partidas guardadas.
+Definir cómo representar hechos físicos del rally antes de convertirlos en golpes reglamentarios. El reglamento distingue la acción de juego, los contactos físicos que ocurren durante ella y los golpes que se contabilizan para el equipo.
 
-La unidad de registro no puede ser simplemente «un jugador tocó el balón». El reglamento distingue la acción de juego, los contactos físicos que ocurren durante ella y los golpes que se contabilizan para el equipo.
+Este módulo es opt-in y aislado. No modifica `rally.ts`, probabilidades, RNG, estadísticas ni guardados.
 
-## Cuatro niveles que no deben confundirse
+## Cuatro niveles
 
-1. **Acción (`RallyAction`):** unidad de juego resuelta por la simulación, por ejemplo una recepción, una acción de bloqueo o un primer golpe con contactos corporales consecutivos.
-2. **Contacto físico (`PhysicalContact`):** hecho de que un jugador o bloqueador toca el balón. Una acción puede contener uno o varios contactos.
-3. **Grupo temporal (`ContactGroup`):** relación temporal entre contactos: simultáneos o consecutivos dentro de una misma acción. El orden global no basta para expresar simultaneidad.
-4. **Golpe contabilizable (`TeamHit`):** resultado reglamentario derivado de la acción y su contexto. No se obtiene contando jugadores ni contactos sin interpretar la acción.
+1. **Acción (`CompoundRallyAction`):** unidad de juego resuelta, por ejemplo una recepción o una acción de bloqueo.
+2. **Contacto físico (`PhysicalContact`):** un jugador toca el balón. Una acción puede contener varios contactos.
+3. **Grupo temporal (`ContactGroup`):** contactos simultáneos o consecutivos dentro de una acción.
+4. **Golpe contabilizable (`TeamHit`):** resultado reglamentario derivado; no se obtiene contando contactos sin interpretar su contexto.
 
-Un contacto físico no equivale necesariamente a un golpe contabilizable. Tampoco toda acción produce un golpe: el bloqueo es el caso evidente.
+Un contacto físico no equivale necesariamente a un golpe. El bloqueo, por ejemplo, no consume uno de los tres golpes.
 
-## Casos reglamentarios que el modelo debe poder expresar
+## Casos reglamentarios
 
-| Situación | Hecho físico | Efecto en los golpes del equipo |
-|---|---|---|
-| Bloqueo individual | Uno o más contactos durante la acción de bloqueo | Cero; el bloqueo no consume uno de los tres golpes |
-| Bloqueo colectivo | Contactos de uno o varios bloqueadores durante la misma acción | Cero; sigue siendo acción de bloqueo |
-| Primer golpe del equipo, contactos consecutivos de varias partes del cuerpo durante la misma acción | Varios contactos físicos de un jugador | Un golpe del equipo |
-| Dos compañeros tocan simultáneamente | Dos contactos de jugadores distintos | Dos golpes del equipo |
-| Tres compañeros tocan simultáneamente | Tres contactos de jugadores distintos | Tres golpes del equipo |
-| Dos adversarios tocan simultáneamente sobre la red y el balón sigue en juego | Contacto simultáneo entre equipos | El equipo que recibe el balón obtiene un nuevo derecho a tres golpes |
-| Primer golpe después de un bloqueo propio | Contacto de cualquier jugador, incluido quien bloqueó | Puede ser el primer golpe de los tres; la prohibición de doble golpe consecutivo tiene esta excepción |
+| Situación | Efecto |
+|---|---|
+| Acción de bloqueo, individual o colectiva | Cero golpes contabilizables |
+| Primer golpe del equipo, contactos consecutivos de varias partes del cuerpo durante la misma acción | Un golpe |
+| Dos compañeros tocan simultáneamente | Dos golpes |
+| Tres compañeros tocan simultáneamente | Tres golpes |
+| Adversarios tocan simultáneamente sobre la red y el balón sigue en juego | El equipo que recibe obtiene un nuevo derecho a tres golpes |
+| Primer golpe después del bloqueo propio | Puede hacerlo cualquier jugador, incluido quien bloqueó |
 
-La misma cantidad de contactos puede producir resultados reglamentarios distintos según la acción y el contexto. Por eso no se debe inferir el número de golpes únicamente a partir de la longitud de una lista.
+Fuentes: FIVB, *Official Volleyball Rules 2025–2028*, reglas 9.1–9.2.3 y 14.2–14.4. [Página oficial de reglas FIVB](https://www.fivb.com/volleyball/the-game/official-volleyball-rules/).
 
-## Contrato conceptual propuesto
+## Contrato implementado
 
-La siguiente forma es ilustrativa, no una API aprobada ni un tipo que deba implementarse literalmente todavía:
+En `src/engine/compoundContacts.ts`:
 
-```ts
-type ActionKind =
-  | 'serve'
-  | 'reception'
-  | 'set'
-  | 'attack'
-  | 'defense'
-  | 'cover'
-  | 'free-ball'
-  | 'block';
+- `CompoundRallyAction` agrupa una acción identificada, su orden, equipo, tipo, grupos temporales y contexto reglamentario explícito.
+- `PhysicalContact` identifica jugador y equipo; la parte corporal es opcional y descriptiva.
+- `ContactGroup` usa `single`, `simultaneous` o `consecutive-within-action`.
+- `validateCompoundAction` comprueba la estructura y la coherencia local sin inventar contactos.
+- `deriveTeamHits` deriva golpes para una acción ya validada: bloqueo = cero; contacto simultáneo de compañeros = uno por contacto; primer golpe con contactos corporales consecutivos del mismo jugador = uno.
+- El contacto simultáneo de adversarios sobre la red se representa como una señal explícita de reinicio del derecho a tres golpes. El módulo no determina qué equipo recibe ni actualiza el estado del rally.
+- `canPlayerMakeNextHit` comprueba la restricción local de jugador consecutivo y la excepción explícita del primer golpe después del bloqueo propio.
 
-type TemporalRelation =
-  | 'single'
-  | 'simultaneous'
-  | 'consecutive-within-action';
+El modelo usa hechos explícitos. No deduce el primer golpe, la continuidad del balón, el equipo receptor ni la posesión. Si falta contexto requerido o la combinación no está soportada, devuelve incidencias y no una interpretación silenciosa.
 
-interface PhysicalContact {
-  contactId: string;
-  playerId: string;
-  team: 0 | 1;
-  bodyPart?: string;
-}
+## Orden y simultaneidad
 
-interface ContactGroup {
-  groupId: string;
-  relation: TemporalRelation;
-  contacts: PhysicalContact[];
-}
+- `rallyOrder` ordena acciones, no contactos individuales.
+- Los contactos simultáneos comparten un grupo; no se les inventa un orden interno.
+- Los contactos consecutivos de una misma acción permanecen agrupados.
+- No se usan timestamps de reloj como sustituto de relaciones temporales.
 
-interface RallyAction {
-  actionId: string;
-  rallyOrder: number;
-  kind: ActionKind;
-  actingTeam: 0 | 1;
-  groups: ContactGroup[];
-  context: {
-    isFirstTeamAction?: boolean;
-    isFirstActionAfterOwnBlock?: boolean;
-    simultaneousOpponentContactOverNet?: boolean;
-  };
-}
-```
+## Alcance actual y limitaciones
 
-El contrato real tendrá que decidir qué campos son hechos obligatorios, cuáles son derivados y cuáles deben rechazarse si la simulación no puede observarlos. Los booleanos ilustrativos no autorizan a inventar contexto: deberán provenir del estado explícito del rally o de la acción resuelta.
+El módulo implementa solo el contrato local descrito arriba. No es todavía un árbitro reglamentario completo ni una máquina de estados del rally.
 
-### Orden y simultaneidad
+En particular, aún no resuelve:
 
-- `rallyOrder` ordena acciones resueltas, no contactos individuales.
-- `groupId` agrupa contactos simultáneos o consecutivos dentro de una misma acción.
-- Los contactos simultáneos no deben recibir un orden artificial entre sí.
-- Los contactos consecutivos dentro de una misma acción deben conservar su relación temporal, pero no convertirse automáticamente en acciones distintas.
-- No usar timestamps de reloj como sustituto de una relación temporal explícita; la simulación puede operar en pasos discretos.
+- transición de posesión/equipo que continúa ni acumulación global de golpes;
+- qué equipo recibe el balón tras un contacto simultáneo adversario sobre la red;
+- validación completa de doble golpe, retención y todas las excepciones del primer contacto;
+- legalidad del bloqueo, invasión, penetración o contacto con la red;
+- contactos fuera de las antenas, trayectorias y posiciones espaciales;
+- faltas de ataque, rotación, posición o restricciones específicas del líbero;
+- evaluación probabilística de ejecución, lectura del bloqueo o decisiones tácticas.
 
-### Derivación de golpes
+La función de jugador consecutivo solo recibe el contexto explícito de primer golpe post-bloqueo. No infiere ese contexto ni cubre todas las excepciones arbitrales.
 
-Una capa reglamentaria pura deberá convertir acciones y grupos de contactos en cero, uno o varios golpes contabilizables. La derivación deberá considerar, como mínimo:
+## Hechos que deberá proporcionar la simulación
 
-- tipo de acción y si es bloqueo;
-- relación temporal entre contactos;
-- cantidad e identidad de jugadores implicados;
-- si es el primer golpe del equipo;
-- si se trata del primer golpe después del bloqueo propio;
-- contacto simultáneo de adversarios sobre la red y continuidad del balón.
-
-El número de golpe no debe venir asignado por el productor de eventos como dato autoritativo. Debe calcularse y validarse a partir de los hechos y del estado previo. Si faltan hechos necesarios, el validador debe devolver un resultado indeterminado/error explícito, no elegir una interpretación por defecto.
-
-## Responsabilidades futuras
-
-Mantener funciones puras y responsabilidades separadas:
-
-1. **Normalización de hechos:** comprobar estructura, identidades y relaciones temporales, sin decidir reglas.
-2. **Derivación de golpes:** convertir acciones físicas en golpes contabilizables según las reglas aplicables.
-3. **Regla de jugador consecutivo:** evaluar si el mismo jugador puede realizar el siguiente golpe, aplicando excepciones documentadas.
-4. **Transición del equipo que continúa:** determinar quién tiene el derecho a la siguiente acción, incluyendo bloqueo y contacto simultáneo adversario.
-5. **Validación de terminación:** comprobar que un rally terminado no acepte acciones posteriores y conservar el motivo de terminación.
-
-Estas funciones no deben compartir mutaciones ocultas ni usar RNG. El orden de evaluación y sus entradas deben quedar explícitos.
-
-## Hechos que debe proporcionar la simulación
-
-La capa reglamentaria no puede reconstruir hechos que el motor no resuelve. Para cada acción, el productor deberá suministrar explícitamente:
+Para cada acción futura, el productor deberá suministrar explícitamente:
 
 - equipo y jugadores que intervinieron;
 - tipo de acción realmente ejecutada;
-- contactos físicos observados y su agrupación temporal;
+- contactos físicos observados y agrupación temporal;
 - si fueron simultáneos o consecutivos dentro de la misma acción;
-- contexto reglamentario relevante que el estado pueda demostrar;
-- resultado de la acción y equipo que puede continuar;
+- contexto reglamentario que el estado pueda demostrar;
+- resultado y equipo que puede continuar;
 - si el balón siguió en juego o el rally terminó, y por qué.
 
-No se debe deducir que hubo colocación porque el motor eligió un atacante, que hubo defensa porque el rally continuó, ni que el equipo cambió porque el último contacto fue de un adversario. La simulación debe resolver esos hechos antes de registrarlos.
+No se debe deducir una colocación porque el motor eligió un atacante, una defensa porque el rally continuó ni un cambio de equipo por el último contacto.
 
-## Fuera de alcance de este contrato
+## Compatibilidad
 
-No pretende resolver todavía:
+- Mantener `rallySequence.ts` como validador de secuencia normalizada y simplificada.
+- No adaptar automáticamente `atk`, `dig`, `cont`, `blk`, `k1` o `k2` a contactos físicos.
+- No conectar este módulo a `rally.ts` hasta que el motor produzca los hechos necesarios.
+- Cualquier transición global futura deberá ser otra función pura, con estado explícito y tests de reglas FIVB.
 
-- legalidad completa del bloqueo, invasión, penetración o contacto con la red;
-- contactos fuera de las antenas y trayectoria espacial del balón;
-- faltas de ataque, rotación, posición o restricciones específicas del líbero;
-- doble contacto y retención en todas sus interpretaciones arbitrales;
-- evaluación de trayectorias, alturas y posiciones físicas;
-- probabilidades de ejecución, lectura de bloqueo o decisiones tácticas.
+## Criterio para avanzar
 
-Cada regla adicional requerirá fuente reglamentaria, hechos observables, contrato y tests propios. La referencia primaria para este alcance es FIVB, *Official Volleyball Rules 2025–2028*, especialmente reglas 9.1–9.2.3 y 14.2–14.4: https://www.fivb.com/volleyball/the-game/official-volleyball-rules/.
-
-## Compatibilidad y estrategia de implementación
-
-- Mantener `rallySequence.ts` como validador de secuencia normalizada y simplificada; no reinterpretar silenciosamente sus entradas actuales.
-- Crear el modelo compuesto como módulo aislado y opt-in cuando el contrato esté revisado.
-- No adaptar automáticamente los eventos históricos `atk`, `dig`, `cont`, `blk`, `k1` o `k2` a contactos físicos.
-- No conectar el modelo a `rally.ts` hasta que la simulación produzca los hechos requeridos.
-- Comparar cualquier futura proyección con las estadísticas y resultados del motor de referencia antes de considerar una migración.
-
-## Criterio de aceptación
-
-El modelo podrá implementarse cuando cada caso de la tabla tenga ejemplos válidos e inválidos, el orden temporal no imponga secuencias ficticias, los golpes se deriven de hechos explícitos y los casos sin información suficiente fallen de forma visible. La implementación inicial deberá limitarse a tipos, normalización y validadores puros con tests; no modificará la simulación existente.
+Antes de integrar el modelo, completar una máquina de estados que derive golpes acumulados y equipo que continúa, cubrir las excepciones reglamentarias aplicables y demostrar con tests que los eventos se producen a partir de acciones realmente resueltas. El registro actual no sustituye ni altera las estadísticas existentes.
