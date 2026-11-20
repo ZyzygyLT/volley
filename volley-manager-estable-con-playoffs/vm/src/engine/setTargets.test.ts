@@ -20,12 +20,12 @@ describe('objetivos de colocación', () => {
 
   it('no inventa objetivos cuando no hay opciones distintas del colocador', () => {
     const [squad] = makeSquads(32);
-    const setterOnly = squad.slice(0, 6).map((player, index) =>
-      index === 1 || index === 2 || index === 0
-        ? { ...player, role: 'S' as const }
-        : { ...player, role: 'L' as const },
-    );
-    const context = buildAttackContext(setterOnly, 0.7, P);
+    const lineup = [squad[1], squad[2], squad[3], squad[0], squad[4], squad[5]];
+    const setterOnlyParams = {
+      ...P,
+      atkWeight: { ...P.atkWeight, OH: 0, MB: 0, OP: 0, L: 0 },
+    };
+    const context = buildAttackContext(lineup, 0.7, setterOnlyParams);
 
     expect(buildSetTargets(context)).toEqual([]);
   });
