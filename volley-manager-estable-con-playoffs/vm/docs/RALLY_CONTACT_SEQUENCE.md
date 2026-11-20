@@ -20,6 +20,13 @@ En `src/engine/rally.ts`:
 
 Por tanto, los eventos actuales son adecuados para estadísticas agregadas, pero no permiten reconstruir todos los contactos reales del balón.
 
+
+## Observaciones de selección ofensiva (no contactos)
+
+`Trace.setPlayObservations` conserva ahora una observación por ataque resuelto sobre el objetivo que eligió el selector ponderado heredado. Identifica al colocador, al atacante seleccionado, la fase, la calidad categórica de recepción y si el objetivo fue un compañero o el propio colocador.
+
+Este dato sirve para auditar decisiones abstractas del motor, pero **no se incorpora a la secuencia de contactos**: el simulador todavía no resuelve un toque físico de colocación. No se emite `Ev` de tipo `set`, no se altera la secuencia ni las estadísticas. La observación se construye con el resultado de la única llamada existente a `selectAttackTarget`, por lo que no agrega consumo de RNG ni cambia el objetivo elegido.
+
 ## Modelo conceptual
 
 Un futuro registro debe distinguir tres conceptos que no son intercambiables:
