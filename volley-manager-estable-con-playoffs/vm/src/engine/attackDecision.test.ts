@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildAttackContext } from './attackContext';
 import { makeSquads } from './match';
 import { P } from './params';
