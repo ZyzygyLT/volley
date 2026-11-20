@@ -128,3 +128,22 @@ Antes de implementar una política de selección, separar el problema en dos eta
 2. **Asignación/intento:** representar quién se compromete contra un ataque concreto, únicamente cuando exista una regla táctica explícita (por ejemplo, sistema de bloqueo definido) o datos observados que permitan establecerlo.
 
 La primera etapa puede probarse con las seis rotaciones y con sustituciones/libero. La segunda no debe inferirse de la elegibilidad, de los roles nominales ni del resultado del ataque. Tampoco debe cambiar todavía las probabilidades.
+
+## Contrato aislado incorporado
+
+Se añadió `src/engine/blockObservation.ts` como contrato puro de observación, sin conectarlo a `playRally`.
+
+Distingue dos estados:
+
+- `unavailable`: no existe observación disponible. No significa que no haya habido intento ni contacto.
+- `observed`: hay una observación explícita. Puede contener cero intentos y cero contactos; ese caso sí representa un dato observado.
+
+Cuando el estado es `observed`, el contrato registra por separado:
+
+- `eligibleBlockerIds`: candidatos declarados como elegibles por la fuente;
+- `attemptingBlockerIds`: participantes explícitos del intento;
+- `contactGroups`: contactos físicos efectivos, reutilizando `ContactGroup` y `PhysicalContact`.
+
+La validación comprueba identidad del ataque, separación de equipos, IDs únicos, pertenencia de participantes al conjunto elegible y coherencia entre participantes y contactos. No selecciona participantes, no deduce carriles, no determina matchups y no evalúa la calidad táctica. La procedencia queda identificada como `tactical-model` o `external-observation`.
+
+Este contrato es una frontera de datos y una base para pruebas; **no es todavía un sistema táctico que genere intentos**. La política que produzca `attemptingBlockerIds` sigue pendiente de definición y calibración. El motor probabilístico legado permanece sin cambios.
