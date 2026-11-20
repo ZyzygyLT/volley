@@ -4,6 +4,7 @@ import { autoLineup, lineupToSquad, validateLineup, MAX_ROSTER, MIN_BY_ROLE } fr
 import { deserialize, memoryStore, metaOf, SaveError, serialize, validateGame } from './save';
 import { ECON, marketValue, sell, sign, roundWages } from './economy';
 import { playMatch, legalSubs, substitute } from '../engine/match';
+import { simulateSeason } from './playoffs';
 const playSeason = (seed: number) => simulateSeason(newGame(seed));
 
 describe('calendario', () => {
