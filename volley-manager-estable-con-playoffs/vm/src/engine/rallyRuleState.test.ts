@@ -28,6 +28,7 @@ describe('rally rule state: explicit transitions', () => {
       postBlockFirstHitPendingFor: null,
       nextActionOrder: 1,
       pointWinner: null,
+      termination: null,
       lastActionId: null
     });
   });
@@ -153,7 +154,7 @@ describe('rally rule state: explicit transitions', () => {
     const result = transitionRallyRuleState(
       createRallyRuleState(0),
       simultaneous,
-      { continues: false, pointWinner: 0 }
+      { continues: false, pointWinner: 0, termination: { kind: 'winning-action', responsibleTeam: 0 } }
     );
     expect(result.state).toBeNull();
     expect(result.issues.map(issue => issue.code)).toContain('invalid-opponent-simultaneous-transition');
@@ -187,13 +188,35 @@ describe('rally rule state: explicit transitions', () => {
     expect(result.issues.map(issue => issue.code)).toContain('missing-next-team');
   });
 
-  it('requires an explicit point winner when the rally ends', () => {
+  it('requires an explicit point winner and termination when the rally ends', () => {
     const result = transitionRallyRuleState(
       createRallyRuleState(0),
       action(1, 0),
       { continues: false }
     );
     expect(result.issues.map(issue => issue.code)).toContain('missing-point-winner');
+    expect(result.issues.map(issue => issue.code)).toContain('missing-termination');
+  });
+
+  it('rejects a point winner inconsistent with a fault termination', () => {
+    const result = transitionRallyRuleState(
+      createRallyRuleState(0),
+      action(1, 0),
+      { continues: false, pointWinner: 0, termination: { kind: 'fault', responsibleTeam: 0 } }
+    );
+    expect(result.state).toBeNull();
+    expect(result.issues.map(issue => issue.code)).toContain('invalid-termination-winner');
+  });
+
+  it('stores the explicit reason and responsible team when a point ends', () => {
+    const result = transitionRallyRuleState(
+      createRallyRuleState(0),
+      action(1, 0),
+      { continues: false, pointWinner: 1, termination: { kind: 'fault', responsibleTeam: 0 } }
+    );
+    expect(result.issues).toEqual([]);
+    expect(result.state?.termination).toEqual({ kind: 'fault', responsibleTeam: 0 });
+    expect(result.state?.pointWinner).toBe(1);
   });
 
   it('does not allow actions after a terminal rally', () => {
