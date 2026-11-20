@@ -6,6 +6,7 @@ import {
   type BlockObservation,
   type ObservedBlockAttempt,
   validateBlockObservationContext,
+  validateBlockObservationForMatch,
 } from './blockObservation';
 
 const observed = (overrides: Partial<ObservedBlockAttempt> = {}): ObservedBlockAttempt => ({
@@ -235,6 +236,36 @@ describe('observación explícita de intento de bloqueo', () => {
 
     expect(validateBlockObservationContext(unavailable, match.teams).map(issue => issue.code))
       .toContain('attacker-not-in-attacking-team');
+  });
+
+
+  it('combina validación local y contextual en una sola llamada', () => {
+    const [home, away] = makeSquads(4107);
+    const match = createMatch(4107, 50, { squads: [home, away] });
+    const observation = observed({
+      attackId: ' ',
+      attackerId: 'unknown-attacker',
+      eligibleBlockerIds: getEligibleBlockers(match.teams[1]).map(player => player.id),
+    });
+
+    const codes = validateBlockObservationForMatch(observation, match.teams)
+      .map(issue => issue.code);
+
+    expect(codes).toContain('invalid-attack-id');
+    expect(codes).toContain('attacker-not-in-attacking-team');
+  });
+
+  it('acepta una observación coherente en ambas capas', () => {
+    const [home, away] = makeSquads(4108);
+    const match = createMatch(4108, 50, { squads: [home, away] });
+    const eligible = getEligibleBlockers(match.teams[1]).map(player => player.id);
+    const observation = observed({
+      attackerId: match.teams[0].lineup[3].id,
+      eligibleBlockerIds: eligible,
+      attemptingBlockerIds: [eligible[0]],
+    });
+
+    expect(validateBlockObservationForMatch(observation, match.teams)).toEqual([]);
   });
 
 });
