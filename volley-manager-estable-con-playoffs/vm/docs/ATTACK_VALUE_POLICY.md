@@ -29,6 +29,12 @@ El informe utiliza:
 
 El selector histórico se resume mediante el valor esperado medio de sus objetivos, ponderado por los pesos heredados. La política experimental selecciona el candidato con mayor valor esperado bajo las ecuaciones actuales.
 
+## Diagnóstico por posición
+
+El informe también desglosa, para cada rol atacante elegible (OH, MB y OP), el número de evaluaciones y las medias de valor esperado, kill, error y bloqueo, separando además las evaluaciones de primera línea y zaga. Este desglose sirve para detectar si una política aparentemente mejor está explotando una diferencia de parámetros por rol en vez de una ventaja táctica contextual.
+
+Una concentración extrema de selecciones en una posición se considera una señal para investigar, no una recomendación deportiva. En particular, el bonus `roleKill` es una diferencia agregada por rol y no describe el emparejamiento concreto entre un atacante y los bloqueadores que tiene enfrente.
+
 ## Límites
 
 Esto no demuestra cuál es la mejor decisión en voleibol real. Es una optimización interna al modelo actual, y hereda sus supuestos y errores.
