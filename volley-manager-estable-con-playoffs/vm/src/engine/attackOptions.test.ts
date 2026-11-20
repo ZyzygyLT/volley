@@ -53,4 +53,34 @@ describe('opciones legales de ataque', () => {
 
     expect(options.some(option => option.slot === 4)).toBe(false);
   });
+
+  it('preserva la elegibilidad y la fila de ataque en las seis rotaciones', () => {
+    const [squad] = makeSquads(23);
+
+    for (let rotation = 0; rotation < 6; rotation += 1) {
+      const lineup = [...squad.slice(6 - rotation, 6), ...squad.slice(0, 6 - rotation)];
+      const options = buildAttackOptions(lineup, 0.7, P);
+      const expected = lineup.flatMap((player, slot) => {
+        const frontRow = slot >= 3;
+        const roleAllowed = frontRow || player.role === 'OH' || player.role === 'OP';
+        const weight = P.atkWeight[player.role] * (player.atk / 70)
+          * (frontRow ? 1 : 0.45);
+        return P.atkWeight[player.role] > 0 && roleAllowed && weight > 0
+          ? [{ playerId: player.id, slot, zone: frontRow ? 'front' : 'backrow' }]
+          : [];
+      });
+
+      expect(options.map(option => ({
+        playerId: option.attacker.id,
+        slot: option.slot,
+        zone: option.zone,
+      }))).toEqual(expected);
+      expect(options.every(option =>
+        option.zone === (option.slot >= 3 ? 'front' : 'backrow')
+      )).toBe(true);
+      expect(options.every(option =>
+        option.slot >= 3 || option.attacker.role === 'OH' || option.attacker.role === 'OP'
+      )).toBe(true);
+    }
+  });
 });
