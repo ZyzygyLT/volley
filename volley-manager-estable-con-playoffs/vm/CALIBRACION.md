@@ -12,6 +12,8 @@ Un repositorio sin licencia **no** es de uso libre: por defecto rige el copyrigh
 | Reglamento de clasificación FIVB / Volleyball World | — | 3-0 y 3-1 suman 3; 3-2 suma 2 y la derrota 2-3 suma 1; desempate: puntos, partidos ganados, cociente de sets, cociente de puntos |
 
 **Calidad:** en PlusLiga, Rec_Err = aces del rival (99,7 %), Sum = kills+bloqueos+aces (100 %), Att_Eff = (K−E−B)/Att (100 %). En VNL, Tot = Pt+Err+Att y p = Pt/Tot (100 %); allí el "error" de ataque incluye los bloqueados.
+
+**Límite de identificación por posición:** VNL publica `Err` de ataque como agregado de errores y ataques bloqueados. No permite estimar por separado la tasa de error de ataque y la de bloqueo para cada rol. Por eso `eb.{rol}` se conserva como comparación diagnóstica, pero no ajusta `roleErr`, que solo modifica el error de ataque en el motor. Los valores iniciales de `roleErr` quedan provisionales hasta disponer de datos por posición con ambos desenlaces separados.
 **Columna descartada:** `BP` de PlusLiga **no** es "puntos ganados al saque" (con esa definición el 29 % de los partidos tendría un ganador con menos de 75 puntos; la descripción del dataset dice "puntos en contraataque al saque propio"). Por eso el side-out no se mide con PlusLiga y se valida contra el preprint.
 
 ## Las tres fuentes coinciden
@@ -33,7 +35,7 @@ Un repositorio sin licencia **no** es de uso libre: por defecto rige el copyrigh
 - Plantel de gestión de 13 jugadores (2 colocadores, 4 receptores, 3 centrales, 2 opuestos, 2 líberos) con alineación elegible.
 
 ## Resultados (`npm test` / `scripts/calibrate-cli.ts report`): 47 de 47
-41 de ajuste (nivel de liga PlusLiga + diferencias por posición VNL) y **6 de validación independiente**: side-out 68,2 % (preprint 65–70 %), ataques por rally 1,14 (PlusLiga 1,13), rallies por set 44,9 (PlusLiga 45,0) y la **composición del final de los rallies** (ver abajo). Tolerancias elegidas por el autor del proyecto.
+41 métricas comparadas con objetivos (nivel de liga PlusLiga + diferencias por posición VNL; las métricas VNL `error+bloqueado` por rol son diagnósticas y no se usan para ajustar `roleErr`) y **6 de validación independiente**: side-out 68,2 % (preprint 65–70 %), ataques por rally 1,14 (PlusLiga 1,13), rallies por set 44,9 (PlusLiga 45,0) y la **composición del final de los rallies** (ver abajo). Tolerancias elegidas por el autor del proyecto.
 
 ### Cómo terminan los rallies (validación independiente de las tasas por acción)
 | Final del rally | PlusLiga (106.556 rallies) | Motor |
