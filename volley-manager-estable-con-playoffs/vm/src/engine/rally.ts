@@ -21,7 +21,7 @@ export function playRally(teams: [Team, Team], serving: Side, rnd: () => number,
   const effR = effective(teams[r]);
   const pas = pick(effR.filter(x => p.recWeight[x.role] > 0).map(x => [x, p.recWeight[x.role]] as [Player, number]), rnd);
   const ev: Ev[] = [];
-  const trace: Trace = { serve: 'in', serveType: sv.serveType, atks: [], ev, capped: false };
+  const trace: Trace = { serve: 'in', serveType: sv.serveType, atks: [], ev, capped: false, setPlayObservations: [] };
 
   const pErr = cl(ty.err + p.serveErrOff + p.roleServeErr[sv.role] + p.errRisk * kr - (sv.srv - 70) * p.errSrvW - (sv.cons - 70) * p.errConsW, 0.005, 0.5);
   if (rnd() < pErr) {
