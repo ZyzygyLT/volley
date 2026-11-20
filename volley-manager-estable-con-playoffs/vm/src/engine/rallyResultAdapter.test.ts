@@ -10,8 +10,7 @@ const result = (overrides: Partial<RallyResult> = {}): RallyResult => ({
     serveType: 'FS',
     atks: [],
     ev: [],
-    capped: false
-  },
+    },
   termination: { kind: 'fault', responsibleTeam: 0 },
   ...overrides
 });
