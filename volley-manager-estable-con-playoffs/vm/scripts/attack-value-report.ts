@@ -15,6 +15,11 @@ const PHASES = ['k1', 'k2'] as const;
 const roleCounts = (): Record<Role, number> => ({ S: 0, OH: 0, MB: 0, OP: 0, L: 0 });
 const legacyRoles = roleCounts();
 const expectedPolicyRoles = roleCounts();
+const neutralRoleKillPolicyRoles = roleCounts();
+const neutralRoleKillParams = {
+  ...P,
+  roleKill: { S: 0, OH: 0, MB: 0, OP: 0, L: 0 },
+};
 const candidateOutcomeByRole = Object.fromEntries(
   (['OH', 'MB', 'OP'] as const).map(role => [role, {
     evaluations: 0, expectedPointValue: 0, kill: 0, error: 0, blocked: 0, front: 0, backrow: 0,
@@ -37,6 +42,7 @@ const byReception = Object.fromEntries(RECEPTIONS.map(({ label }) => [label, {
 let contextsCount = 0;
 let legacyTotal = 0;
 let bestTotal = 0;
+let neutralRoleKillBestTotal = 0;
 let totalCandidates = 0;
 
 for (let rosterIndex = 0; rosterIndex < ROSTERS; rosterIndex += 1) {
@@ -76,10 +82,13 @@ for (let rosterIndex = 0; rosterIndex < ROSTERS; rosterIndex += 1) {
           sum + item.outcome.expectedPointValue * item.candidate.weight / totalWeight, 0,
         );
         const best = selectBestExpectedAttack(candidates, context);
+        const neutralRoleKillContext = { ...context, params: neutralRoleKillParams };
+        const neutralRoleKillBest = selectBestExpectedAttack(candidates, neutralRoleKillContext);
         const receptionRow = byReception[reception.label];
 
         legacyTotal += legacyExpected;
         bestTotal += best.outcome.expectedPointValue;
+        neutralRoleKillBestTotal += neutralRoleKillBest.outcome.expectedPointValue;
         receptionRow.legacyExpectedPointValue += legacyExpected;
         receptionRow.bestExpectedPointValue += best.outcome.expectedPointValue;
         receptionRow.contexts += 1;
@@ -95,6 +104,7 @@ for (let rosterIndex = 0; rosterIndex < ROSTERS; rosterIndex += 1) {
           diagnostic[item.candidate.zone === 'front' ? 'front' : 'backrow'] += 1;
         }
         expectedPolicyRoles[best.candidate.attacker.role] += 1;
+        neutralRoleKillPolicyRoles[neutralRoleKillBest.candidate.attacker.role] += 1;
         contextsCount += 1;
       }
     }
@@ -135,6 +145,11 @@ console.log(JSON.stringify({
   meanDifference: rounded((bestTotal - legacyTotal) / contextsCount),
   legacyWeightedRoleShare: roleShare(legacyRoles, contextsCount),
   bestExpectedRoleShare: roleShare(expectedPolicyRoles, contextsCount),
+  counterfactualWithoutRoleKill: {
+    description: 'Same candidates and equations, but roleKill is set to zero for every role; diagnostic only, not a proposed calibration.',
+    meanBestExpectedPointValue: rounded(neutralRoleKillBestTotal / contextsCount),
+    bestExpectedRoleShare: roleShare(neutralRoleKillPolicyRoles, contextsCount),
+  },
   candidateOutcomeByRole: candidateOutcomeSummary,
   byReception,
   candidatesEvaluated: totalCandidates,
