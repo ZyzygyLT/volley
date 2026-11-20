@@ -223,7 +223,7 @@ describe('rally rule state: explicit transitions', () => {
     const terminal = transitionRallyRuleState(
       createRallyRuleState(0),
       action(1, 0),
-      { continues: false, pointWinner: 0 }
+      { continues: false, pointWinner: 0, termination: { kind: 'winning-action', responsibleTeam: 0 } }
     );
     const next = transitionRallyRuleState(terminal.state!, action(2, 0), { continues: true, nextTeam: 0 });
     expect(next.issues.map(issue => issue.code)).toContain('rally-already-finished');
