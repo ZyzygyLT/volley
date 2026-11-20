@@ -24,8 +24,7 @@ describe('rally rule state: explicit transitions', () => {
       status: 'in-play',
       nextTeam: 0,
       hits: { 0: 0, 1: 0 },
-      lastContactTeam: null,
-      lastContactPlayerIds: [],
+      lastActionContactPlayerIdsByTeam: { 0: [], 1: [] },
       postBlockFirstHitPendingFor: null,
       nextActionOrder: 1,
       pointWinner: null,
@@ -228,7 +227,7 @@ describe('rally rule state: explicit transitions', () => {
     state = transitionRallyRuleState(state, action(1, 0, 'reception', 'p1'), { continues: true, nextTeam: 0 }).state!;
     const result = transitionRallyRuleState(state, action(2, 0, 'set', 'p2'), { continues: true, nextTeam: 0 });
     expect(result.issues).toEqual([]);
-    expect(result.state?.lastContactPlayerIds).toEqual(['p2']);
+    expect(result.state?.lastActionContactPlayerIdsByTeam[0]).toEqual(['p2']);
   });
 
   it('allows the blocker to make the first hit after the own block', () => {
@@ -287,6 +286,38 @@ describe('rally rule state: explicit transitions', () => {
     );
     expect(result.state).toBeNull();
     expect(result.issues.map(issue => issue.code)).toContain('invalid-first-team-hit-context');
+  });
+
+  it('remembers contacts from both teams in an opponent simultaneous action', () => {
+    const simultaneous: CompoundRallyAction = {
+      ...action(1, 0),
+      opponentSimultaneousOverNet: true,
+      receivingTeam: 1,
+      groups: [{
+        relation: 'simultaneous',
+        contacts: [
+          { playerId: 'attacker', team: 0 },
+          { playerId: 'blocker', team: 1 }
+        ]
+      }]
+    };
+    const first = transitionRallyRuleState(
+      createRallyRuleState(0),
+      simultaneous,
+      { continues: true, nextTeam: 1 }
+    );
+    expect(first.issues).toEqual([]);
+    expect(first.state?.lastActionContactPlayerIdsByTeam).toEqual({
+      0: ['attacker'],
+      1: ['blocker']
+    });
+    const repeated = transitionRallyRuleState(
+      first.state!,
+      action(2, 1, 'defense', 'blocker'),
+      { continues: true, nextTeam: 1 }
+    );
+    expect(repeated.state).toBeNull();
+    expect(repeated.issues.map(issue => issue.code)).toContain('same-player-consecutive-hit');
   });
 
   it('remembers every player in a simultaneous teammate contact group', () => {
