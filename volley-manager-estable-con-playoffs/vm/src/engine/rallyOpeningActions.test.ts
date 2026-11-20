@@ -18,8 +18,7 @@ function result(serve: Trace['serve'], includeReception: boolean, receptionError
       serveType: 'FS',
       atks: [],
       ev,
-      capped: false
-    }
+      }
   };
 }
 
