@@ -4,10 +4,20 @@ import { simulateSeason } from './playoffs';
 import { validateLineup, MIN_BY_ROLE, ROSTER_SLOTS, MAX_ROSTER, lineupToSquad, overall } from './roster';
 import { ECON } from './economy';
 import { AGE, retireProb } from './ages';
-import { progressPlayer } from './offseason';
+import { makeYouth, progressPlayer } from './offseason';
 import { mulberry32 } from '../engine/rng';
 import { deserialize, serialize } from './save';
 const playSeason = (seed: number) => simulateSeason(newGame(seed));
+describe('perfiles de saque de la cantera', () => {
+  it('alterna las plazas de central y conserva el perfil flotado en el segundo puesto', () => {
+    const jump = makeYouth(mulberry32(101), 'MB', 'y-mb-1', new Set(), 0, 0);
+    const floating = makeYouth(mulberry32(102), 'MB', 'y-mb-2', new Set(), 0, 1);
+    expect(jump.serveType).toBe('JS');
+    expect(floating.serveType).not.toBe('JS');
+    expect(floating.serveType === 'JFS' || floating.serveType === 'FS').toBe(true);
+  });
+});
+
 describe('edades, progresión, retiros y fichajes de la computadora', () => {
   it('las edades iniciales siguen la distribución por posición de VNL y están entre 18 y 40', () => {
     const by: Record<string, number[]> = {};
