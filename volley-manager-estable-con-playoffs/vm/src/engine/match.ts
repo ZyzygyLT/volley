@@ -6,6 +6,13 @@ import { applyEvents } from './stats';
 
 /** Orden de un plantel: 6 titulares (S, OH, MB, OP, OH, MB) + líbero. Los ids siguen este orden. */
 export const ROLES7: Role[] = ['S', 'OH', 'MB', 'OP', 'OH', 'MB', 'L'];
+
+/** Devuelve el lado del equipo dentro de un partido; null si no participa. */
+export function sideForTeam(match: MatchState, teamName: string): Side | null {
+  if (match.teams[0].name === teamName) return 0;
+  if (match.teams[1].name === teamName) return 1;
+  return null;
+}
 export const roleOfId = (id: string): Role => ROLES7[+id.slice(1) % 7];
 type Base = Omit<Player, 'id' | 'name' | 'role' | 'serveType'>;
 // Valoraciones medias por rol. Las diferencias de rendimiento entre posiciones (p. ej. el ataque del central) viven en
