@@ -147,3 +147,14 @@ Cuando el estado es `observed`, el contrato registra por separado:
 La validación comprueba identidad del ataque, separación de equipos, IDs no vacíos y únicos (con errores diferenciados para IDs vacíos y duplicados), pertenencia de participantes al conjunto elegible y coherencia entre participantes y contactos. No selecciona participantes, no deduce carriles, no determina matchups y no evalúa la calidad táctica. La procedencia queda identificada como `tactical-model` o `external-observation`.
 
 Este contrato es una frontera de datos y una base para pruebas; **no es todavía un sistema táctico que genere intentos**. La política que produzca `attemptingBlockerIds` sigue pendiente de definición y calibración. El motor probabilístico legado permanece sin cambios.
+
+
+## Validación contextual de referencias
+
+Se añadió `validateBlockObservationContext` como comprobación separada de la validación local. Recibe las dos alineaciones actuales del partido y comprueba que:
+
+- el atacante pertenezca a la alineación actual del equipo atacante;
+- la lista declarada de elegibles coincida con los tres ocupantes actuales de primera línea del equipo defensor;
+- una observación `unavailable` siga permitiendo validar la identidad del atacante sin exigir datos de elegibilidad.
+
+Esto detecta observaciones desactualizadas después de una rotación o sustitución. No genera intentos, no asigna emparejamientos y no modifica el rally ni sus probabilidades.

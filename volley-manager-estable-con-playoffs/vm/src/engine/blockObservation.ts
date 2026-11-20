@@ -1,5 +1,7 @@
 import type { ContactGroup } from './compoundContacts';
 import type { RallySide } from './rallySequence';
+import { getEligibleBlockers } from './blockEligibility';
+import type { Team } from './types';
 
 /**
  * Observación defensiva vinculada a un ataque concreto.
@@ -49,7 +51,10 @@ export type BlockObservationIssueCode =
   | 'empty-contact-group'
   | 'invalid-contact-group-size'
   | 'contact-team-mismatch'
-  | 'contact-without-attempt';
+  | 'contact-without-attempt'
+  | 'attacker-not-in-attacking-team'
+  | 'invalid-defending-lineup'
+  | 'eligible-blockers-do-not-match-lineup';
 
 export interface BlockObservationIssue {
   code: BlockObservationIssueCode;
@@ -128,6 +133,62 @@ export function validateBlockObservation(
       }
     }
   });
+
+  return issues;
+}
+
+
+/**
+ * Valida referencias contra las alineaciones actuales del partido.
+ *
+ * A diferencia de validateBlockObservation, esta comprobación necesita el
+ * contexto de ambos equipos. La elegibilidad declarada debe coincidir con
+ * los tres ocupantes actuales de primera línea del equipo defensor.
+ */
+export function validateBlockObservationContext(
+  observation: BlockObservation,
+  teams: [Team, Team]
+): BlockObservationIssue[] {
+  const issues: BlockObservationIssue[] = [];
+
+  if ((observation.attackingTeam !== 0 && observation.attackingTeam !== 1) ||
+      (observation.defendingTeam !== 0 && observation.defendingTeam !== 1) ||
+      observation.attackingTeam === observation.defendingTeam) {
+    return issues;
+  }
+
+  const attackingTeam = teams[observation.attackingTeam];
+  const defendingTeam = teams[observation.defendingTeam];
+
+  if (!attackingTeam.lineup.some(player => player.id === observation.attackerId)) {
+    issues.push({
+      code: 'attacker-not-in-attacking-team',
+      message: 'El atacante debe pertenecer a la alineación actual del equipo atacante.',
+    });
+  }
+
+  if (observation.status === 'unavailable') return issues;
+
+  let expectedEligibleIds: string[];
+  try {
+    expectedEligibleIds = getEligibleBlockers(defendingTeam).map(player => player.id);
+  } catch {
+    issues.push({
+      code: 'invalid-defending-lineup',
+      message: 'No se puede validar la observación porque la alineación defensora no es válida.',
+    });
+    return issues;
+  }
+
+  const declared = new Set(observation.eligibleBlockerIds);
+  const expected = new Set(expectedEligibleIds);
+  if (declared.size !== expected.size ||
+      [...expected].some(id => !declared.has(id))) {
+    issues.push({
+      code: 'eligible-blockers-do-not-match-lineup',
+      message: 'Los elegibles declarados deben coincidir con los tres jugadores actuales de primera línea.',
+    });
+  }
 
   return issues;
 }

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { createMatch, makeSquads, substitute } from './match';
+import { getEligibleBlockers } from './blockEligibility';
 import {
   validateBlockObservation,
   type BlockObservation,
   type ObservedBlockAttempt,
+  validateBlockObservationContext,
 } from './blockObservation';
 
 const observed = (overrides: Partial<ObservedBlockAttempt> = {}): ObservedBlockAttempt => ({
