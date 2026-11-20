@@ -98,3 +98,33 @@ No comenzar la integración hasta que se cumplan todas:
 ## Conclusión
 
 El repositorio ya tiene un contrato útil para describir contactos colectivos de bloqueo una vez conocidos, pero no un modelo del intento defensivo ni un vínculo con el ataque. La ruta de menor riesgo es ampliar la simulación táctica para producir esa observación antes del desenlace y reutilizar los contratos de contacto existentes solo para los hechos físicos que realmente representan. Hasta entonces, el modelo probabilístico agregado debe permanecer intacto.
+
+
+## Qué permite afirmar la alineación actual (y qué no)
+
+La estructura de `Team.lineup` documenta una asignación rotacional concreta:
+
+- `lineup[0]`: zona 1 (saque);
+- `lineup[1]`: zona 6;
+- `lineup[2]`: zona 5;
+- `lineup[3]`: zona 4;
+- `lineup[4]`: zona 3;
+- `lineup[5]`: zona 2.
+
+Por tanto, `rally.ts` puede identificar los tres jugadores que están en primera línea en cada rotación. Eso permite construir, en una fase futura, un **conjunto de candidatos reglamentariamente disponibles** para un intento de bloqueo. No identifica quién salta, quién toma al atacante ni quién cierra un espacio.
+
+Hay además dos límites relevantes:
+
+- `effective(team)` sustituye al central de zaga por el líbero para recepción/defensa. No debe usarse como fuente de participantes del bloqueo: el bloqueo corresponde a jugadores delanteros y la lista de candidatos debe derivarse de la alineación y de las reglas de elegibilidad, no de la zaga efectiva.
+- `AttackOption.slot` y `AttackOption.zone` identifican la posición rotacional y la distinción primera línea/zaga del atacante. No son carriles de ataque, coordenadas de salto ni dirección de golpeo.
+
+En consecuencia, la información actual permite conocer **quién podría estar disponible para bloquear**, pero no **quién participó realmente**. Elegir automáticamente uno, dos o tres jugadores de ese conjunto sería una nueva política táctica, no una observación derivada del código existente.
+
+## Próxima unidad de modelado recomendada
+
+Antes de implementar una política de selección, separar el problema en dos etapas:
+
+1. **Elegibilidad:** derivar de la rotación los jugadores que pueden participar en el bloqueo, sin RNG y sin asignarles un atacante.
+2. **Asignación/intento:** representar quién se compromete contra un ataque concreto, únicamente cuando exista una regla táctica explícita (por ejemplo, sistema de bloqueo definido) o datos observados que permitan establecerlo.
+
+La primera etapa puede probarse con las seis rotaciones y con sustituciones/libero. La segunda no debe inferirse de la elegibilidad, de los roles nominales ni del resultado del ataque. Tampoco debe cambiar todavía las probabilidades.
