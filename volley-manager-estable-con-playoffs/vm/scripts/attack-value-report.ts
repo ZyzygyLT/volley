@@ -79,7 +79,7 @@ for (let rosterIndex = 0; rosterIndex < ROSTERS; rosterIndex += 1) {
         legacyRoles.S += 0;
         for (const item of candidates) {
           totalCandidates += 1;
-          legacyRoles[item.candidate.attacker.role] += item.candidate.weight / totalWeight;
+          legacyRoles[item.attacker.role] += item.weight / totalWeight;
         }
         expectedPolicyRoles[best.candidate.attacker.role] += 1;
         contextsCount += 1;
