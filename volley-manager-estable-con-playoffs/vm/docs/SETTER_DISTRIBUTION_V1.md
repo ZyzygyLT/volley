@@ -2,8 +2,8 @@
 
 ## Estado
 
-Diseño aprobado para implementación aislada. No integrado en `rally.ts`.
-Esta versión define límites y contratos; no afirma estar calibrada con datos de partidos.
+Implementación aislada disponible en `setDecision.ts`, con pruebas unitarias. No integrada en `rally.ts`.
+Es una referencia determinista de ingeniería, no una política calibrada ni una representación validada de decisiones reales de colocadores.
 
 ## Objetivo
 
@@ -42,9 +42,9 @@ La habilidad `set` no se utilizará todavía como calidad de decisión ni como p
 La primera implementación será una política de referencia neutral:
 - solo elegirá entre candidatos estructuralmente disponibles;
 - no favorecerá artificialmente un rol ni inventará ventajas de central, punta u opuesto;
-- usará la valoración de ataque existente únicamente como atributo observable, sin convertirla por sí sola en una probabilidad deportiva;
-- documentará explícitamente cualquier criterio de desempate;
-- recibirá el RNG como argumento solo si la política finalmente necesita aleatoriedad.
+- elegirá el candidato con mayor atributo `atk` como baseline determinista y explícito; esto no significa que un colocador real siempre deba elegir al mejor atacante;
+- en empate conservará el primer candidato en el orden recibido;
+- no convertirá `atk` en una probabilidad deportiva ni consumirá RNG.
 
 Esta referencia permitirá medir el efecto de introducir una elección explícita sin mezclarla con supuestos tácticos no observables.
 
@@ -61,15 +61,19 @@ Los coeficientes de preferencia serán parámetros marcados como `[DISEÑO]`, no
 
 ## Contrato de implementación
 
-La función de decisión:
-- recibe `AttackContext` o perfiles construidos desde él;
+La función `decideSetTarget`:
+- recibe perfiles construidos desde `AttackContext`;
 - devuelve el candidato elegido y un motivo/código de decisión;
 - no muta ninguna entrada;
 - falla de forma explícita si no hay candidatos;
 - no consume RNG si la política es determinista;
 - no escribe eventos ni modifica el rally en esta etapa.
 
-## Pruebas requeridas
+## Pruebas implementadas
+
+El módulo aislado y sus pruebas cubren: máximo `atk`, desempate estable por orden, error sin candidatos, determinismo, ausencia de mutación y pertenencia del resultado al conjunto de entrada. Los tests de perfiles/objetivos cubren además la exclusión del colocador y la estructura de candidatos.
+
+## Pruebas requeridas para completar la fase
 
 1. No elige al colocador como atacante de colocación.
 2. Nunca devuelve un jugador que no esté entre los candidatos.
