@@ -115,7 +115,10 @@ export function validateCompoundAction(
       if (action.kind === 'block') blockTeams.add(contact.team);
     }
 
-    if (group.relation !== 'simultaneous' && group.contacts.some(contact => contact.team !== action.actingTeam)) {\n      issues.push(issue(action, 'contact-team-mismatch', 'Los contactos de otro equipo solo se admiten en el grupo simultáneo adversario explícito.', groupIndex));\n    }\n    if (group.relation === 'single' && group.contacts.length !== 1) {
+    if (group.relation !== 'simultaneous' && group.contacts.some(contact => contact.team !== action.actingTeam)) {
+      issues.push(issue(action, 'contact-team-mismatch', 'Los contactos de otro equipo solo se admiten en el grupo simultáneo adversario explícito.', groupIndex));
+    }
+    if (group.relation === 'single' && group.contacts.length !== 1) {
       issues.push(issue(action, 'invalid-simultaneous-group', 'Un grupo single debe contener exactamente un contacto.', groupIndex));
     }
     if (group.relation === 'simultaneous' && group.contacts.length < 2) {
@@ -143,7 +146,13 @@ export function validateCompoundAction(
   if (action.isFirstHitAfterOwnBlock && action.kind === 'block') {
     issues.push(issue(action, 'invalid-first-hit-context', 'El primer golpe posterior al bloqueo no puede ser la propia acción de bloqueo.'));
   }
-  if (action.opponentSimultaneousOverNet && action.receivingTeam !== 0 && action.receivingTeam !== 1) {\n    issues.push(issue(action, 'invalid-opponent-simultaneous-context', 'Debe indicarse explícitamente qué equipo recibe el balón.'));\n  }\n  if (!action.opponentSimultaneousOverNet && action.receivingTeam !== undefined) {\n    issues.push(issue(action, 'unexpected-receiving-team', 'El equipo receptor solo se especifica para el contacto simultáneo adversario sobre la red.'));\n  }\n  if (action.opponentSimultaneousOverNet && !hasOpponent) {
+  if (action.opponentSimultaneousOverNet && action.receivingTeam !== 0 && action.receivingTeam !== 1) {
+    issues.push(issue(action, 'invalid-opponent-simultaneous-context', 'Debe indicarse explícitamente qué equipo recibe el balón.'));
+  }
+  if (!action.opponentSimultaneousOverNet && action.receivingTeam !== undefined) {
+    issues.push(issue(action, 'unexpected-receiving-team', 'El equipo receptor solo se especifica para el contacto simultáneo adversario sobre la red.'));
+  }
+  if (action.opponentSimultaneousOverNet && !hasOpponent) {
     issues.push(issue(action, 'invalid-opponent-simultaneous-context', 'El contexto adversario requiere contactos de ambos equipos.'));
   }
   if (action.opponentSimultaneousOverNet &&
