@@ -12,6 +12,19 @@ export interface Player {
 export interface Team { name: string; lineup: Player[]; libero: Player; risk: number }
 export interface Stats { ace: number; kill: number; blk: number; err: number }
 export type AtkOut = 'kill' | 'err' | 'blk' | 'cont';
+/**
+ * Observación del objetivo ofensivo seleccionado por el selector heredado.
+ * No representa un contacto físico de colocación ni una decisión táctica
+ * calibrada del colocador.
+ */
+export interface SetPlayObservation {
+  phase: 'k1' | 'k2';
+  setterId: string;
+  selectedAttackerId: string;
+  selection: 'teammate-target' | 'setter-second-touch';
+  source: 'legacy-weighted-target-selector';
+  receptionQuality: 'perfect' | 'positive' | 'negative';
+}
 /** Eventos individuales de un rally: base de las estadísticas por jugador. */
 export type Ev =
   | { k: 'serve'; p: string; t: ServeType; o: 'ace' | 'err' | 'in' }
@@ -23,7 +36,7 @@ export type Ev =
 export interface Trace {
   serve: 'ace' | 'err' | 'in'; serveType: ServeType;
   atks: { phase: 'k1' | 'k2'; out: AtkOut; q: number; swap?: boolean }[];
-  ev: Ev[]; capped: boolean;
+  ev: Ev[]; capped: boolean;\n  /** Observaciones tácticas del selector; no son contactos físicos ni eventos estadísticos. */\n  setPlayObservations?: SetPlayObservation[];
 }
 export type RallyTermination =
   | { kind: 'fault'; responsibleTeam: Side }
