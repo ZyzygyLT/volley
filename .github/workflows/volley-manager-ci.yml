@@ -38,3 +38,38 @@ jobs:
         run: npm run attack-value:report
       - name: Type-check and production build
         run: npm run build
+
+  browser-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: volley-manager-estable-con-playoffs/vm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Build standalone browser app
+        run: npm run build:single
+      - name: Install Playwright
+        run: python -m pip install playwright
+      - name: Install Chromium and system dependencies
+        run: python -m playwright install --with-deps chromium
+      - name: Run browser smoke tests
+        run: |
+          python -m http.server 8765 --directory dist >/tmp/volley-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8765/volley-manager.html >/dev/null; then break; fi
+            sleep 1
+          done
+          python scripts/ui-test.py
