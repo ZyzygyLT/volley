@@ -30,8 +30,10 @@ Esta hoja de ruta ordena el trabajo para combinar manager y simulador sin desest
 - [ ] Modelar lectura y formación del bloqueo.
 - [ ] Hacer más explícita la cobertura y la transición defensa-ataque.
 - [ ] Exponer eventos comprensibles para narración y estadísticas.
+- [ ] Definir un contrato de acciones compuestas, contactos simultáneos y golpes contabilizables.
+- [ ] Implementar y probar ese contrato de forma aislada, sin conectarlo aún al rally.
 
-**Criterio de salida:** dos equipos con plantillas iguales pueden jugar distinto por sus decisiones tácticas, no solo por pequeñas variaciones probabilísticas.
+**Criterio de salida:** dos equipos con plantillas iguales pueden jugar distinto por sus decisiones tácticas, no solo por pequeñas variaciones probabilísticas; los hechos del rally pueden expresarse sin inventar contactos.
 
 ## Fase 3 — Manager profundo
 
