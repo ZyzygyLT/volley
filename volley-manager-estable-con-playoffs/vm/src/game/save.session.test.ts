@@ -65,7 +65,7 @@ describe('sesiones con partido en curso', () => {
   });
 
   it('valida el orden de localía alterna en el segundo partido de playoffs', () => {
-    const first = startPlayoffs(completeRegular(95));
+    const first = startPlayoffs(completeRegular(91));
     const afterOneDay = finishPlayoffDay(first);
     const series = userSeries(afterOneDay)!;
     expect(series.games).toHaveLength(1);
