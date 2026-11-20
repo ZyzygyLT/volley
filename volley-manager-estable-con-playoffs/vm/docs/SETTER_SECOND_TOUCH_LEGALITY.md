@@ -17,7 +17,7 @@ https://www.fivb.com/wp-content/uploads/2025/01/FIVB-Volleyball_Rules2025_2028-S
 1. Un contacto que dirige el balón al adversario es un golpe de ataque, aunque sea el segundo toque del equipo.
 2. Un jugador delantero puede completar el golpe a cualquier altura, dentro de su propio espacio de juego.
 3. Un jugador zaguero puede atacar desde detrás de la zona de frente si despega sin tocar ni cruzar la línea de ataque. Puede aterrizar en la zona de frente después del golpe.
-4. Un jugador zaguero que despega desde la zona de frente solo puede completar el ataque si, al contacto, una parte del balón está por debajo del borde superior de la red.
+4. Un jugador zaguero que despega desde la zona de frente solo puede completar el ataque si, al contacto, el balón no está completamente por encima del borde superior de la red (es decir, alguna parte está a la altura de la red o por debajo).
 5. Ningún jugador puede completar un ataque sobre el saque adversario cuando el balón está en zona de frente y completamente más alto que el borde superior de la red.
 
 ## Geometría explícita
