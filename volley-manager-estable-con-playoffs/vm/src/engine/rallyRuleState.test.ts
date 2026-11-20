@@ -105,6 +105,50 @@ describe('rally rule state: explicit transitions', () => {
     expect(result.state?.hits[1]).toBe(0);
   });
 
+  it('requires the receiving team to be the next team after simultaneous opponents over the net', () => {
+    const simultaneous: CompoundRallyAction = {
+      ...action(1, 0),
+      opponentSimultaneousOverNet: true,
+      receivingTeam: 1,
+      groups: [{
+        relation: 'simultaneous',
+        contacts: [
+          { playerId: 'p0', team: 0 },
+          { playerId: 'p1', team: 1 }
+        ]
+      }]
+    };
+    const result = transitionRallyRuleState(
+      createRallyRuleState(0),
+      simultaneous,
+      { continues: true, nextTeam: 0 }
+    );
+    expect(result.state).toBeNull();
+    expect(result.issues.map(issue => issue.code)).toContain('invalid-opponent-simultaneous-transition');
+  });
+
+  it('requires the ball to remain in play for the simultaneous-over-net allowance reset', () => {
+    const simultaneous: CompoundRallyAction = {
+      ...action(1, 0),
+      opponentSimultaneousOverNet: true,
+      receivingTeam: 1,
+      groups: [{
+        relation: 'simultaneous',
+        contacts: [
+          { playerId: 'p0', team: 0 },
+          { playerId: 'p1', team: 1 }
+        ]
+      }]
+    };
+    const result = transitionRallyRuleState(
+      createRallyRuleState(0),
+      simultaneous,
+      { continues: false, pointWinner: 0 }
+    );
+    expect(result.state).toBeNull();
+    expect(result.issues.map(issue => issue.code)).toContain('invalid-opponent-simultaneous-transition');
+  });
+
   it('rejects an action by a team that is not authorized to act', () => {
     const result = transitionRallyRuleState(
       createRallyRuleState(0),
