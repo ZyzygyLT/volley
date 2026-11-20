@@ -46,7 +46,10 @@ for (let rosterIndex = 0; rosterIndex < ROSTERS; rosterIndex += 1) {
       const attackContext = buildAttackContext(lineup, reception.value, P);
       const setter = attackContext.setter?.player;
       const frontBlockers = defense.slice(3);
-      const backDefenders = defense.slice(0, 3);
+      const effectiveDefense = defense.map((player, slot) =>
+        player.role === 'MB' && slot <= 2 ? opponent[6] : player,
+      );
+      const backDefenders = effectiveDefense.slice(0, 3);
       const evaluationContext = {
         phase: 'k1' as const,
         receptionValue: reception.value,
