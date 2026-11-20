@@ -10,6 +10,11 @@ export interface RallyRuleState {
   nextTeam: RallySide;
   /** Golpes consumidos en el derecho vigente de cada equipo. */
   hits: Readonly<Record<RallySide, number>>;
+  /** Últimos jugadores que tocaron el balón en una acción del último equipo actuante. */
+  lastContactTeam: RallySide | null;
+  lastContactPlayerIds: readonly string[];
+  /** Sigue vigente hasta que ese equipo realice su primer golpe posterior al bloqueo. */
+  postBlockFirstHitPendingFor: RallySide | null;
   nextActionOrder: number;
   pointWinner: RallySide | null;
   lastActionId: string | null;
@@ -29,6 +34,7 @@ export interface RallyStateIssue {
     | 'wrong-acting-team'
     | 'invalid-action'
     | 'too-many-team-hits'
+    | 'same-player-consecutive-hit'
     | 'missing-next-team'
     | 'unexpected-next-team'
     | 'missing-point-winner'
@@ -47,6 +53,9 @@ export function createRallyRuleState(firstTeam: RallySide): RallyRuleState {
     status: 'in-play',
     nextTeam: firstTeam,
     hits: { 0: 0, 1: 0 },
+    lastContactTeam: null,
+    lastContactPlayerIds: [],
+    postBlockFirstHitPendingFor: null,
     nextActionOrder: 1,
     pointWinner: null,
     lastActionId: null
@@ -56,9 +65,11 @@ export function createRallyRuleState(firstTeam: RallySide): RallyRuleState {
 /**
  * Aplica una acción compuesta al estado reglamentario.
  *
- * El módulo valida el orden y los golpes, pero exige que el simulador
- * proporcione el equipo que continúa y si el rally terminó. No calcula
- * trayectorias, posesión física, legalidad espacial ni el ganador del rally.
+ * Valida orden, equipo, golpes y la restricción de jugador consecutivo.
+ * La excepción del primer golpe después del bloqueo se deriva del historial
+ * de bloqueos del propio estado; no se acepta una bandera externa como prueba.
+ *
+ * El simulador sigue proporcionando nextTeam y el resultado del rally.
  */
 export function transitionRallyRuleState(
   state: RallyRuleState,
@@ -82,6 +93,30 @@ export function transitionRallyRuleState(
   const derivation = deriveTeamHits(action);
   if (derivation.issues.length > 0) {
     add('invalid-action', 'La acción compuesta contiene hechos inválidos o insuficientes.');
+  }
+
+  const actionPlayerIds = [...new Set(
+    action.groups.flatMap(group =>
+      group.contacts
+        .filter(contact => contact.team === action.actingTeam)
+        .map(contact => contact.playerId)
+    )
+  )];
+
+  const isOwnFirstHitAfterBlock =
+    action.kind !== 'block' &&
+    state.postBlockFirstHitPendingFor === action.actingTeam;
+
+  if (
+    action.kind !== 'block' &&
+    !isOwnFirstHitAfterBlock &&
+    state.lastContactTeam === action.actingTeam &&
+    actionPlayerIds.some(playerId => state.lastContactPlayerIds.includes(playerId))
+  ) {
+    add(
+      'same-player-consecutive-hit',
+      'Un jugador no puede realizar dos golpes consecutivos; la excepción post-bloqueo debe proceder del estado.'
+    );
   }
 
   if (result.continues) {
@@ -114,20 +149,30 @@ export function transitionRallyRuleState(
   // al equipo bloqueador (FIVB 14.4.1).
   if (derivation.isBlock) hits[action.actingTeam] = 0;
 
-  // El contacto simultáneo adversario reinicia el derecho del equipo receptor.
   if (derivation.allowanceResetFor !== null) {
     hits[derivation.allowanceResetFor] = 0;
   }
 
   if (result.continues && result.nextTeam !== action.actingTeam) {
-    // Al recibir la siguiente acción del rival comienza un nuevo derecho.
     hits[result.nextTeam!] = 0;
+  }
+
+  // El bloqueo deja pendiente la excepción para el primer golpe posterior
+  // de ese equipo, incluso si antes juega el adversario.
+  let postBlockFirstHitPendingFor = state.postBlockFirstHitPendingFor;
+  if (derivation.isBlock) {
+    postBlockFirstHitPendingFor = action.actingTeam;
+  } else if (isOwnFirstHitAfterBlock) {
+    postBlockFirstHitPendingFor = null;
   }
 
   const nextState: RallyRuleState = {
     status: result.continues ? 'in-play' : 'finished',
     nextTeam: result.continues ? result.nextTeam! : state.nextTeam,
     hits,
+    lastContactTeam: action.actingTeam,
+    lastContactPlayerIds: actionPlayerIds,
+    postBlockFirstHitPendingFor,
     nextActionOrder: state.nextActionOrder + 1,
     pointWinner: result.continues ? null : result.pointWinner!,
     lastActionId: action.actionId
