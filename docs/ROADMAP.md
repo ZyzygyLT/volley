@@ -32,7 +32,7 @@ Esta hoja de ruta ordena el trabajo para combinar manager y simulador sin desest
 - [ ] Exponer eventos comprensibles para narración y estadísticas.
 - [x] Definir el contrato de acciones compuestas y contactos simultáneos.
 - [x] Implementar validación local y derivación inicial de golpes, aisladas del rally.
-- [ ] Diseñar la máquina de estados global de golpes, excepciones y equipo que continúa.
+- [x] Implementar una máquina de estados aislada para orden, golpes acumulados, equipo autorizado y terminación explícita.\n- [ ] Ampliar excepciones FIVB y validar las transiciones contra hechos producidos por la simulación.
 
 **Criterio de salida:** dos equipos con plantillas iguales pueden jugar distinto por sus decisiones tácticas, y los hechos del rally pueden expresarse sin inventar contactos.
 
