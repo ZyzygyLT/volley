@@ -80,6 +80,25 @@ describe('compound rally contacts: isolated model', () => {
     expect(result).toMatchObject({ teamHits: 0, isBlock: true, issues: [] });
   });
 
+  it('allows consecutive contacts by multiple blockers during one blocking action', () => {
+    const result = deriveTeamHits(action({
+      kind: 'block',
+      groups: [{
+        relation: 'consecutive-within-action',
+        contacts: [
+          { playerId: 'middle', team: 0, bodyPart: 'hands' },
+          { playerId: 'opposite', team: 0, bodyPart: 'hands' }
+        ]
+      }]
+    }));
+    expect(result).toMatchObject({
+      teamHits: 0,
+      isBlock: true,
+      allowanceResetFor: 0,
+      issues: []
+    });
+  });
+
   it('flags simultaneous opponents over the net as a special allowance reset', () => {
     const result = deriveTeamHits(action({
       opponentSimultaneousOverNet: true,
