@@ -200,7 +200,7 @@ describe('compound rally contacts: isolated model', () => {
         { playerId: 'p2', team: 0 }
       ] }]
     }));
-    expect(result.issues.map(issue => issue.code)).toContain('invalid-opponent-simultaneous-context');
+    expect(result.issues.map(issue => issue.code)).toContain('receiving-team-not-in-contact');
   });
 
 });
