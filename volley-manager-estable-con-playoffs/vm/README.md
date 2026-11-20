@@ -1,51 +1,83 @@
-# Volley Manager (base del proyecto)
+# Volley Manager
 
-## Crear el proyecto (los comandos exactos, sin versiones inventadas)
-    npm create vite@latest volley-manager -- --template react-ts
-    cd volley-manager
-    npm install
-    npm install -D vitest tsx @types/node
-Luego copiá `src/engine/`, `src/game/`, `src/App.tsx` y `public/manifest.webmanifest` sobre el proyecto (reemplazá App.tsx),
-agregá `"test": "vitest run"` a `scripts` en package.json, y ejecutá `npm test` y `npm run dev`.
+Manager de voleibol con simulación rally a rally. La aplicación combina gestión de club, competición y simulación deportiva.
 
-## Estado honesto
-- Motor puro y determinista (semilla). Lógica de reglas: sets a 25, 5º a 15, diferencia de 2, rotaciones.
-- Calibrado con datos reales de voleibol masculino de élite (PlusLiga 2020-23 y VNL 2024; 47/47 objetivos y validaciones). Ver `CALIBRACION.md`; fuentes y licencias en `ATRIBUCIONES.md`.
-- Plantillas de 7 jugadores (6 titulares + líbero), con posiciones calibradas con datos.
-- Capa de gestión (`src/game/`): liga de 8 equipos a doble vuelta, plantel de 13 con alineación elegible, clasificación FIVB, estadísticas acumuladas y guardado (IndexedDB + exportar/importar JSON).
-- Interfaz (`src/App.tsx`): pestañas Liga, Plantel, Partido (cancha en vivo, parciales y sustituciones FIVB), Mercado, Finanzas, Estadísticas (con historial de temporadas) y Guardar.
-- Fase regular + **playoffs** (cuadro de 4, series al mejor de 3 y final al mejor de 5). Varias temporadas: premio por puesto final, historial, histórico de estadísticas; **edades, progresión, retiros, cantera y fichajes de las computadoras** (ver `CALIBRACION.md`).
-- Economía (`src/game/economy.ts`): valores de **diseño**, no datos reales.
-- Jugadores con tipo de saque y valoraciones propias; estadísticas individuales por partido y acumuladas (en memoria de la sesión; falta guardado en IndexedDB).
-- No incluye: tiempos muertos, fatiga, finanzas, mercado de fichajes, 3D.
-- Sin verificar por ejecución en este entorno (sin red para instalar dependencias): corré `npm test` primero.
+## Requisitos
 
-## Calibración (hecha; detalle en CALIBRACION.md)
-Fuentes a revisar y cuyas licencias hay que verificar antes de usar datos o código:
-- Preprint "Rally-Based Performance Evaluation Model for Highly Competitive Volleyball" (sportRxiv).
-- openvolley/volleysim y dpwynne/volleyWP (modelos y tasas por habilidad).
-Objetivo: fijar métricas objetivo (side-out %, break-point %, kills, aces) y ajustar `params.ts` hasta cumplirlas.
+- Node.js 20.19+ (recomendado Node.js 22 LTS).
+- npm.
+
+## Instalación y desarrollo
+
+Desde esta carpeta:
+
+```powershell
+npm install
+npm run dev
+```
+
+Vite mostrará la dirección local para abrir la aplicación.
+
+## Validación
+
+```powershell
+npm test
+npm run build
+npm run preview
+```
+
+- `npm test`: ejecuta la suite Vitest.
+- `npm run build`: comprueba TypeScript y genera la versión web en `dist/`.
+- `npm run preview`: sirve localmente la compilación.
+
+Para generar el HTML autocontenido heredado:
+
+```powershell
+npm run build:single
+```
+
+## Estructura principal
+
+- `src/engine/`: reglas y motor deportivo, rallies, jugadores, parámetros y estadísticas.
+- `src/game/`: liga, plantillas, alineaciones, economía, temporadas, playoffs y persistencia.
+- `src/App.tsx`: interfaz React.
+- `src/styles.css`: estilos adaptables.
+- `scripts/`: calibración, empaquetado y herramientas auxiliares.
+- `public/`: recursos estáticos.
+
+## Qué incluye actualmente
+
+- Motor determinista por semilla, con reglas de sets, rotaciones y sustituciones.
+- Liga de 8 equipos a doble vuelta, calendario y clasificación FIVB.
+- Plantillas, alineaciones, mercado de agentes libres, presupuesto y salarios.
+- Estadísticas individuales y de equipo.
+- Temporadas, progresión por edad, retiros, cantera y fichajes de equipos controlados por IA.
+- Playoffs: semifinales al mejor de 3, final al mejor de 5 y partido por el bronce.
+- Guardado local mediante IndexedDB, ranuras, exportación/importación JSON y migraciones.
+
+## Calibración y límites del modelo
+
+La calibración documentada usa datos masculinos de élite (PlusLiga 2020–2023 y VNL 2024), además de un preprint para algunas referencias de fases del rally. Consultá [CALIBRACION.md](./CALIBRACION.md) y [ATRIBUCIONES.md](./ATRIBUCIONES.md).
+
+La calibración de tasas agregadas no significa que el juego ya reproduzca toda la táctica del voleibol. La distribución del colocador, las combinaciones ofensivas, la lectura del bloqueo, la fatiga, las lesiones y los tiempos muertos siguen siendo áreas de desarrollo. Los pesos de habilidades y varios parámetros económicos son decisiones de diseño.
+
+## Scripts auxiliares
+
+```powershell
+npm run calibration:report
+npm run calibration:fit
+```
+
+El repositorio también conserva pruebas auxiliares de interfaz y temporada en `scripts/`. Algunas requieren Python, Chromium o Playwright y deben ejecutarse según las instrucciones de cada script.
 
 ## App móvil
-Capacitor: `npm i @capacitor/core @capacitor/cli`, `npx cap init`, `npm run build`, `npx cap add android|ios`, `npx cap sync`.
 
-## Comandos de calibración
-    npx tsx scripts/calibrate-cli.ts report   # tabla de objetivos vs. modelo
-    npx tsx scripts/calibrate-cli.ts fit      # reajusta intercepciones (luego copiar a params.ts)
+La estructura web permite evaluar una futura integración con Capacitor. No es requisito para desarrollar ni ejecutar la versión web actual.
 
-## Una sola página HTML (para probar o publicar)
-    node scripts/build-single.mjs dist/volley-manager.html     # empaqueta React + motor + liga con esbuild
-    cd dist && python3 -m http.server 8765 &                   # servirla
-    python3 scripts/ui-test.py                                 # 24 comprobaciones en Chromium (Playwright)
-    python3 scripts/ui-test-season.py                          # 20 más: temporada completa, intersemana, historial, guardado
-    python3 scripts/ui-test-extras.py                          # 19 más: ficha, equipos, filtros, resumen, autoguardado, Acerca de
-    python3 scripts/ui-test-playoffs.py                        # 10 más: playoffs con partido en vivo, cuadro, campeón
-`src/main.tsx` monta la aplicación (con manejo de errores); `src/styles.css` tiene los estilos (modo claro/oscuro y móvil).
+## Principios de desarrollo
 
-## Pruebas sin Vitest
-Con Vitest instalado: `npm test`. Sin él: `node scripts/vt/run.mjs src/game/game.test.ts src/game/fuzz.test.ts src/game/import-chaos.test.ts src/game/playoffs.test.ts src/engine/match.test.ts src/engine/calibrate.test.ts`
-(ejecutor mínimo compatible; necesita esbuild).
-
-### Compilación que falla a propósito (para probar el manejo de errores)
-    printf "import { createRoot } from 'react-dom/client';\nimport { Boundary } from './App';\nfunction Bomb(): never { throw new Error('error de prueba'); }\ncreateRoot(document.getElementById('root')!).render(<Boundary><Bomb /></Boundary>);\n" > src/_crash_main.tsx
-    ENTRY=src/_crash_main.tsx node scripts/build-single.mjs dist/crash.html && rm src/_crash_main.tsx
+1. Mantener la simulación independiente de React.
+2. Preservar determinismo y compatibilidad de partidas guardadas.
+3. Probar cambios de reglas y fórmulas antes de integrarlos.
+4. Diferenciar datos observados, inferencias y parámetros de diseño.
+5. Preferir cambios pequeños sobre reescrituras generales.
