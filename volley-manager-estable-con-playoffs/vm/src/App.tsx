@@ -1,5 +1,5 @@
 import { Component, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { legalSubs, MAX_SUBS, playMatch, stepPoint, substitute } from './engine/match';
+import { legalSubs, MAX_SUBS, playMatch, sideForTeam, stepPoint, substitute } from './engine/match';
 import { effective } from './engine/rally';
 import { emptyP, hitEff, pct, points } from './engine/stats';
 import type { MatchState, PStats, Player, Side } from './engine/types';
@@ -158,7 +158,7 @@ export default function App() {
 
   // Boxscore: la plantilla actual y los suplentes que tuvieron acciones.
   const squadsOf = (m: MatchState) => [0, 1].map(i => [...m.base[i], ...m.benches[i].filter(b => m.box[b.id])]);
-  const mySide = (live ? (live.teams[0].name === game.teams[game.userTeam].name ? 0 : 1) : 0) as Side;
+  const mySide = (live ? sideForTeam(live, me.name) ?? 0 : 0) as Side;
   const subOpts = live ? legalSubs(live, mySide) : [];
   const doSub = () => { if (!live) return; const [o, i] = subPick.split('|'); try { setLive(substitute(live, mySide, o, i)); setSubPick(''); setMsg(''); } catch (e) { setMsg((e as Error).message); } };
   const allPlayers = [...game.teams.flatMap(t => t.roster), ...game.market];
