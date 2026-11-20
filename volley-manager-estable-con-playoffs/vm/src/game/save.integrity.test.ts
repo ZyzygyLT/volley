@@ -129,7 +129,7 @@ describe('integridad semántica de guardados: playoffs', () => {
 
   it('deserialize no admite un cuadro final manipulado', () => {
     const corrupt = jsonCopy(completed());
-    corrupt.playoffs!.champion = corrupt.teams.length - 1;
+    corrupt.playoffs!.champion = (corrupt.playoffs!.champion! + 1) % corrupt.teams.length;
     expect(() => deserialize(JSON.stringify(corrupt))).toThrow(SaveError);
   });
 });
