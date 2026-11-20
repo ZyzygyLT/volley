@@ -26,12 +26,12 @@ export function playRally(teams: [Team, Team], serving: Side, rnd: () => number,
   const pErr = cl(ty.err + p.serveErrOff + p.roleServeErr[sv.role] + p.errRisk * kr - (sv.srv - 70) * p.errSrvW - (sv.cons - 70) * p.errConsW, 0.005, 0.5);
   if (rnd() < pErr) {
     trace.serve = 'err'; ev.push({ k: 'serve', p: sv.id, t: sv.serveType, o: 'err' });
-    return { winner: r, text: `${sv.name} falla el saque`, stat: { team: s, key: 'err' }, trace };
+    return { winner: r, text: `${sv.name} falla el saque`, stat: { team: s, key: 'err' }, trace, termination: { kind: 'fault', responsibleTeam: s } };
   }
   const pAce = cl(ty.ace + p.serveAceOff + p.roleAce[sv.role] + p.aceRisk * kr + (sv.srv - 70) * p.aceSrvW - (pas.rec - 70) * p.aceRecW, 0, 0.4);
   if (rnd() < pAce) {
     trace.serve = 'ace'; ev.push({ k: 'serve', p: sv.id, t: sv.serveType, o: 'ace' }, { k: 'rec', p: pas.id, q: 0, err: true });
-    return { winner: s, text: `Ace de ${sv.name}`, stat: { team: s, key: 'ace' }, trace };
+    return { winner: s, text: `Ace de ${sv.name}`, stat: { team: s, key: 'ace' }, trace, termination: { kind: 'winning-action', responsibleTeam: s } };
   }
   ev.push({ k: 'serve', p: sv.id, t: sv.serveType, o: 'in' });
 
@@ -46,7 +46,7 @@ export function playRally(teams: [Team, Team], serving: Side, rnd: () => number,
     if (rnd() < p.otherErr) { // error de manejo antes de atacar (toque de red, doble, rotación…)
       const hs = att.find(x => x.role === 'S') ?? att[0];
       ev.push({ k: 'oerr', p: hs.id });
-      return { winner: D, text: `Error de manejo de ${hs.name}`, stat: { team: A, key: 'err' }, trace };
+      return { winner: D, text: `Error de manejo de ${hs.name}`, stat: { team: A, key: 'err' }, trace, termination: { kind: 'fault', responsibleTeam: A } };
     }
     const attackContext = buildAttackContext(att, q, p);
     const at = selectAttackTarget(attackContext, rnd).attacker;
@@ -64,13 +64,13 @@ export function playRally(teams: [Team, Team], serving: Side, rnd: () => number,
     trace.atks.push(rec_);
     const ast = out === 'kill' && setter && setter.id !== at.id ? setter.id : undefined; // el ataque del propio colocador no suma asistencia
     ev.push({ k: 'atk', p: at.id, o: out, ast });
-    if (out === 'err') return { winner: D, text: `Error de ataque de ${at.name}`, stat: { team: A, key: 'err' }, trace };
+    if (out === 'err') return { winner: D, text: `Error de ataque de ${at.name}`, stat: { team: A, key: 'err' }, trace, termination: { kind: 'fault', responsibleTeam: A } };
     if (out === 'blk') {
       const bl = pick(front.filter(f => p.blkWeight[f.role] > 0).map(f => [f, p.blkWeight[f.role] * (f.blk / 70)] as [Player, number]), rnd);
       ev.push({ k: 'blk', p: bl.id });
-      return { winner: D, text: `Bloqueo de ${bl.name}`, stat: { team: D, key: 'blk' }, trace };
+      return { winner: D, text: `Bloqueo de ${bl.name}`, stat: { team: D, key: 'blk' }, trace, termination: { kind: 'winning-action', responsibleTeam: D } };
     }
-    if (out === 'kill') return { winner: A, text: `Ataque ganador de ${at.name}`, stat: { team: A, key: 'kill' }, trace };
+    if (out === 'kill') return { winner: A, text: `Ataque ganador de ${at.name}`, stat: { team: A, key: 'kill' }, trace, termination: { kind: 'winning-action', responsibleTeam: A } };
     if (rnd() < p.keepProb) { // sigue en el mismo lado (cobertura, rebote del bloqueo, pelota reciclada)
       rec_.swap = false;
       q = cl(p.coverQ + (rnd() * 2 - 1) * p.digNoise, 0.05, 0.9);
