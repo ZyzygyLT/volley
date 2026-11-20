@@ -156,4 +156,64 @@ describe('rally rule state: explicit transitions', () => {
     expect(state).toEqual(before);
     expect(result.state).not.toBe(state);
   });
+
+  it('rejects the same player making consecutive team contacts', () => {
+    let state = createRallyRuleState(0);
+    state = transitionRallyRuleState(state, action(1, 0, 'reception', 'p1'), { continues: true, nextTeam: 0 }).state!;
+    const result = transitionRallyRuleState(state, action(2, 0, 'set', 'p1'), { continues: true, nextTeam: 0 });
+    expect(result.state).toBeNull();
+    expect(result.issues.map(issue => issue.code)).toContain('same-player-consecutive-hit');
+  });
+
+  it('allows a different player to make the next team contact', () => {
+    let state = createRallyRuleState(0);
+    state = transitionRallyRuleState(state, action(1, 0, 'reception', 'p1'), { continues: true, nextTeam: 0 }).state!;
+    const result = transitionRallyRuleState(state, action(2, 0, 'set', 'p2'), { continues: true, nextTeam: 0 });
+    expect(result.issues).toEqual([]);
+    expect(result.state?.lastContactPlayerIds).toEqual(['p2']);
+  });
+
+  it('allows the blocker to make the first hit after the own block', () => {
+    let state = createRallyRuleState(0);
+    state = transitionRallyRuleState(state, action(1, 0), { continues: true, nextTeam: 1 }).state!;
+    state = transitionRallyRuleState(state, action(2, 1), { continues: true, nextTeam: 0 }).state!;
+    state = transitionRallyRuleState(state, action(3, 0, 'block', 'middle'), { continues: true, nextTeam: 0 }).state!;
+    const result = transitionRallyRuleState(state, action(4, 0, 'defense', 'middle'), { continues: true, nextTeam: 0 });
+    expect(result.issues).toEqual([]);
+    expect(result.state?.postBlockFirstHitPendingFor).toBeNull();
+  });
+
+  it('keeps the post-block exception pending while the opponent plays first', () => {
+    let state = createRallyRuleState(0);
+    state = transitionRallyRuleState(state, action(1, 0), { continues: true, nextTeam: 1 }).state!;
+    state = transitionRallyRuleState(state, action(2, 1), { continues: true, nextTeam: 0 }).state!;
+    state = transitionRallyRuleState(state, action(3, 0, 'block', 'middle'), { continues: true, nextTeam: 1 }).state!;
+    expect(state.postBlockFirstHitPendingFor).toBe(0);
+    state = transitionRallyRuleState(state, action(4, 1, 'attack', 'opponent'), { continues: true, nextTeam: 0 }).state!;
+    const result = transitionRallyRuleState(state, action(5, 0, 'defense', 'middle'), { continues: true, nextTeam: 0 });
+    expect(result.issues).toEqual([]);
+    expect(result.state?.postBlockFirstHitPendingFor).toBeNull();
+  });
+
+  it('does not accept an external post-block flag without a block in state history', () => {
+    let state = createRallyRuleState(0);
+    state = transitionRallyRuleState(state, action(1, 0, 'reception', 'p1'), { continues: true, nextTeam: 0 }).state!;
+    const forged = { ...action(2, 0, 'set', 'p1'), isFirstHitAfterOwnBlock: true };
+    const result = transitionRallyRuleState(state, forged, { continues: true, nextTeam: 0 });
+    expect(result.state).toBeNull();
+    expect(result.issues.map(issue => issue.code)).toContain('same-player-consecutive-hit');
+  });
+
+  it('remembers every player in a simultaneous teammate contact group', () => {
+    let state = createRallyRuleState(0);
+    const simultaneous = action(1, 0);
+    simultaneous.groups = [{
+      relation: 'simultaneous',
+      contacts: [{ playerId: 'p1', team: 0 }, { playerId: 'p2', team: 0 }]
+    }];
+    state = transitionRallyRuleState(state, simultaneous, { continues: true, nextTeam: 0 }).state!;
+    const repeated = transitionRallyRuleState(state, action(2, 0, 'set', 'p2'), { continues: true, nextTeam: 0 });
+    expect(repeated.issues.map(issue => issue.code)).toContain('same-player-consecutive-hit');
+  });
+
 });
