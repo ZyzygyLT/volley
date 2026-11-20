@@ -38,7 +38,7 @@ describe('elegibilidad básica de bloqueo', () => {
 
   it('actualiza la elegibilidad cuando una sustitución reglamentaria cambia un jugador delantero', () => {
     const [squad] = makeSquads(3103);
-    const benchPlayer: Player = { ...squad[2], id: 'bench-mb', name: 'Bench MB' };
+    const benchPlayer: Player = { ...squad[4], id: 'bench-oh', name: 'Bench OH' };
     const state = createMatch(3103, 50, {
       squads: [squad, makeSquads(3104)[1]],
       benches: [[benchPlayer], []],
