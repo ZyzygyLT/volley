@@ -207,6 +207,33 @@ describe('rally rule state: explicit transitions', () => {
     expect(result.issues.map(issue => issue.code)).toContain('same-player-consecutive-hit');
   });
 
+  it('does not trust a forged first-team-hit flag after a counted hit', () => {
+    let state = createRallyRuleState(0);
+    state = transitionRallyRuleState(
+      state,
+      action(1, 0, 'reception', 'receiver'),
+      { continues: true, nextTeam: 0 }
+    ).state!;
+    const forgedFirstHit: CompoundRallyAction = {
+      ...action(2, 0, 'set', 'setter'),
+      isFirstTeamHit: true,
+      groups: [{
+        relation: 'consecutive-within-action',
+        contacts: [
+          { playerId: 'setter', team: 0 },
+          { playerId: 'setter', team: 0, bodyPart: 'hand' }
+        ]
+      }]
+    };
+    const result = transitionRallyRuleState(
+      state,
+      forgedFirstHit,
+      { continues: true, nextTeam: 0 }
+    );
+    expect(result.state).toBeNull();
+    expect(result.issues.map(issue => issue.code)).toContain('invalid-first-team-hit-context');
+  });
+
   it('remembers every player in a simultaneous teammate contact group', () => {
     let state = createRallyRuleState(0);
     const simultaneous = action(1, 0);
