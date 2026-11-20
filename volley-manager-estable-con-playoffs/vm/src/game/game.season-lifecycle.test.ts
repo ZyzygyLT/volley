@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { chooseTeam, endSeason, finishRound, newGame, seasonSummary } from './season';
 import { serialize, deserialize } from './save';
 import { simulateSeason } from './playoffs';
-import { lineupToSquad, overall } from './roster';
 import { ECON } from './economy';
 import { addBoxes } from '../engine/stats';
 import { emptyP } from '../engine/stats';
