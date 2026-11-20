@@ -54,6 +54,39 @@ describe('elegibilidad básica de bloqueo', () => {
     expect(state.teams[0].lineup[4].id).toBe(replaced.id);
   });
 
+  it('restaura la elegibilidad del titular cuando regresa a su puesto original', () => {
+    const [squad] = makeSquads(3107);
+    const benchPlayer: Player = { ...squad[4], id: 'bench-oh-return', name: 'Bench OH Return' };
+    const state = createMatch(3107, 50, {
+      squads: [squad, makeSquads(3108)[1]],
+      benches: [[benchPlayer], []],
+    });
+    const originalIds = getEligibleBlockers(state.teams[0]).map(player => player.id);
+    const replaced = state.teams[0].lineup[4];
+    const entered = substitute(state, 0, replaced.id, benchPlayer.id);
+    const returned = substitute(entered, 0, benchPlayer.id, replaced.id);
+
+    expect(getEligibleBlockers(entered.teams[0]).map(player => player.id)).not.toEqual(originalIds);
+    expect(getEligibleBlockers(returned.teams[0]).map(player => player.id)).toEqual(originalIds);
+    expect(entered.teams[0].lineup[4].id).toBe(benchPlayer.id);
+    expect(state.teams[0].lineup[4].id).toBe(replaced.id);
+  });
+
+  it('mantiene la elegibilidad de bloqueo al sustituir únicamente al líbero', () => {
+    const [squad] = makeSquads(3109);
+    const benchLibero: Player = { ...squad[6], id: 'bench-libero', name: 'Bench Libero' };
+    const state = createMatch(3109, 50, {
+      squads: [squad, makeSquads(3110)[1]],
+      benches: [[benchLibero], []],
+    });
+    const before = getEligibleBlockers(state.teams[0]).map(player => player.id);
+    const next = substitute(state, 0, state.teams[0].libero.id, benchLibero.id);
+
+    expect(next.teams[0].libero.id).toBe(benchLibero.id);
+    expect(getEligibleBlockers(next.teams[0]).map(player => player.id)).toEqual(before);
+    expect(state.teams[0].libero.id).toBe(squad[6].id);
+  });
+
   it('no incorpora al líbero, que permanece separado de la alineación', () => {
     const [squad] = makeSquads(3105);
     const team = teamFrom(squad.slice(0, 6), squad[6]);
