@@ -32,7 +32,7 @@ Desde esta carpeta:
 
 ```powershell
 cd volley-manager-estable-con-playoffs/vm
-npm install
+npm ci
 npm run dev
 ```
 

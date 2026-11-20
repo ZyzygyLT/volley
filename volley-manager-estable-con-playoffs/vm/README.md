@@ -12,7 +12,7 @@ Manager de voleibol con simulación rally a rally. La aplicación combina gesti�
 Desde esta carpeta:
 
 ```powershell
-npm install
+npm ci
 npm run dev
 ```
 

@@ -6,9 +6,9 @@ Esta hoja de ruta ordena el trabajo para combinar manager y simulador sin desest
 
 - [x] Definir una carpeta principal de aplicación.
 - [x] Documentar límites entre motor, gestión e interfaz.
-- [ ] Instalar dependencias desde un manifiesto versionado.
-- [ ] Ejecutar typecheck, pruebas y build en un entorno limpio.
-- [ ] Añadir integración continua para instalar, probar y compilar.
+- [x] Instalar dependencias desde un manifiesto versionado.
+- [x] Ejecutar typecheck, pruebas y build en un entorno limpio.
+- [x] Añadir integración continua para instalar, probar y compilar.
 
 **Criterio de salida:** otra persona puede clonar el repositorio, instalar y ejecutar la aplicación siguiendo el README.
 
