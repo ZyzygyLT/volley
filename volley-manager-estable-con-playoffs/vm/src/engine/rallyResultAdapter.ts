@@ -5,8 +5,7 @@ import type { RallyResult } from './types';
  * Adapta únicamente el desenlace explícito de playRally al contrato de la
  * máquina reglamentaria. No fabrica CompoundRallyAction ni contactos.
  *
- * Devuelve null cuando el motor no resolvió una acción terminal (por ejemplo,
- * el límite artificial de intercambios con ganador aleatorio).
+ * Devuelve null cuando el resultado no contiene evidencia explícita de una acción terminal.
  */
 export function adaptRallyTermination(
   result: RallyResult
