@@ -41,6 +41,11 @@ export function makeYouth(rnd: () => number, role: Role, id: string, used: Set<s
   return { ...p, age: rollYouthAge(rnd) };
 }
 
+/** Rota las posiciones nuevas para que el mercado no favorezca siempre a los primeros roles de ROSTER_ORDER. */
+export function seasonalAgentRoles(season: number, amount: number): Role[] {
+  return Array.from({ length: Math.max(0, Math.floor(amount)) }, (_, k) => ROSTER_ORDER[((Math.max(1, Math.floor(season)) - 1) + k) % ROSTER_ORDER.length]);
+}
+
 const count = (r: Player[], role: Role) => r.filter(p => p.role === role).length;
 const sortDesc = (ps: Player[]) => [...ps].sort((a, b) => overall(b) - overall(a) || a.id.localeCompare(b.id));
 const STARTERS: Record<Role, number> = { S: 1, OH: 2, MB: 2, OP: 1, L: 1 };
@@ -104,8 +109,8 @@ export function runOffseason(g0: GameState, rnd: () => number, rankOf: Map<numbe
     return { ...t, roster, lineup };
   });
   // 5) jóvenes nuevos en el mercado y tope del mercado
-  const roles: Role[] = []; while (roles.length < ECON.newAgentsPerSeason) roles.push(...ROSTER_ORDER);
-  roles.slice(0, ECON.newAgentsPerSeason).forEach((role, k) => market.push(makeYouth(rnd, role, `fa${season + 1}-${k + 1}`, used, 0, count(market, role))));
+  seasonalAgentRoles(season + 1, ECON.newAgentsPerSeason).forEach((role, k) =>
+    market.push(makeYouth(rnd, role, `fa${season + 1}-${k + 1}`, used, 0, count(market, role))));
   market = sortDesc(market).slice(0, ECON.maxMarket);
   return { g: { ...g, teams, market }, news, progress };
 }
