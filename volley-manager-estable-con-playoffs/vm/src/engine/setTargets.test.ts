@@ -8,8 +8,9 @@ describe('objetivos de colocación', () => {
   it('excluye al colocador en las seis rotaciones y conserva el orden de los atacantes', () => {
     const [squad] = makeSquads(31);
 
+    const lineup = [...squad.slice(0, 6)];
+
     for (let rotation = 0; rotation < 6; rotation++) {
-      const lineup = [...squad.slice(0, 6)];
       const context = buildAttackContext(lineup, 0.7, P);
       const targets = buildSetTargets(context);
 
