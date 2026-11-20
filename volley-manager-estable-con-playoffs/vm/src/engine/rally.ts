@@ -1,6 +1,7 @@
 import type { Team, Side, RallyResult, Trace, AtkOut, Player, Ev } from './types';
 import { P, type Params } from './params';
-import { buildAttackOptions } from './attackOptions';
+import { buildAttackContext } from './attackContext';
+import { selectAttackTarget } from './distribution';
 
 const cl = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 const avg = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
@@ -47,9 +48,9 @@ export function playRally(teams: [Team, Team], serving: Side, rnd: () => number,
       ev.push({ k: 'oerr', p: hs.id });
       return { winner: D, text: `Error de manejo de ${hs.name}`, stat: { team: A, key: 'err' }, trace };
     }
-    const options = buildAttackOptions(att, q, p);
-    const at = pick(options.map(option => [option.attacker, option.weight]), rnd);
-    const setter = att.find(x => x.role === 'S');
+    const attackContext = buildAttackContext(att, q, p);
+    const at = selectAttackTarget(attackContext, rnd).attacker;
+    const setter = attackContext.setter?.player;
     const front = def.slice(3), bA = avg(front.map(x => x.blk)), dA = avg(effD.slice(0, 3).map(x => x.def));
     const qd = q - 0.55, sd = setter ? setter.set - 70 : 0;
     const baseK = phase === 'k1' ? p.killK1 : p.killK2, baseE = phase === 'k1' ? p.errK1 : p.errK2, baseB = phase === 'k1' ? p.blkK1 : p.blkK2;
