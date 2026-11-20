@@ -1,5 +1,6 @@
 import type { RallySide } from './rallySequence';
 import type { RallyTermination } from './types';
+export type { RallyTermination };
 import {
   deriveTeamHits,
   type CompoundRallyAction
