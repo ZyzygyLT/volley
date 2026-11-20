@@ -37,6 +37,7 @@ Esta hoja de ruta ordena el trabajo para combinar manager y simulador sin desest
 - [x] Registrar la prohibición de golpes consecutivos del mismo jugador y la excepción del primer golpe posterior al bloqueo.
 - [x] Admitir contactos consecutivos de uno o varios bloqueadores dentro de una misma acción de bloqueo.
 - [x] Validar que el equipo receptor de un contacto simultáneo adversario sobre la red esté entre los contactos y sea el siguiente en jugar si el balón continúa.
+- [x] Excluir el saque del cómputo de los tres golpes y exigir que sea un único contacto individual del equipo sacador.
 - [ ] Completar las excepciones FIVB restantes y validar las transiciones contra hechos producidos por la simulación.
 
 **Criterio de salida:** dos equipos con plantillas iguales pueden jugar distinto por sus decisiones tácticas, y los hechos del rally pueden expresarse sin inventar contactos.
