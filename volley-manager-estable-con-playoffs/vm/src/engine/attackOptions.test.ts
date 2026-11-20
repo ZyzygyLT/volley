@@ -22,12 +22,15 @@ describe('opciones legales de ataque', () => {
     expect(options.some(option => option.slot === 2)).toBe(false);
   });
 
-  it('permite al colocador atacar cuando ocupa primera línea', () => {
+  it('permite al colocador atacar cuando ocupa primera línea y lo etiqueta como caso heredado', () => {
     const [squad] = makeSquads(20);
     const lineup = [squad[1], squad[2], squad[3], squad[0], squad[4], squad[5]];
     const options = buildAttackOptions(lineup, 0.7, P);
+    const setterOption = options.find(option => option.slot === 3);
 
-    expect(options.find(option => option.slot === 3)?.attacker.role).toBe('S');
+    expect(setterOption?.attacker.role).toBe('S');
+    expect(setterOption?.kind).toBe('setter-attack-legacy');
+    expect(options.filter(option => option.attacker.role !== 'S').every(option => option.kind === 'hitter-attack')).toBe(true);
   });
 
   it('mantiene los pesos de selección históricos, incluida la penalización del central con recepción baja', () => {
