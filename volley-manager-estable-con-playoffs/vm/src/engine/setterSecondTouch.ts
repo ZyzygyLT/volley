@@ -26,7 +26,7 @@ export interface SetterSecondTouchSituation {
 }
 
 export type SetterSecondTouchDecision =
-  | { legal: true; reason: 'front-row-player' | 'back-row-behind-attack-line' | 'back-row-front-zone-ball-below-net' }
+  | { legal: true; reason: 'front-row-player' | 'back-row-behind-attack-line' | 'back-row-front-zone-ball-not-entirely-above-net' }
   | { legal: false; reason: 'contact-outside-own-playing-space' | 'opponent-service-high-front-zone' | 'back-row-front-zone-ball-above-net' };
 
 /**
@@ -57,7 +57,7 @@ export function evaluateSetterSecondTouch(
   }
 
   if (situation.ballHeightAtContact === 'not-entirely-above-net') {
-    return { legal: true, reason: 'back-row-front-zone-ball-below-net' };
+    return { legal: true, reason: 'back-row-front-zone-ball-not-entirely-above-net' };
   }
 
   return { legal: false, reason: 'back-row-front-zone-ball-above-net' };
