@@ -15,10 +15,32 @@ const PHASES = ['k1', 'k2'] as const;
 const roleCounts = (): Record<Role, number> => ({ S: 0, OH: 0, MB: 0, OP: 0, L: 0 });
 const legacyRoles = roleCounts();
 const expectedPolicyRoles = roleCounts();
-const neutralRoleKillPolicyRoles = roleCounts();
-const neutralRoleKillParams = {
-  ...P,
-  roleKill: { S: 0, OH: 0, MB: 0, OP: 0, L: 0 },
+const counterfactuals = {
+  neutralRoleKill: {
+    params: { ...P, roleKill: { S: 0, OH: 0, MB: 0, OP: 0, L: 0 } },
+    roles: roleCounts(),
+    total: 0,
+  },
+  neutralRoleErr: {
+    params: { ...P, roleErr: { S: 0, OH: 0, MB: 0, OP: 0, L: 0 } },
+    roles: roleCounts(),
+    total: 0,
+  },
+  neutralAtkSkillScale: {
+    params: { ...P, atkSkillScale: { S: 1, OH: 1, MB: 1, OP: 1, L: 1 } },
+    roles: roleCounts(),
+    total: 0,
+  },
+  neutralAllThree: {
+    params: {
+      ...P,
+      roleKill: { S: 0, OH: 0, MB: 0, OP: 0, L: 0 },
+      roleErr: { S: 0, OH: 0, MB: 0, OP: 0, L: 0 },
+      atkSkillScale: { S: 1, OH: 1, MB: 1, OP: 1, L: 1 },
+    },
+    roles: roleCounts(),
+    total: 0,
+  },
 };
 const candidateOutcomeByRole = Object.fromEntries(
   (['OH', 'MB', 'OP'] as const).map(role => [role, {
@@ -42,7 +64,7 @@ const byReception = Object.fromEntries(RECEPTIONS.map(({ label }) => [label, {
 let contextsCount = 0;
 let legacyTotal = 0;
 let bestTotal = 0;
-let neutralRoleKillBestTotal = 0;
+
 let totalCandidates = 0;
 
 for (let rosterIndex = 0; rosterIndex < ROSTERS; rosterIndex += 1) {
@@ -82,8 +104,11 @@ for (let rosterIndex = 0; rosterIndex < ROSTERS; rosterIndex += 1) {
           sum + item.outcome.expectedPointValue * item.candidate.weight / totalWeight, 0,
         );
         const best = selectBestExpectedAttack(candidates, context);
-        const neutralRoleKillContext = { ...context, params: neutralRoleKillParams };
-        const neutralRoleKillBest = selectBestExpectedAttack(candidates, neutralRoleKillContext);
+        for (const counterfactual of Object.values(counterfactuals)) {
+          const result = selectBestExpectedAttack(candidates, { ...context, params: counterfactual.params });
+          counterfactual.roles[result.candidate.attacker.role] += 1;
+          counterfactual.total += result.outcome.expectedPointValue;
+        }
         const receptionRow = byReception[reception.label];
 
         legacyTotal += legacyExpected;
@@ -145,11 +170,11 @@ console.log(JSON.stringify({
   meanDifference: rounded((bestTotal - legacyTotal) / contextsCount),
   legacyWeightedRoleShare: roleShare(legacyRoles, contextsCount),
   bestExpectedRoleShare: roleShare(expectedPolicyRoles, contextsCount),
-  counterfactualWithoutRoleKill: {
-    description: 'Same candidates and equations, but roleKill is set to zero for every role; diagnostic only, not a proposed calibration.',
-    meanBestExpectedPointValue: rounded(neutralRoleKillBestTotal / contextsCount),
-    bestExpectedRoleShare: roleShare(neutralRoleKillPolicyRoles, contextsCount),
-  },
+  counterfactuals: Object.fromEntries(Object.entries(counterfactuals).map(([name, result]) => [name, {
+    meanBestExpectedPointValue: rounded(result.total / contextsCount),
+    bestExpectedRoleShare: roleShare(result.roles, contextsCount),
+  }])),
+  counterfactualMethod: 'One-factor ablations and a combined ablation. Each sets only the named role-dependent term(s) to a neutral value; diagnostic only, not proposed calibration.',
   candidateOutcomeByRole: candidateOutcomeSummary,
   byReception,
   candidatesEvaluated: totalCandidates,
