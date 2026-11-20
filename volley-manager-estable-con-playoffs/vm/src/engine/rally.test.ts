@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { makeSquads } from './match';
 import { mulberry32 } from './rng';
-import { playRally } from './rally';
+import { MAX_RALLY_EXCHANGES_SAFETY, playRally } from './rally';
+import { P } from './params';
 import type { Team } from './types';
 
 function teams(seed: number): [Team, Team] {
@@ -68,10 +69,7 @@ describe('rally: contrato del ciclo actual', () => {
         return 1;
       };
 
-      if (result.trace.capped) {
-        expect(result.termination).toBeUndefined();
-        continue;
-      }
+      expect(result.termination).toBeDefined();
 
       let expected: { kind: 'fault' | 'winning-action'; responsibleTeam: 0 | 1 };
       if (result.trace.serve === 'err') {
@@ -100,6 +98,23 @@ describe('rally: contrato del ciclo actual', () => {
     }
   });
 
+
+  it('no adjudica un ganador aleatorio si se alcanza el límite técnico de seguridad', () => {
+    const roster = teams(711);
+    const params = structuredClone(P);
+    params.otherErr = 0;
+    params.keepProb = 0;
+    params.serveType = {
+      JS: { ace: 0, err: 0, use: 0 },
+      JFS: { ace: 0, err: 0, use: 0 },
+      FS: { ace: 0, err: 0, use: 0 },
+    };
+    params.errK1 = params.errK2 = 0.01;
+    params.blkK1 = params.blkK2 = 0.01;
+    params.killK1 = params.killK2 = 0.01;
+    expect(() => playRally(roster, 0, () => 0.999999, params))
+      .toThrow(`Rally superó el límite técnico de ${MAX_RALLY_EXCHANGES_SAFETY} intercambios; no se adjudicó ningún punto`);
+  });
 
   it('registra la selección ofensiva heredada sin convertirla en contacto físico de colocación', () => {
     for (let seed = 1; seed <= 250; seed++) {
