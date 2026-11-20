@@ -31,6 +31,7 @@ Un repositorio sin licencia **no** es de uso libre: por defecto rige el copyrigh
 - Tipo de saque por posición derivado de VNL con los perfiles por tipo del preprint (opuesto y receptores casi siempre en salto potente; un central en salto y otro flotado).
 - Umbrales de recepción "positiva" y "perfecta" fijados por cuantiles (46,6 % y 20,6 % de PlusLiga).
 - **Errores de manejo** (toque de red, dobles, rotación): PlusLiga tiene un 2,4 % de rallies que terminan así (100 % − aces − errores de saque − kills − bloqueos − errores de ataque); se añadieron al motor y se atribuyen al colocador.
+- **Duración del rally:** los intercambios continúan hasta un desenlace del modelo. Existe un límite técnico de 256 intercambios únicamente como protección ante un generador aleatorio defectuoso; si se alcanza, el motor aborta el rally sin adjudicar un ganador ni alterar el marcador.
 - **Sustituciones con las reglas FIVB** (verificadas en varias fuentes): 6 por set; el cambio de líbero no cuenta; un titular solo puede ser reemplazado una vez por set y el suplente solo puede ser cambiado por el titular al que sustituyó (vuelve a su posición). No se modelan los tiempos muertos: no hay datos de su efecto.
 - Plantel de gestión de 13 jugadores (2 colocadores, 4 receptores, 3 centrales, 2 opuestos, 2 líberos) con alineación elegible.
 
