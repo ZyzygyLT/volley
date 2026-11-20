@@ -53,7 +53,7 @@ npm run build:single
 - Estadísticas individuales y de equipo.
 - Temporadas, progresión por edad, retiros, cantera y fichajes de equipos controlados por IA.
 - Playoffs: semifinales al mejor de 3, final al mejor de 5 y partido por el bronce.
-- Guardado local mediante IndexedDB, ranuras, exportación/importación JSON y migraciones.
+- Guardado local mediante IndexedDB, ranuras, exportación/importación JSON y migraciones. Las sesiones nuevas incluyen el partido en curso (marcador, parciales, estadísticas y sustituciones); se siguen aceptando partidas JSON antiguas sin sesión.
 
 ## Calibración y límites del modelo
 
