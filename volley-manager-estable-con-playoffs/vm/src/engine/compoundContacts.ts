@@ -48,6 +48,7 @@ export interface CompoundContactIssue {
     | 'unsupported-consecutive-group'
     | 'invalid-first-hit-context'
     | 'invalid-opponent-simultaneous-context'
+    | 'receiving-team-not-in-contact'
     | 'multiple-block-teams'
     | 'block-team-mismatch'
     | 'unexpected-receiving-team';
@@ -169,6 +170,12 @@ export function validateCompoundAction(
       !action.groups.some(group => group.relation === 'simultaneous' &&
         new Set(group.contacts.map(contact => contact.team)).size > 1)) {
     issues.push(issue(action, 'invalid-opponent-simultaneous-context', 'Debe existir un grupo simultáneo con contactos de ambos equipos.'));
+  }
+
+  if (action.opponentSimultaneousOverNet &&
+      !action.groups.some(group => group.relation === 'simultaneous' &&
+        group.contacts.some(contact => contact.team === action.receivingTeam))) {
+    issues.push(issue(action, 'receiving-team-not-in-contact', 'El equipo receptor declarado debe estar representado entre los contactos simultáneos.'));
   }
 
   return issues;
