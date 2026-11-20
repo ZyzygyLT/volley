@@ -17,7 +17,7 @@ describe('sesiones con partido en curso', () => {
     let live = matchFor(game, fixture);
     for (let i = 0; i < 9; i++) live = stepPoint(live);
     const sub = legalSubs(live, 0)[0];
-    expect(sub).toBeDefined();
+    if (!sub) throw new Error('El partido debería ofrecer al menos un cambio legal');
     live = substitute(live, 0, sub.out.id, sub.inn.id);
     const json = serializeSession(game, live, 'liga');
     const restored = deserializeSession(json);
