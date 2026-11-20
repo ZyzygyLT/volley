@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { legalSubs, stepPoint, substitute } from '../engine/match';
+import { legalSubs, sideForTeam, stepPoint, substitute } from '../engine/match';
 import { finishRound, matchFor, newGame, regularSeasonOver } from './season';
 import { finishPlayoffDay, matchForSeries, startPlayoffs, userSeries } from './playoffs';
 import { deserializeSession, serialize, serializeSession, SaveError } from './save';
@@ -69,12 +69,15 @@ describe('sesiones con partido en curso', () => {
     const afterOneDay = finishPlayoffDay(first);
     const series = userSeries(afterOneDay)!;
     expect(series.games).toHaveLength(1);
-    const live = matchForSeries(afterOneDay, series);
-    const restored = deserializeSession(serializeSession(afterOneDay, live, 'playoff'));
+    // Forzar al usuario como cabeza de serie: en el segundo partido debe ser visitante.
+    const userAsHigh = { ...afterOneDay, userTeam: series.high };
+    const live = matchForSeries(userAsHigh, userSeries(userAsHigh)!);
+    expect(sideForTeam(live, userAsHigh.teams[userAsHigh.userTeam].name)).toBe(1);
+    const restored = deserializeSession(serializeSession(userAsHigh, live, 'playoff'));
     expect(restored.liveMatch).toEqual(live);
     const reversed = structuredClone(live);
     reversed.teams.reverse();
-    expect(() => serializeSession(afterOneDay, reversed, 'playoff')).toThrow(SaveError);
+    expect(() => serializeSession(userAsHigh, reversed, 'playoff')).toThrow(SaveError);
   });
 
   it('rechaza una sesión importada con marcador inconsistente', () => {
