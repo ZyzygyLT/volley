@@ -35,6 +35,8 @@ El informe también desglosa, para cada rol atacante elegible (OH, MB y OP), el 
 
 Una concentración extrema de selecciones en una posición se considera una señal para investigar, no una recomendación deportiva. En particular, el bonus `roleKill` es una diferencia agregada por rol y no describe el emparejamiento concreto entre un atacante y los bloqueadores que tiene enfrente.
 
+El informe incluye además un contrafactual diagnóstico que repite la selección óptima con `roleKill = 0` para todos los roles, manteniendo el resto de las ecuaciones y candidatos. Sirve para medir cuánto depende la preferencia por una posición de ese único término. No representa una calibración alternativa ni justifica borrar las diferencias observadas en VNL; las tasas por posición pueden incorporar diferencias de tempo, calidad de colocación, distribución y tipo de ataque que el motor todavía no separa.
+
 ## Límites
 
 Esto no demuestra cuál es la mejor decisión en voleibol real. Es una optimización interna al modelo actual, y hereda sus supuestos y errores.
