@@ -34,6 +34,7 @@ describe('comparación aislada de políticas de selección', () => {
     for (const row of runComparison()) {
       expect(Object.values(row.legacySelections).reduce((sum, count) => sum + count, 0)).toBe(2000);
       expect(row.legacySelections[row.baselineTargetId]).toBeGreaterThanOrEqual(0);
+      expect(row.legacySetterAttackCount).toBeGreaterThanOrEqual(0);
       expect(row.legacyTopAttackShare).toBeGreaterThanOrEqual(0);
       expect(row.legacyTopAttackShare).toBeLessThanOrEqual(1);
       expect(row.baselineAttackSkill).toBeGreaterThanOrEqual(0);
