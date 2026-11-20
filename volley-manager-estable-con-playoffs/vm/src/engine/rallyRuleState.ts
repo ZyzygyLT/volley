@@ -1,4 +1,5 @@
 import type { RallySide } from './rallySequence';
+import type { RallyTermination } from './types';
 import {
   deriveTeamHits,
   type CompoundRallyAction
@@ -21,10 +22,6 @@ export interface RallyRuleState {
   termination: RallyTermination | null;
   lastActionId: string | null;
 }
-
-export type RallyTermination =
-  | { kind: 'fault'; responsibleTeam: RallySide }
-  | { kind: 'winning-action'; responsibleTeam: RallySide };
 
 export interface RallyActionResult {
   /** Resultado explícito de la simulación, no inferido por este módulo. */
