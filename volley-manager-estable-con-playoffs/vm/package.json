@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "build:single": "node scripts/build-single.mjs dist/volley-manager.html",
     "calibration:report": "tsx scripts/calibrate-cli.ts report",
-    "calibration:fit": "tsx scripts/calibrate-cli.ts fit"
+    "calibration:fit": "tsx scripts/calibrate-cli.ts fit",
+    "setter-policy:report": "tsx scripts/set-policy-report.ts"
   },
   "dependencies": {
     "react": "^19.1.0",
