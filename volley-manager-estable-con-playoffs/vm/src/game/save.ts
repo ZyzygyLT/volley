@@ -269,12 +269,10 @@ export function indexedDbStore(dbName = 'volley-manager'): SaveStore {
         const tx = db.transaction('saves', mode);
         let result: T;
         let requestDone = false;
-        let transactionDone = false;
         const request = f(tx.objectStore('saves'));
         request.onsuccess = () => { result = request.result; requestDone = true; };
         request.onerror = () => reject(request.error ?? new Error('Falló la operación de IndexedDB'));
         tx.oncomplete = () => {
-          transactionDone = true;
           if (requestDone) resolve(result);
         };
         tx.onabort = () => reject(tx.error ?? new Error('La transacción de IndexedDB fue cancelada'));
