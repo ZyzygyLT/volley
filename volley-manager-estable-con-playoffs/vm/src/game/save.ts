@@ -261,7 +261,7 @@ export function serializeSession(game: GameState, liveMatch: MatchState | null, 
   if (liveMatch) {
     const participants = liveKind === 'liga'
       ? (() => { const f = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam)); return f ? [f.home, f.away] : []; })()
-      : (() => { const s = game.playoffs?.series.find(x => !x.winner && (x.high === game.userTeam || x.low === game.userTeam)); return s ? [s.high, s.low] : []; })();
+      : (() => { const s = game.playoffs?.series.find(x => x.winner === undefined && (x.high === game.userTeam || x.low === game.userTeam)); return s ? [s.high, s.low] : []; })();
     if (participants.length !== 2 || !participants.every(i => game.teams.some(t => t.id === i && liveMatch.teams.some(mt => mt.name === t.name)))
       || liveMatch.teams.some(mt => !participants.some(i => game.teams[i].name === mt.name))) throw new SaveError('El partido en curso no corresponde a la partida guardada');
   }
@@ -283,7 +283,7 @@ export function deserializeSession(json: string): SaveSession {
   if (liveMatch) {
     const participants = liveKind === 'liga'
       ? (() => { const f = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam)); return f ? [f.home, f.away] : []; })()
-      : (() => { const s = game.playoffs?.series.find(x => !x.winner && (x.high === game.userTeam || x.low === game.userTeam)); return s ? [s.high, s.low] : []; })();
+      : (() => { const s = game.playoffs?.series.find(x => x.winner === undefined && (x.high === game.userTeam || x.low === game.userTeam)); return s ? [s.high, s.low] : []; })();
     if (participants.length !== 2 || liveMatch.teams.some(mt => !participants.some(i => game.teams[i].name === mt.name))) throw new SaveError('El partido guardado no corresponde a la partida');
   }
   return { game, liveMatch, liveKind };
