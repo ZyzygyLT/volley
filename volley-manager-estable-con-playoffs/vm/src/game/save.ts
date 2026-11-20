@@ -4,7 +4,7 @@ import { validateLineup, MIN_BY_ROLE, MAX_ROSTER, type Lineup } from './roster';
 import { emptyP } from '../engine/stats';
 import { roundRobin, leaguePoints, standings } from './season';
 import { ECON } from './economy';
-import type { Player, Role } from '../engine/types';
+import type { MatchState, Player, Role } from '../engine/types';
 import { rollAge } from './ages';
 import { mulberry32 } from '../engine/rng';
 
@@ -198,6 +198,95 @@ function check(input: unknown, e: string[]): void {
   if (!Array.isArray(g.progressLog) || g.progressLog.length > 100 || g.progressLog.some((x: unknown) => !isObj(x) || !isStr(x.id, 40) || !isStr(x.name, 60) || !ROLES.includes(x.role as never) || !isInt(x.age, 15, 50) || !isNum(x.from, 0, 200) || !isNum(x.to, 0, 200))) e.push('Evolución inválida');
   checkBox(g.career, 'Estadísticas de la temporada', e); checkBox(g.allTime, 'Estadísticas históricas', e);
   checkPlayoffs(g.playoffs, n, g.round === rounds, teams, g.results as unknown[], e);
+}
+
+function validLiveMatch(input: unknown): input is MatchState {
+  if (!isObj(input)) return false;
+  const m = input;
+  if (!isNum(m.seed) || !Array.isArray(m.teams) || m.teams.length !== 2
+    || !Array.isArray(m.base) || m.base.length !== 2
+    || !isPair(m.score, x => isInt(x, 0, 100)) || !isPair(m.totals, x => isInt(x, 0, 10000))
+    || !isPair(m.sets, x => isInt(x, 0, 3)) || !Array.isArray(m.setScores)
+    || !isInt(m.setNo, 1, 5) || (m.serving !== 0 && m.serving !== 1) || typeof m.over !== 'boolean'
+    || !Array.isArray(m.stats) || m.stats.length !== 2 || !isObj(m.box) || !Array.isArray(m.log)
+    || !Array.isArray(m.benches) || m.benches.length !== 2
+    || !Array.isArray(m.subState) || m.subState.length !== 2) return false;
+  const validPlayer = (p: unknown) => checkPlayer(p, 'Partido', []);
+  for (let side = 0; side < 2; side++) {
+    const t = m.teams[side], base = m.base[side], bench = m.benches[side], sub = m.subState[side], stats = m.stats[side];
+    if (!isObj(t) || !isStr(t.name, 60) || !Array.isArray(t.lineup) || t.lineup.length !== 6
+      || !t.lineup.every(validPlayer) || !validPlayer(t.libero) || !isNum(t.risk, 0, 100)
+      || !Array.isArray(base) || base.length < 7 || base.length > MAX_ROSTER || !base.every(validPlayer)
+      || !Array.isArray(bench) || bench.length > MAX_ROSTER || !bench.every(validPlayer)
+      || !isObj(stats) || !['ace', 'kill', 'blk', 'err'].every(k => isInt(stats[k], 0, 1e7))
+      || !isObj(sub) || !isInt(sub.count, 0, 6) || !isObj(sub.swaps)
+      || !Object.entries(sub.swaps).every(([k, v]) => isStr(k, 40) && isStr(v, 40))
+      || !Array.isArray(sub.replaced) || !sub.replaced.every(x => isStr(x, 40))
+      || !Array.isArray(sub.usedIn) || !sub.usedIn.every(x => isStr(x, 40))) return false;
+  }
+  for (const s of Object.values(m.box)) {
+    if (!isObj(s) || !STAT_KEYS.every(k => k === 'recQSum' ? isNum(s[k], 0, 1e7) : isInt(s[k], 0, 1e7))) return false;
+  }
+  if (m.log.length > 5000 || !m.log.every(x => isStr(x, 400))) return false;
+  if (m.setScores.length !== (m.sets as number[])[0] + (m.sets as number[])[1]) return false;
+  let winsA = 0, winsB = 0, pointsA = 0, pointsB = 0;
+  for (let i = 0; i < m.setScores.length; i++) {
+    const pair = m.setScores[i];
+    if (!isPair(pair, x => isInt(x, 0, 200))) return false;
+    const [a, b] = pair as number[], target = i === 4 ? 15 : 25;
+    if (Math.max(a, b) < target || Math.abs(a - b) < 2) return false;
+    if (a > b) winsA++; else winsB++;
+    pointsA += a; pointsB += b;
+  }
+  if (winsA !== (m.sets as number[])[0] || winsB !== (m.sets as number[])[1]
+    || m.setNo !== m.setScores.length + 1 && !m.over
+    || (m.over && !((m.sets as number[])[0] === 3 && (m.sets as number[])[1] < 3)
+      && !((m.sets as number[])[1] === 3 && (m.sets as number[])[0] < 3))
+    || (!m.over && ((m.sets as number[])[0] === 3 || (m.sets as number[])[1] === 3))) return false;
+  const expectedA = pointsA + (m.over ? 0 : (m.score as number[])[0]);
+  const expectedB = pointsB + (m.over ? 0 : (m.score as number[])[1]);
+  return (m.totals as number[])[0] === expectedA && (m.totals as number[])[1] === expectedB;
+}
+
+export interface SaveSession {
+  game: GameState;
+  liveMatch: MatchState | null;
+  liveKind: 'liga' | 'playoff';
+}
+
+/** Serializa la partida de gestión y, si existe, el partido en curso como una única sesión recuperable. */
+export function serializeSession(game: GameState, liveMatch: MatchState | null, liveKind: 'liga' | 'playoff'): string {
+  const gameJson = serialize(game);
+  if (liveMatch && !validLiveMatch(liveMatch)) throw new SaveError('No se puede guardar: el estado del partido en curso es inválido');
+  if (liveMatch) {
+    const participants = liveKind === 'liga'
+      ? (() => { const f = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam)); return f ? [f.home, f.away] : []; })()
+      : (() => { const s = game.playoffs?.series.find(x => !x.winner && (x.high === game.userTeam || x.low === game.userTeam)); return s ? [s.high, s.low] : []; })();
+    if (participants.length !== 2 || !participants.every(i => game.teams.some(t => t.id === i && liveMatch.teams.some(mt => mt.name === t.name)))
+      || liveMatch.teams.some(mt => !participants.some(i => game.teams[i].name === mt.name))) throw new SaveError('El partido en curso no corresponde a la partida guardada');
+  }
+  return JSON.stringify({ format: 'volley-session-v1', game: JSON.parse(gameJson), liveMatch, liveKind });
+}
+
+/** Acepta sesiones nuevas y partidas antiguas sin partido en curso. */
+export function deserializeSession(json: string): SaveSession {
+  if (typeof json !== 'string' || json.length > MAX_SAVE_CHARS) throw new SaveError('El texto es demasiado grande o no es texto');
+  let parsed: unknown;
+  try { parsed = JSON.parse(json); } catch { throw new SaveError('El archivo no es JSON válido'); }
+  if (!isObj(parsed) || parsed.format !== 'volley-session-v1') {
+    return { game: deserialize(json), liveMatch: null, liveKind: 'liga' };
+  }
+  const game = deserialize(JSON.stringify(parsed.game));
+  const liveKind = parsed.liveKind === 'playoff' ? 'playoff' : parsed.liveKind === 'liga' ? 'liga' : null;
+  if (!liveKind || (parsed.liveMatch !== null && !validLiveMatch(parsed.liveMatch))) throw new SaveError('La sesión guardada contiene un partido en curso inválido');
+  const liveMatch = parsed.liveMatch as MatchState | null;
+  if (liveMatch) {
+    const participants = liveKind === 'liga'
+      ? (() => { const f = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam)); return f ? [f.home, f.away] : []; })()
+      : (() => { const s = game.playoffs?.series.find(x => !x.winner && (x.high === game.userTeam || x.low === game.userTeam)); return s ? [s.high, s.low] : []; })();
+    if (participants.length !== 2 || liveMatch.teams.some(mt => !participants.some(i => game.teams[i].name === mt.name))) throw new SaveError('El partido guardado no corresponde a la partida');
+  }
+  return { game, liveMatch, liveKind };
 }
 
 export function serialize(g: GameState): string {
