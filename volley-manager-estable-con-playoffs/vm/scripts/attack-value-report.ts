@@ -99,9 +99,22 @@ for (let rosterIndex = 0; rosterIndex < ROSTERS; rosterIndex += 1) {
       for (const phase of PHASES) {
         const context = { ...evaluationContext, phase };
         const evaluated = evaluateAttackOptions(candidates, context);
+
+        if (
+          evaluated.length !== candidates.length ||
+          evaluated.some(item => !item?.outcome)
+        ) {
+          throw new Error('La evaluación de ataques devolvió resultados incompletos');
+        }
+
         const totalWeight = candidates.reduce((sum, option) => sum + option.weight, 0);
-        const legacyExpected = evaluated.reduce((sum, item) =>
-          sum + item.outcome.expectedPointValue * item.candidate.weight / totalWeight, 0,
+        if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
+          throw new Error('El peso total de los candidatos debe ser positivo');
+        }
+
+        const legacyExpected = candidates.reduce((sum, candidate, index) =>
+          sum + evaluated[index].outcome.expectedPointValue * candidate.weight / totalWeight,
+          0,
         );
         const best = selectBestExpectedAttack(candidates, context);
         for (const counterfactual of Object.values(counterfactuals)) {
@@ -113,23 +126,32 @@ for (let rosterIndex = 0; rosterIndex < ROSTERS; rosterIndex += 1) {
 
         legacyTotal += legacyExpected;
         bestTotal += best.outcome.expectedPointValue;
-        neutralRoleKillBestTotal += neutralRoleKillBest.outcome.expectedPointValue;
         receptionRow.legacyExpectedPointValue += legacyExpected;
         receptionRow.bestExpectedPointValue += best.outcome.expectedPointValue;
         receptionRow.contexts += 1;
-        for (const item of evaluated) {
+        for (let index = 0; index < candidates.length; index += 1) {
+          const candidate = candidates[index];
+          const outcome = evaluated[index].outcome;
+
           totalCandidates += 1;
-          legacyRoles[item.candidate.attacker.role] += item.candidate.weight / totalWeight;
-          const diagnostic = candidateOutcomeByRole[item.candidate.attacker.role as 'OH' | 'MB' | 'OP'];
+          legacyRoles[candidate.attacker.role] += candidate.weight / totalWeight;
+
+          const diagnostic = candidateOutcomeByRole[
+            candidate.attacker.role as 'OH' | 'MB' | 'OP'
+          ];
+
+          if (!diagnostic) {
+            throw new Error(`Rol de atacante no contemplado en el informe: ${candidate.attacker.role}`);
+          }
+
           diagnostic.evaluations += 1;
-          diagnostic.expectedPointValue += item.outcome.expectedPointValue;
-          diagnostic.kill += item.outcome.kill;
-          diagnostic.error += item.outcome.error;
-          diagnostic.blocked += item.outcome.blocked;
-          diagnostic[item.candidate.zone === 'front' ? 'front' : 'backrow'] += 1;
+          diagnostic.expectedPointValue += outcome.expectedPointValue;
+          diagnostic.kill += outcome.kill;
+          diagnostic.error += outcome.error;
+          diagnostic.blocked += outcome.blocked;
+          diagnostic[candidate.zone === 'front' ? 'front' : 'backrow'] += 1;
         }
         expectedPolicyRoles[best.candidate.attacker.role] += 1;
-        neutralRoleKillPolicyRoles[neutralRoleKillBest.candidate.attacker.role] += 1;
         contextsCount += 1;
       }
     }
