@@ -1,0 +1,121 @@
+# Modelo táctico del partido: diseño incremental
+
+## Propósito
+
+Evolucionar el rally probabilístico actual hacia un ciclo de voleibol reconocible, sin sustituir de golpe el motor ni romper el formato de los partidos guardados. Este documento define fronteras y decisiones; no introduce todavía nuevas probabilidades ni afirma que el modelo esté calibrado.
+
+## Diagnóstico del comportamiento actual
+
+En `src/engine/rally.ts` el flujo es:
+
+1. Se resuelve el saque (error, ace o saque en juego).
+2. Se elige un receptor según pesos por rol y se calcula una calidad continua `q`.
+3. Se selecciona directamente un atacante con pesos por rol y valoración de ataque.
+4. La calidad de recepción y la habilidad del colocador modifican la probabilidad de éxito, pero no determinan una distribución real.
+5. El bloqueo se representa mediante promedios de los tres jugadores delanteros.
+6. Si el ataque continúa, el rally alterna entre continuidad/cobertura y defensa/transición.
+
+Por tanto, el motor ya tiene fases y eventos, pero todavía no representa una decisión explícita del colocador. La selección actual del atacante no equivale a una elección táctica de distribución.
+
+## Ciclo objetivo
+
+La evolución debe separar la decisión de la resolución:
+
+`saque → recepción → evaluación de opciones → distribución → ataque → bloqueo/defensa → transición`
+
+### 1. Recepción y estado del balón
+
+La recepción produce un estado explícito derivado de `q`, sin perder el valor continuo que usa el motor actual. La clasificación debe respetar los umbrales documentados en `params.ts` (`perfQ` y `posQ`) y no inventar nuevos cortes.
+
+La calidad condiciona qué opciones están disponibles:
+- Recepción controlada: permite considerar el repertorio ofensivo completo que admita la rotación.
+- Recepción positiva pero desplazada: reduce las opciones rápidas o dependientes de precisión.
+- Recepción deficiente: prioriza opciones de seguridad y balones altos; no debe simularse como si el colocador tuviera todas las opciones.
+
+Los nombres definitivos de los estados y sus reglas se fijarán en código y pruebas antes de calibrar sus efectos.
+
+### 2. Opciones disponibles del colocador
+
+La distribución debe recibir datos explícitos, no consultar la interfaz ni estado global:
+- calidad y condición de la recepción;
+- posición actual del colocador y si está en primera o segunda línea;
+- jugadores disponibles y sus posiciones de rotación;
+- rol y habilidades relevantes de cada atacante;
+- repertorio ofensivo permitido por la calidad del balón;
+- más adelante, lectura y formación del bloqueo rival.
+
+La lista de opciones debe construirse antes de asignar pesos. Una opción ilegal o físicamente no disponible no puede entrar en el sorteo.
+
+### 3. Decisión de distribución
+
+El colocador elige entre opciones viables. La habilidad `set` debe influir en la calidad de la decisión (por ejemplo, precisión, ocultamiento o consistencia de distribución) y no ser únicamente un modificador genérico del porcentaje de kill.
+
+La lógica debe distinguir:
+- **elección táctica:** a quién y qué tipo de balón distribuir;
+- **ejecución técnica:** precisión/tempo de la colocación;
+- **resolución del ataque:** resultado frente al bloqueo y la defensa.
+
+No se asignarán multiplicadores definitivos hasta disponer de evidencia o de una decisión de diseño explícitamente identificada y probada.
+
+### 4. Tipos de ataque y restricciones
+
+El modelo debe poder representar, de forma incremental:
+- primer tiempo del central;
+- ataque de punta y opuesto;
+- bola alta de seguridad;
+- ataque de zaguero;
+- combinaciones ofensivas, cuando las opciones y sus requisitos estén formalizados.
+
+Cada tipo tendrá requisitos de disponibilidad y un evento identificable. No se deben habilitar combinaciones solo por sorteo si no existen los jugadores y condiciones que las hacen posibles.
+
+### 5. Resolución frente al bloqueo
+
+La resolución debe recibir la opción elegida y el contexto del bloqueo. En una fase posterior podrá considerar:
+- atacante y zona de ataque;
+- número y calidad de bloqueadores que llegan a tiempo;
+- lectura del colocador y del atacante;
+- calidad/tempo de la colocación;
+- habilidad de bloqueo y compatibilidad de emparejamientos.
+
+La media de bloqueo actual se conservará como referencia de regresión hasta que el nuevo modelo tenga pruebas y calibración suficientes.
+
+## Contratos propuestos
+
+La primera implementación táctica debe extraer funciones puras con contratos pequeños:
+
+- construir opciones de ataque legales a partir de rotación y recepción;
+- calcular atributos observables de cada opción;
+- elegir una distribución con el generador aleatorio recibido como argumento;
+- devolver una decisión explicable (opción elegida y motivo/categoría);
+- resolver el ataque por separado.
+
+No se debe introducir una dependencia de React, navegador, almacenamiento o RNG global.
+
+## Eventos y estadísticas
+
+Los eventos deben permitir reconstruir lo ocurrido sin deducirlo de textos narrativos. La evolución prevista es añadir eventos tipados para distribución y tipo de ataque, manteniendo compatibilidad con los consumidores actuales de `Ev` y `applyEvents`. Antes de modificar el tipo compartido se deben localizar y probar todos sus consumidores.
+
+Cada punto debe seguir siendo atribuible y explicable. Una asistencia solo se acredita cuando corresponde según la acción real; un ataque del colocador no debe recibir una asistencia propia.
+
+## Secuencia de implementación
+
+1. **Caracterización (actual):** pruebas del contrato del rally, determinismo, orden de eventos y validez de atribuciones. No cambia la simulación.
+2. **Opciones legales:** extraer un módulo puro que liste opciones según recepción y rotación; probar restricciones sin modificar resultados de partido.
+3. **Distribución:** incorporar una decisión explícita del colocador y eventos, manteniendo temporalmente una estrategia de compatibilidad para comparar.
+4. **Tipos de ataque:** añadir tempos y ataques de zaguero/primer tiempo de forma incremental.
+5. **Bloqueo contextual:** sustituir promedios únicamente cuando el nuevo contexto esté probado.
+6. **Calibración y regresión:** comparar muchas semillas con el motor de referencia y con objetivos observados; documentar qué métricas se mantienen, cuáles cambian y por qué.
+
+## Criterios de aceptación
+
+- Misma semilla y mismas entradas producen el mismo rally.
+- No aparecen opciones ilegales para la rotación o la calidad de recepción.
+- El colocador solo distribuye a atacantes disponibles.
+- Las decisiones tácticas quedan reflejadas en eventos tipados.
+- La suma de eventos sigue cuadrando con las estadísticas de partido y jugador.
+- Los cambios no alteran el esquema de guardado.
+- Las métricas agregadas se comparan con el modelo de referencia y con las fuentes; no se declara calibración por superar únicamente pruebas unitarias.
+
+## Fuera de alcance de esta primera etapa
+
+Fatiga, lesiones, tiempos muertos, tácticas de entrenador, scouting y nuevas variables de habilidades. Se abordarán después de estabilizar el ciclo recepción–distribución–ataque.
