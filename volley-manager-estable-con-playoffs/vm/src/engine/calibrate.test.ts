@@ -9,7 +9,7 @@ describe('calibración contra datos publicados', () => {
     expect(fitted.roleErr).toEqual(P.roleErr);
   }, 30000);
 
-  it('el motor reproduce los objetivos y las validaciones independientes', () => {
+  it('el motor reproduce los objetivos y las validaciones complementarias', () => {
     const { got } = report(P, 60000);
     for (const t of [...TARGETS, ...VALIDATION]) {
       expect(Math.abs(got[t.key] - t.value), `${t.key}: modelo ${got[t.key].toFixed(3)} vs objetivo ${t.value}`).toBeLessThanOrEqual(t.tol);
