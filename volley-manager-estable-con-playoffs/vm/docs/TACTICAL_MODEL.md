@@ -19,6 +19,10 @@ Por tanto, el motor ya tiene fases y eventos, pero todavía no representa una de
 
 ## Ciclo objetivo
 
+### Estado explícito de recepción (implementado)
+
+`src/engine/reception.ts` clasifica la calidad continua usando exclusivamente `params.perfQ` y `params.posQ`, los mismos umbrales que ya utiliza `applyEvents` para las estadísticas: `perfect`, `positive` y `negative`. La función es pura y no cambia `q`, las probabilidades ni los resultados del rally. Una recepción marcada como error (por ejemplo, un ace) sigue siendo un evento distinto y no se fuerza dentro de estas tres categorías.
+
 La evolución debe separar la decisión de la resolución:
 
 `saque → recepción → evaluación de opciones → distribución → ataque → bloqueo/defensa → transición`
@@ -99,8 +103,8 @@ Cada punto debe seguir siendo atribuible y explicable. Una asistencia solo se ac
 
 ## Secuencia de implementación
 
-1. **Caracterización (actual):** pruebas del contrato del rally, determinismo, orden de eventos y validez de atribuciones. No cambia la simulación.
-2. **Opciones legales:** extraer un módulo puro que liste opciones según recepción y rotación; probar restricciones sin modificar resultados de partido.
+1. **Caracterización:** pruebas del contrato del rally, determinismo, orden de eventos y validez de atribuciones. No cambia la simulación.
+2. **Estado y opciones:** clasificar la recepción con umbrales existentes y extraer opciones de ataque según rotación. Ambas capas están implementadas como funciones puras; todavía no alteran la selección ni el resultado del rally.
 3. **Distribución:** incorporar una decisión explícita del colocador y eventos, manteniendo temporalmente una estrategia de compatibilidad para comparar.
 4. **Tipos de ataque:** añadir tempos y ataques de zaguero/primer tiempo de forma incremental.
 5. **Bloqueo contextual:** sustituir promedios únicamente cuando el nuevo contexto esté probado.
