@@ -59,6 +59,47 @@ describe('rally: contrato del ciclo actual', () => {
     }
   });
 
+  it('expone la causa real de cada final de rally sin clasificar el límite artificial', () => {
+    for (let seed = 1; seed <= 1000; seed++) {
+      const roster = teams(seed);
+      const result = playRally(roster, 0, mulberry32(seed * 53));
+      const playerTeam = (playerId: string): 0 | 1 => {
+        if (roster[0].lineup.some(player => player.id === playerId) || roster[0].libero.id === playerId) return 0;
+        return 1;
+      };
+
+      if (result.trace.capped) {
+        expect(result.termination).toBeUndefined();
+        continue;
+      }
+
+      let expected: { kind: 'fault' | 'winning-action'; responsibleTeam: 0 | 1 };
+      if (result.trace.serve === 'err') {
+        expected = { kind: 'fault', responsibleTeam: 0 };
+      } else if (result.trace.serve === 'ace') {
+        expected = { kind: 'winning-action', responsibleTeam: 0 };
+      } else {
+        const lastEvent = result.trace.ev[result.trace.ev.length - 1];
+        if (lastEvent?.k === 'oerr') {
+          expected = { kind: 'fault', responsibleTeam: playerTeam(lastEvent.p) };
+        } else if (lastEvent?.k === 'blk') {
+          expected = { kind: 'winning-action', responsibleTeam: playerTeam(lastEvent.p) };
+        } else {
+          const lastAttack = [...result.trace.ev].reverse().find(event => event.k === 'atk');
+          if (lastAttack?.k !== 'atk') throw new Error('Final de rally sin acción terminal identificable');
+          expected = lastAttack.o === 'err'
+            ? { kind: 'fault', responsibleTeam: playerTeam(lastAttack.p) }
+            : { kind: 'winning-action', responsibleTeam: playerTeam(lastAttack.p) };
+        }
+      }
+
+      expect(result.termination).toEqual(expected);
+      expect(result.winner).toBe(
+        expected.kind === 'fault' ? (1 - expected.responsibleTeam) : expected.responsibleTeam
+      );
+    }
+  });
+
   it('todo ataque registrado tiene una resolución válida', () => {
     for (let seed = 1; seed <= 250; seed++) {
       const result = playRally(teams(seed), 0, mulberry32(seed * 43));
