@@ -25,7 +25,10 @@ export interface Trace {
   atks: { phase: 'k1' | 'k2'; out: AtkOut; q: number; swap?: boolean }[];
   ev: Ev[]; capped: boolean;
 }
-export interface RallyResult { winner: Side; text: string; stat?: { team: Side; key: keyof Stats }; trace: Trace }
+export type RallyTermination =
+  | { kind: 'fault'; responsibleTeam: Side }
+  | { kind: 'winning-action'; responsibleTeam: Side };
+export interface RallyResult { winner: Side; text: string; stat?: { team: Side; key: keyof Stats }; trace: Trace; termination?: RallyTermination }
 /** Estadísticas individuales (acumulables entre partidos). */
 export interface PStats {
   gp: number; serves: number; aces: number; serveErr: number;
