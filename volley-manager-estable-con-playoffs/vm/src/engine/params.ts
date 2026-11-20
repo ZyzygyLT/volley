@@ -16,7 +16,7 @@ export interface Params {
   recWeight: ByRole;                               // [AJUSTE] reparto de recepciones por posición (VNL)
   perfQ: number; posQ: number;                     // [AJUSTE] umbrales de calidad para recepción perfecta/positiva (PlusLiga)
   killK1: number; errK1: number; blkK1: number; killK2: number; errK2: number; blkK2: number; // [AJUSTE] PlusLiga
-  roleKill: ByRole; roleErr: ByRole;               // [AJUSTE] diferencias por posición (VNL)
+  roleKill: ByRole; roleErr: ByRole;               // roleKill [AJUSTE VNL]; roleErr [PROVISIONAL: VNL no separa error y bloqueo por posición]
   atkWeight: ByRole; blkWeight: ByRole; digWeight: ByRole; // [AJUSTE] reparto de ataques, bloqueos y defensas (VNL)
   atkSkillScale: ByRole;                            // [AJUSTE] escala de la pendiente de ataque por posición (dispersión real VNL)
   atkW: number; setW: number; defW: number; blkKillW: number; qKill: number;  // [DISEÑO]
