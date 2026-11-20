@@ -83,6 +83,21 @@ describe('observación explícita de intento de bloqueo', () => {
     expect(issues.map(issue => issue.code)).toContain('contact-without-attempt');
   });
 
+  it('rechaza una relación de contacto desconocida en tiempo de ejecución', () => {
+    const malformed = observed({
+      contactGroups: [{
+        relation: 'unknown' as ObservedBlockAttempt['contactGroups'][number]['relation'],
+        contacts: [
+          { playerId: 'middle', team: 1 },
+          { playerId: 'opposite', team: 1 },
+        ],
+      }],
+    });
+
+    expect(validateBlockObservation(malformed).map(issue => issue.code))
+      .toContain('invalid-contact-group-relation');
+  });
+
   it('rechaza contactos atribuidos al equipo atacante', () => {
     const issues = validateBlockObservation(observed({
       contactGroups: [{

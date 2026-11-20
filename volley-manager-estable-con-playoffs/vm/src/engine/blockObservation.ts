@@ -49,6 +49,7 @@ export type BlockObservationIssueCode =
   | 'attempting-player-not-eligible'
   | 'attacker-listed-as-blocker'
   | 'empty-contact-group'
+  | 'invalid-contact-group-relation'
   | 'invalid-contact-group-size'
   | 'contact-team-mismatch'
   | 'contact-without-attempt'
@@ -121,7 +122,12 @@ export function validateBlockObservation(
       issues.push({ code: 'empty-contact-group', message: 'Un grupo de contactos no puede estar vacío.', groupIndex });
       return;
     }
-    if ((group.relation === 'single' && group.contacts.length !== 1) ||
+    const validRelation = group.relation === 'single' ||
+      group.relation === 'simultaneous' ||
+      group.relation === 'consecutive-within-action';
+    if (!validRelation) {
+      issues.push({ code: 'invalid-contact-group-relation', message: 'La relación del grupo de contactos no está reconocida.', groupIndex });
+    } else if ((group.relation === 'single' && group.contacts.length !== 1) ||
         (group.relation !== 'single' && group.contacts.length < 2)) {
       issues.push({ code: 'invalid-contact-group-size', message: 'La cantidad de contactos no coincide con la relación declarada.', groupIndex });
     }
