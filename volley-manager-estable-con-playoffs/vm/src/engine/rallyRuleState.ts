@@ -36,6 +36,7 @@ export interface RallyStateIssue {
     | 'too-many-team-hits'
     | 'same-player-consecutive-hit'
     | 'invalid-first-team-hit-context'
+    | 'invalid-opponent-simultaneous-transition'
     | 'missing-next-team'
     | 'unexpected-next-team'
     | 'missing-point-winner'
@@ -143,6 +144,19 @@ export function transitionRallyRuleState(
     if (result.pointWinner !== 0 && result.pointWinner !== 1) {
       add('missing-point-winner', 'Un rally terminado necesita indicar explícitamente el ganador del punto.');
     }
+  }
+
+  // La regla de contacto simultáneo adversario sobre la red solo se aplica
+  // si el balón sigue en juego: el equipo receptor debe ser el próximo en jugar
+  // y obtiene el reinicio explícito de su derecho a tres golpes.
+  if (
+    action.opponentSimultaneousOverNet &&
+    (!result.continues || result.nextTeam !== action.receivingTeam)
+  ) {
+    add(
+      'invalid-opponent-simultaneous-transition',
+      'El contacto simultáneo adversario indicado requiere continuidad y que el equipo receptor sea el siguiente en jugar.'
+    );
   }
 
   const currentHits = state.hits[action.actingTeam] + derivation.teamHits;
