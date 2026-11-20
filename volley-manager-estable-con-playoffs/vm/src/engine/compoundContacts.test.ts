@@ -159,4 +159,29 @@ describe('compound rally contacts: isolated model', () => {
     const input = action({ isFirstTeamHit: true });
     expect(deriveTeamHits(input)).toEqual(deriveTeamHits(input));
   });
+
+  it('rejects a block action whose contacts belong to the other team', () => {
+    const result = deriveTeamHits(action({
+      kind: 'block',
+      actingTeam: 0,
+      groups: [{ relation: 'simultaneous', contacts: [
+        { playerId: 'opponent-1', team: 1 },
+        { playerId: 'opponent-2', team: 1 }
+      ] }]
+    }));
+    expect(result.issues.map(issue => issue.code)).toContain('contact-team-mismatch');
+  });
+
+  it('requires the receiving team to be one of the simultaneous opponents', () => {
+    const result = deriveTeamHits(action({
+      opponentSimultaneousOverNet: true,
+      receivingTeam: 1,
+      groups: [{ relation: 'simultaneous', contacts: [
+        { playerId: 'p1', team: 0 },
+        { playerId: 'p2', team: 0 }
+      ] }]
+    }));
+    expect(result.issues.map(issue => issue.code)).toContain('invalid-opponent-simultaneous-context');
+  });
+
 });
