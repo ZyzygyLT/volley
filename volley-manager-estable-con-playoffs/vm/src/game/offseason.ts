@@ -43,7 +43,7 @@ export function makeYouth(rnd: () => number, role: Role, id: string, used: Set<s
 
 /** Rota las posiciones nuevas para que el mercado no favorezca siempre a los primeros roles de ROSTER_ORDER. */
 export function seasonalAgentRoles(season: number, amount: number): Role[] {
-  return Array.from({ length: Math.max(0, Math.floor(amount)) }, (_, k) => ROSTER_ORDER[((Math.max(1, Math.floor(season)) - 1) + k) % ROSTER_ORDER.length]);
+  return Array.from({ length: Math.max(0, Math.floor(amount)) }, (_, k) => ROSTER_ORDER[((Math.max(1, Math.floor(season)) - 2 + k) % ROSTER_ORDER.length + ROSTER_ORDER.length) % ROSTER_ORDER.length]);
 }
 
 const count = (r: Player[], role: Role) => r.filter(p => p.role === role).length;
