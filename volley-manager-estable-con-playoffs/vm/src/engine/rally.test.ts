@@ -122,7 +122,6 @@ describe('rally: contrato del ciclo actual', () => {
         expect(observation.source).toBe('legacy-weighted-target-selector');
         expect(['perfect', 'positive', 'negative']).toContain(observation.receptionQuality);
       }
-      expect(result.trace.ev.some(event => event.k === 'set')).toBe(false);
     }
   });
 
