@@ -15,7 +15,6 @@ export default defineConfig({
     pool: 'forks',
     fileParallelism: false,
     maxWorkers: 1,
-    minWorkers: 1
   },
   server: {
     host: '127.0.0.1'
