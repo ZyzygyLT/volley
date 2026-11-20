@@ -10,9 +10,10 @@ export interface RallyRuleState {
   nextTeam: RallySide;
   /** Golpes consumidos en el derecho vigente de cada equipo. */
   hits: Readonly<Record<RallySide, number>>;
-  /** Últimos jugadores que tocaron el balón en una acción del último equipo actuante. */
-  lastContactTeam: RallySide | null;
-  lastContactPlayerIds: readonly string[];
+  /** Jugadores que tocaron el balón en la última acción, separados por equipo.
+   * Permite conservar ambos lados de un contacto simultáneo entre adversarios.
+   */
+  lastActionContactPlayerIdsByTeam: Readonly<Record<RallySide, readonly string[]>>;
   /** Sigue vigente hasta que ese equipo realice su primer golpe posterior al bloqueo. */
   postBlockFirstHitPendingFor: RallySide | null;
   nextActionOrder: number;
@@ -55,8 +56,7 @@ export function createRallyRuleState(firstTeam: RallySide): RallyRuleState {
     status: 'in-play',
     nextTeam: firstTeam,
     hits: { 0: 0, 1: 0 },
-    lastContactTeam: null,
-    lastContactPlayerIds: [],
+    lastActionContactPlayerIdsByTeam: { 0: [], 1: [] },
     postBlockFirstHitPendingFor: null,
     nextActionOrder: 1,
     pointWinner: null,
@@ -97,13 +97,12 @@ export function transitionRallyRuleState(
     add('invalid-action', 'La acción compuesta contiene hechos inválidos o insuficientes.');
   }
 
-  const actionPlayerIds = [...new Set(
-    action.groups.flatMap(group =>
-      group.contacts
-        .filter(contact => contact.team === action.actingTeam)
-        .map(contact => contact.playerId)
-    )
-  )];
+  const actionContactPlayerIdsByTeam: Record<RallySide, string[]> = {
+    0: [...new Set(action.groups.flatMap(group => group.contacts
+      .filter(contact => contact.team === 0).map(contact => contact.playerId)))],
+    1: [...new Set(action.groups.flatMap(group => group.contacts
+      .filter(contact => contact.team === 1).map(contact => contact.playerId)))]
+  };
 
   // La excepción de contactos corporales consecutivos solo aplica al primer
   // golpe del derecho actual. El estado, no la acción, acredita ese contexto.
@@ -121,8 +120,9 @@ export function transitionRallyRuleState(
   if (
     action.kind !== 'block' &&
     !isOwnFirstHitAfterBlock &&
-    state.lastContactTeam === action.actingTeam &&
-    actionPlayerIds.some(playerId => state.lastContactPlayerIds.includes(playerId))
+    actionContactPlayerIdsByTeam[action.actingTeam].some(playerId =>
+      state.lastActionContactPlayerIdsByTeam[action.actingTeam].includes(playerId)
+    )
   ) {
     add(
       'same-player-consecutive-hit',
@@ -194,8 +194,7 @@ export function transitionRallyRuleState(
     status: result.continues ? 'in-play' : 'finished',
     nextTeam: result.continues ? result.nextTeam! : state.nextTeam,
     hits,
-    lastContactTeam: action.actingTeam,
-    lastContactPlayerIds: actionPlayerIds,
+    lastActionContactPlayerIdsByTeam: actionContactPlayerIdsByTeam,
     postBlockFirstHitPendingFor,
     nextActionOrder: state.nextActionOrder + 1,
     pointWinner: result.continues ? null : result.pointWinner!,
