@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { newGame, finishRound, endSeason } from './season';
+import { newGame, endSeason } from './season';
 import { serialize, deserialize } from './save';
 import { simulateSeason } from './playoffs';
 
