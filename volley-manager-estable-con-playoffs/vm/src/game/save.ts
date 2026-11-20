@@ -265,7 +265,21 @@ export function indexedDbStore(dbName = 'volley-manager'): SaveStore {
   const run = async <T,>(mode: IDBTransactionMode, f: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> => {
     const db = await open();
     try {
-      return await new Promise<T>((resolve, reject) => { const r = f(db.transaction('saves', mode).objectStore('saves')); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
+      return await new Promise<T>((resolve, reject) => {
+        const tx = db.transaction('saves', mode);
+        let result: T;
+        let requestDone = false;
+        let transactionDone = false;
+        const request = f(tx.objectStore('saves'));
+        request.onsuccess = () => { result = request.result; requestDone = true; };
+        request.onerror = () => reject(request.error ?? new Error('Falló la operación de IndexedDB'));
+        tx.oncomplete = () => {
+          transactionDone = true;
+          if (requestDone) resolve(result);
+        };
+        tx.onabort = () => reject(tx.error ?? new Error('La transacción de IndexedDB fue cancelada'));
+        tx.onerror = () => reject(tx.error ?? new Error('Falló la transacción de IndexedDB'));
+      });
     } finally { db.close(); }
   };
   type Row = { slot: string; json: string; meta: SaveMeta };
