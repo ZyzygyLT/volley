@@ -23,7 +23,7 @@ Por tanto, el motor ya tiene fases y eventos, pero todavía no representa una de
 
 `src/engine/reception.ts` clasifica la calidad continua usando exclusivamente `params.perfQ` y `params.posQ`, los mismos umbrales que ya utiliza `applyEvents` para las estadísticas: `perfect`, `positive` y `negative`. La función es pura y no cambia `q`, las probabilidades ni los resultados del rally. Una recepción marcada como error (por ejemplo, un ace) sigue siendo un evento distinto y no se fuerza dentro de estas tres categorías.
 
-`src/engine/attackContext.ts` reúne el valor continuo de recepción, su categoría y las opciones de atacante construidas por `attackOptions.ts`. Es el contrato de entrada para la futura decisión del colocador. Conserva el valor original y los pesos actuales; no elige un atacante ni altera el rally. Importante: la elegibilidad actual aún usa el valor continuo histórico (`q < 0.5` para la penalización existente al central), no una regla táctica derivada de las tres categorías.
+`src/engine/attackContext.ts` reúne el valor continuo de recepción, su categoría y las opciones de atacante construidas por `attackOptions.ts`. Es el contrato de entrada para la futura decisión del colocador. Conserva el valor original y los pesos actuales; no elige un atacante ni altera el rally. Importante: la elegibilidad actual aún usa el valor continuo histórico (`q < 0.5` para la penalización existente al central), no una regla táctica derivada de las tres categorías. También expone el colocador identificado por rol, su índice rotacional y si ocupa zaga o primera línea. Esa posición se recalcula desde la alineación actual (incluidas las rotaciones); si falta el colocador, el contexto lo representa como `null` en lugar de inventar una ubicación. Esto todavía no representa el segundo toque ni determina qué distribución puede ejecutar.
 
 La evolución debe separar la decisión de la resolución:
 
@@ -90,6 +90,7 @@ La media de bloqueo actual se conservará como referencia de regresión hasta qu
 La primera implementación táctica debe extraer funciones puras con contratos pequeños:
 
 - construir opciones de ataque legales a partir de rotación y recepción;
+- localizar al colocador y describir su zona rotacional actual;
 - calcular atributos observables de cada opción;
 - elegir una distribución con el generador aleatorio recibido como argumento;
 - devolver una decisión explicable (opción elegida y motivo/categoría);
