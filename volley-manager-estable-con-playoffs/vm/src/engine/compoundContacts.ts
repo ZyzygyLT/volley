@@ -49,6 +49,7 @@ export interface CompoundContactIssue {
     | 'invalid-first-hit-context'
     | 'invalid-opponent-simultaneous-context'
     | 'multiple-block-teams'
+    | 'block-team-mismatch'
     | 'unexpected-receiving-team';
   actionId: string;
   groupIndex?: number;
@@ -140,7 +141,10 @@ export function validateCompoundAction(
   if (action.kind === 'block' && blockTeams.size > 1) {
     issues.push(issue(action, 'multiple-block-teams', 'Una acción de bloqueo no puede mezclar equipos.'));
   }
-  if (action.kind === 'block' && [...blockTeams].some(team => team !== action.actingTeam)) {\n    issues.push(issue(action, 'block-team-mismatch', 'Los contactos del bloqueo deben pertenecer al equipo actuante.'));\n  }\n  if (action.isFirstTeamHit && action.kind === 'block') {
+  if (action.kind === 'block' && [...blockTeams].some(team => team !== action.actingTeam)) {
+    issues.push(issue(action, 'block-team-mismatch', 'Los contactos del bloqueo deben pertenecer al equipo actuante.'));
+  }
+  if (action.isFirstTeamHit && action.kind === 'block') {
     issues.push(issue(action, 'invalid-first-hit-context', 'Una acción de bloqueo no puede ser un golpe del equipo.'));
   }
   if (action.isFirstHitAfterOwnBlock && action.kind === 'block') {
