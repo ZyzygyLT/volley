@@ -106,13 +106,13 @@ export default function App() {
   const refresh = () => store.list().then(setSaves).catch(() => setMsg('No se pudo leer el almacenamiento del navegador'));
   useEffect(() => { refresh(); }, []);
   // Autoguardado: al abrir se ofrece continuar la última partida automática; mientras se decide no se sobrescribe.
-  useEffect(() => { store.list().then(l => { const m = l.find(x => x.slot === 'auto'); if (m) setPending(m); else setAutoOn(true); }).catch(() => setAutoOn(true)); }, []);
+  useEffect(() => { store.list().then(l => { const m = l.find(x => x.slot === 'auto'); if (m) setPending(m); else setAutoOn(true); }).catch(() => { setMsg('No se pudo comprobar el autoguardado. No se sobrescribirá ningún dato; revisá el almacenamiento y recargá para reintentar.'); setAutoOn(false); }); }, []);
   useEffect(() => {
     if (!autoOn) return;
-    const t = setTimeout(() => { try { store.put('auto', serialize(game), metaOf('auto', game, new Date().toISOString())).catch(() => undefined); } catch { /* el autoguardado nunca debe romper el juego */ } }, 400);
+    const t = setTimeout(() => { try { store.put('auto', serialize(game), metaOf('auto', game, new Date().toISOString())).catch(e => setMsg(`No se pudo completar el autoguardado: ${(e as Error).message}`)); } catch (e) { setMsg(`No se pudo preparar el autoguardado: ${(e as Error).message}`); } }, 400);
     return () => clearTimeout(t);
   }, [game, autoOn]);
-  const continueAuto = async () => { try { const j = await store.get('auto'); if (j) { setGame(deserialize(j)); setLive(null); setMsg('Continuás la partida automática'); } } catch (e) { setMsg(String(e)); } setPending(null); setAutoOn(true); };
+  const continueAuto = async () => { try { const j = await store.get('auto'); if (j) { const restored = deserialize(j); setGame(restored); setLive(null); setMsg('Continuás la partida automática'); } else setMsg('La partida automática ya no está disponible'); setPending(null); setAutoOn(true); } catch (e) { setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar.`); } };
 
   const setLineup = (l: Lineup) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, lineup: l } : t)) }));
   const setRisk = (risk: number) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, risk } : t)) }));
