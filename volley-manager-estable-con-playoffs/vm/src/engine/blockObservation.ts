@@ -192,3 +192,18 @@ export function validateBlockObservationContext(
 
   return issues;
 }
+
+ 
+/**
+ * Ejecuta ambas capas de validación para el contexto actual del partido:
+ * coherencia interna de la observación y referencias contra las alineaciones.
+ */
+export function validateBlockObservationForMatch(
+  observation: BlockObservation,
+  teams: [Team, Team]
+): BlockObservationIssue[] {
+  return [
+    ...validateBlockObservation(observation),
+    ...validateBlockObservationContext(observation, teams),
+  ];
+}
