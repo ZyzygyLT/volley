@@ -52,3 +52,33 @@ No integrar una nueva política en `rally.ts` a partir de estos informes solamen
 5. comparar resultados de partido multi-semilla y comprobar estadísticas, determinismo y compatibilidad de guardados.
 
 Hasta entonces, los experimentos son observacionales y el motor de partidos permanece sin cambios.
+
+## Resultados del experimento v2 — CI run 198
+
+- Workflow: [CI run 44811637281](https://github.com/ZyzygyLT/volley/actions/runs/44811637281).
+- Commit: `52945bde8397df953e3f28a8d50d102ed0b4dbcb`.
+- 20 rosters sintéticos, semillas consecutivas desde `20261120`.
+- 360 contextos (20 × 6 rotaciones × 3 calidades).
+- 1.000 muestras históricas por contexto; 360.000 selecciones.
+
+| Métrica | Resultado |
+|---|---:|
+| OH, selector heredado | 50,276 % |
+| MB, selector heredado | 20,727 % |
+| OP, selector heredado | 27,466 % |
+| S, segundo toque heredado | 1,531 % |
+| Primera línea, selector heredado | 74,703 % |
+| Zaga, selector heredado | 25,297 % |
+| Objetivo baseline OH | 81,667 % |
+| Objetivo baseline MB | 15,000 % |
+| Objetivo baseline OP | 3,333 % |
+| Selecciones históricas que coinciden con máximo `atk` | 28,072 % |
+
+El segundo toque del colocador representa el 3,062 % de las selecciones cuando está en primera línea. En zaga no aparece como opción de ataque en la lógica estructural actual.
+
+Por recepción, la proporción histórica de segundo toque fue 1,389 % (perfecta), 1,402 % (positiva) y 1,802 % (negativa). La proporción de selecciones hacia un candidato con máximo `atk` fue 27,419 %, 27,168 % y 29,629 %, respectivamente.
+
+La proporción de selecciones hacia el máximo `atk` varió entre rosters: mínimo 23,161 %, máximo 42,389 %. Esto confirma que el resultado depende de la plantilla sintética, además de los pesos y candidatos.
+
+Estos valores describen el selector heredado y el baseline abstracto. No representan frecuencias reales de colocación ni justifican cambiar pesos o integrar la política.
+
