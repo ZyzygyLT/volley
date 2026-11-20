@@ -27,6 +27,12 @@ The current `buildAttackOptions` policy is:
 | Back row | OH, OP | Central blockers and setters are excluded, preserving the previous inline selection policy. |
 | Libero | None | The libero is stored separately and is not part of `lineup`; its role also has no positive attack weight. |
 
+Each option now has a `kind` classification:
+- `hitter-attack`: a non-setter attack option in the legacy model.
+- `setter-attack-legacy`: the existing model allows a front-row setter to be selected as the attacker.
+
+The second label is deliberately explicit about its limitation. It is **not** a modeled setter dump, second-ball attack, or tactical choice by the setter. The rally still selects it through the same historical weighted draw as any other option. This tag is descriptive metadata only and does not change weights, RNG consumption, or outcomes.
+
 The option weight preserves the legacy calculation:
 
 - role attack weight;
@@ -53,17 +59,18 @@ The libero is not currently an attack option. Future libero rules must distingui
 | Back-row pipe | An eligible back-row attacker, a set to the pipe lane, and a legal take-off behind the attack line | Only the rotational row and broad OH/OP eligibility are represented. Lane, set, take-off, and legality are absent. |
 | Back-row D / other opposite attack | A suitable opposite approach and set location behind the attack line | No. The current option is only an abstract back-row attacker. |
 | Combination / tandem | Coordinated approaches by multiple attackers and a set that manipulates the block | No. There are no coordinated approaches or decoy commitments. |
-| Setter dump / second-ball attack | Setter location, contact opportunity, ball state, and tactical choice | No. A front-row setter is eligible as an ordinary weighted attacker, but there is no dump action or decision. |
+| Setter dump / second-ball attack | Setter location, contact opportunity, ball state, and tactical choice | No. The legacy setter option is only an attacker selected by the generic weighted draw; it has no second-touch state or dump action. |
 
 Do not label an option as a quick, high ball, pipe, D, combination, or dump until the engine contains the state needed to support that label.
 
 ## 4. Safe implementation sequence
 
 1. Keep the existing attacker eligibility and weights unchanged while adding characterization tests for all six rotation indices and each role.
-2. Add an explicit set/distribution decision as a separate pure function. Its inputs must describe the actual setter, rotation, reception and available attackers; its output must describe a set choice rather than silently changing attacker weights.
-3. Introduce set families only when the model can represent their prerequisites (at minimum set tempo/trajectory and target lane).
-4. Resolve attack execution separately from the set decision, then model block matchup and defensive response.
-5. Add event attribution and statistics only with explicit event contracts and save compatibility tests.
+2. Keep legacy setter attacks explicitly distinguishable from hitter attacks; do not silently reinterpret the legacy option as a setter dump.
+3. Add an explicit set/distribution decision as a separate pure function. Its inputs must describe the actual setter, rotation, reception and available attackers; its output must describe a set choice rather than silently changing attacker weights.
+4. Introduce set families only when the model can represent their prerequisites (at minimum set tempo/trajectory and target lane).
+5. Resolve attack execution separately from the set decision, then model block matchup and defensive response.
+6. Add event attribution and statistics only with explicit event contracts and save compatibility tests.
 
 ## 5. Non-regression requirements
 
