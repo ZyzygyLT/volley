@@ -5,6 +5,12 @@ import type { Params } from './params';
 export type AttackZone = 'front' | 'backrow';
 
 /**
+ * Etiqueta de compatibilidad del modelo actual.
+ * setter-attack-legacy NO significa que exista una acción táctica de segundo toque.
+ */
+export type AttackOptionKind = 'setter-attack-legacy' | 'hitter-attack';
+
+/**
  * Opción de atacante disponible en la rotación actual.
  * weight conserva exactamente el peso histórico usado por rally.ts; todavía no representa una decisión táctica del colocador.
  */
@@ -12,6 +18,7 @@ export interface AttackOption {
   attacker: Player;
   slot: number;
   zone: AttackZone;
+  kind: AttackOptionKind;
   weight: number;
 }
 
@@ -22,8 +29,9 @@ export interface AttackOption {
  * - Zaguero: solo OH/OP, como en el modelo previo; el ataque de zaguero sigue siendo una opción abstracta.
  * - Líbero: nunca es opción de ataque.
  *
- * No decide tempo, combinación ni distribución. Es una extracción del filtrado existente
- * para poder probar las restricciones antes de evolucionar el comportamiento del rally.
+ * kind solo identifica que el modelo heredado deja al colocador como atacante;
+ * no afirma que se haya modelado un dump, un segundo toque ni una decisión del colocador.
+ * No decide tempo, combinación ni distribución.
  */
 export function buildAttackOptions(lineup: Player[], receptionQuality: number, params: Params): AttackOption[] {
   return lineup.flatMap((player, slot) => {
@@ -37,6 +45,12 @@ export function buildAttackOptions(lineup: Player[], receptionQuality: number, p
     const poorMiddlePassFactor = player.role === 'MB' && receptionQuality < 0.5 ? 0.3 : 1;
     const weight = roleWeight * (player.atk / 70) * backrowFactor * poorMiddlePassFactor;
 
-    return weight > 0 ? [{ attacker: player, slot, zone, weight }] : [];
+    return weight > 0 ? [{
+      attacker: player,
+      slot,
+      zone,
+      kind: player.role === 'S' ? 'setter-attack-legacy' as const : 'hitter-attack' as const,
+      weight,
+    }] : [];
   });
 }
