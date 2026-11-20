@@ -35,6 +35,7 @@ export interface RallyStateIssue {
     | 'invalid-action'
     | 'too-many-team-hits'
     | 'same-player-consecutive-hit'
+    | 'invalid-first-team-hit-context'
     | 'missing-next-team'
     | 'unexpected-next-team'
     | 'missing-point-winner'
@@ -102,6 +103,15 @@ export function transitionRallyRuleState(
         .map(contact => contact.playerId)
     )
   )];
+
+  // La excepción de contactos corporales consecutivos solo aplica al primer
+  // golpe del derecho actual. El estado, no la acción, acredita ese contexto.
+  if (action.isFirstTeamHit && state.hits[action.actingTeam] !== 0) {
+    add(
+      'invalid-first-team-hit-context',
+      'La acción declara ser el primer golpe del equipo, pero el estado ya registra golpes en este derecho.'
+    );
+  }
 
   const isOwnFirstHitAfterBlock =
     action.kind !== 'block' &&
