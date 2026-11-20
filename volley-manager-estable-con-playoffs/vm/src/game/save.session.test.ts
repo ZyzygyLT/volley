@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { legalSubs, stepPoint, substitute } from '../engine/match';
 import { finishRound, matchFor, newGame, regularSeasonOver } from './season';
-import { matchForSeries, startPlayoffs, userSeries } from './playoffs';
+import { finishPlayoffDay, matchForSeries, startPlayoffs, userSeries } from './playoffs';
 import { deserializeSession, serialize, serializeSession, SaveError } from './save';
 
 function completeRegular(seed = 91) {
@@ -49,6 +49,32 @@ describe('sesiones con partido en curso', () => {
     const unrelated = structuredClone(live);
     unrelated.teams[0].name = 'Equipo ajeno';
     expect(() => serializeSession(game, unrelated, 'liga')).toThrow(SaveError);
+  });
+
+  it('rechaza participantes invertidos o una modalidad que no corresponde', () => {
+    const game = newGame(94);
+    const fixture = game.fixtures.find(f => f.round === game.round && (f.home === game.userTeam || f.away === game.userTeam))!;
+    const live = matchFor(game, fixture);
+    const reversed = structuredClone(live);
+    reversed.teams.reverse();
+    expect(() => serializeSession(game, reversed, 'liga')).toThrow(SaveError);
+    expect(() => serializeSession(game, live, 'playoff')).toThrow(SaveError);
+    const payload = JSON.parse(serializeSession(game, live, 'liga'));
+    payload.liveKind = 'playoff';
+    expect(() => deserializeSession(JSON.stringify(payload))).toThrow(SaveError);
+  });
+
+  it('valida el orden de localía alterna en el segundo partido de playoffs', () => {
+    const first = startPlayoffs(completeRegular(95));
+    const afterOneDay = finishPlayoffDay(first);
+    const series = userSeries(afterOneDay)!;
+    expect(series.games).toHaveLength(1);
+    const live = matchForSeries(afterOneDay, series);
+    const restored = deserializeSession(serializeSession(afterOneDay, live, 'playoff'));
+    expect(restored.liveMatch).toEqual(live);
+    const reversed = structuredClone(live);
+    reversed.teams.reverse();
+    expect(() => serializeSession(afterOneDay, reversed, 'playoff')).toThrow(SaveError);
   });
 
   it('rechaza una sesión importada con marcador inconsistente', () => {
