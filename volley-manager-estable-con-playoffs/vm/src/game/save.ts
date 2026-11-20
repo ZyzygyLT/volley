@@ -85,8 +85,11 @@ function checkPlayoffs(p: unknown, n: number, regularOver: boolean, teams: unkno
       const [wantHigh, wantLow] = expectedSemi[i];
       if (high !== wantHigh || low !== wantLow) e.push(`Playoffs: participantes incorrectos en ${id}`);
     }
+    const needed = bestOf === 3 ? 2 : 3;
     let winsHigh = 0, winsLow = 0, gamesValid = true;
     (s.games as unknown[]).forEach((rawGame, k) => {
+      // La serie debe detenerse inmediatamente al alcanzar las victorias necesarias.
+      if (winsHigh >= needed || winsLow >= needed) gamesValid = false;
       if (!isObj(rawGame)) { gamesValid = false; return; }
       const game = rawGame;
       const expectedHome = (k % 2 === 0) ? high : low;
@@ -99,13 +102,14 @@ function checkPlayoffs(p: unknown, n: number, regularOver: boolean, teams: unkno
       if (winner === high) winsHigh++; else if (winner === low) winsLow++;
     });
     if (!gamesValid) e.push(`Playoffs: partidos inválidos en ${id}`);
-    const needed = bestOf === 3 ? 2 : 3;
     const expectedWinner = winsHigh >= needed ? high : winsLow >= needed ? low : undefined;
     if (s.winner !== expectedWinner) e.push(`Playoffs: ganador incoherente en ${id}`);
     if ((winsHigh >= needed && winsLow >= needed) || (s.winner !== undefined && (s.games as unknown[]).length > bestOf)) e.push(`Playoffs: serie ${id} continuó después de cerrarse`);
   });
 
   const sf1 = seriesById.get('SF1'), sf2 = seriesById.get('SF2');
+  if (stage === 'semi' && sf1 && sf2 && sf1.winner !== undefined && sf2.winner !== undefined)
+    e.push('Playoffs: semifinales terminadas sin avanzar de etapa');
   if (stage !== 'semi' && sf1 && sf2) {
     const w1 = sf1.winner, w2 = sf2.winner;
     const l1 = w1 === sf1.high ? sf1.low : sf1.high;
