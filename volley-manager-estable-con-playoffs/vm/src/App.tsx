@@ -112,6 +112,25 @@ export default function App() {
     const t = setTimeout(() => { try { store.put('auto', serialize(game), metaOf('auto', game, new Date().toISOString())).catch(e => setMsg(`No se pudo completar el autoguardado: ${(e as Error).message}`)); } catch (e) { setMsg(`No se pudo preparar el autoguardado: ${(e as Error).message}`); } }, 400);
     return () => clearTimeout(t);
   }, [game, autoOn]);
+  // Si la pestaña se oculta o se cierra antes del debounce, intentamos persistir el último estado.
+  useEffect(() => {
+    if (!autoOn) return;
+    const flush = () => {
+      try {
+        store.put('auto', serialize(game), metaOf('auto', game, new Date().toISOString()))
+          .catch(e => setMsg(`No se pudo completar el autoguardado al salir: ${(e as Error).message}`));
+      } catch (e) {
+        setMsg(`No se pudo preparar el autoguardado al salir: ${(e as Error).message}`);
+      }
+    };
+    const onVisibilityChange = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [game, autoOn, store]);
   const continueAuto = async () => { try { const j = await store.get('auto'); if (j) { const restored = deserialize(j); setGame(restored); setLive(null); setMsg('Continuás la partida automática'); } else setMsg('La partida automática ya no está disponible'); setPending(null); setAutoOn(true); } catch (e) { setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar.`); } };
 
   const setLineup = (l: Lineup) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, lineup: l } : t)) }));
