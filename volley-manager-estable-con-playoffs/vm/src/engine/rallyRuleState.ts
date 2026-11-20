@@ -18,14 +18,21 @@ export interface RallyRuleState {
   postBlockFirstHitPendingFor: RallySide | null;
   nextActionOrder: number;
   pointWinner: RallySide | null;
+  termination: RallyTermination | null;
   lastActionId: string | null;
 }
+
+export type RallyTermination =
+  | { kind: 'fault'; responsibleTeam: RallySide }
+  | { kind: 'winning-action'; responsibleTeam: RallySide };
 
 export interface RallyActionResult {
   /** Resultado explícito de la simulación, no inferido por este módulo. */
   continues: boolean;
   nextTeam?: RallySide;
   pointWinner?: RallySide;
+  /** Obligatorio al terminar: distingue falta del equipo responsable de acción ganadora. */
+  termination?: RallyTermination;
 }
 
 export interface RallyStateIssue {
@@ -41,7 +48,10 @@ export interface RallyStateIssue {
     | 'missing-next-team'
     | 'unexpected-next-team'
     | 'missing-point-winner'
-    | 'unexpected-point-winner';
+    | 'unexpected-point-winner'
+    | 'missing-termination'
+    | 'unexpected-termination'
+    | 'invalid-termination-winner';
   actionId: string;
   message: string;
 }
@@ -60,6 +70,7 @@ export function createRallyRuleState(firstTeam: RallySide): RallyRuleState {
     postBlockFirstHitPendingFor: null,
     nextActionOrder: 1,
     pointWinner: null,
+    termination: null,
     lastActionId: null
   };
 }
@@ -137,12 +148,24 @@ export function transitionRallyRuleState(
     if (result.pointWinner !== undefined) {
       add('unexpected-point-winner', 'Un rally que continúa no puede declarar ganador del punto.');
     }
+    if (result.termination !== undefined) {
+      add('unexpected-termination', 'Un rally que continúa no puede declarar una causa de terminación.');
+    }
   } else {
     if (result.nextTeam !== undefined) {
       add('unexpected-next-team', 'Un rally terminado no puede dejar un equipo siguiente.');
     }
     if (result.pointWinner !== 0 && result.pointWinner !== 1) {
       add('missing-point-winner', 'Un rally terminado necesita indicar explícitamente el ganador del punto.');
+    }
+    if (!result.termination) {
+      add('missing-termination', 'Un rally terminado necesita indicar si el punto acaba por falta o por acción ganadora.');
+    } else if (
+      result.pointWinner !== undefined &&
+      ((result.termination.kind === 'fault' && result.pointWinner === result.termination.responsibleTeam) ||
+       (result.termination.kind === 'winning-action' && result.pointWinner !== result.termination.responsibleTeam))
+    ) {
+      add('invalid-termination-winner', 'El ganador del punto no coincide con el tipo de terminación y el equipo responsable declarados.');
     }
   }
 
@@ -198,6 +221,7 @@ export function transitionRallyRuleState(
     postBlockFirstHitPendingFor,
     nextActionOrder: state.nextActionOrder + 1,
     pointWinner: result.continues ? null : result.pointWinner!,
+    termination: result.continues ? null : result.termination!,
     lastActionId: action.actionId
   };
 
