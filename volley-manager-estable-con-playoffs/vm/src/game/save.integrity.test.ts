@@ -44,7 +44,7 @@ describe('integridad semántica de guardados: fase regular', () => {
     rejected(wrongFixture);
 
     const wrongPoints = jsonCopy(regular(2));
-    wrongPoints.results[0].points = [3, 0];
+    wrongPoints.results[0].points = [wrongPoints.results[0].points[1], wrongPoints.results[0].points[0]];
     rejected(wrongPoints);
   });
 
