@@ -10,6 +10,7 @@ export interface SetPolicyComparisonRow {
   baselineTargetId: string;
   baselineAttackSkill: number;
   legacySelections: Record<string, number>;
+  legacySetterAttackCount: number;
   legacyTopAttackShare: number;
 }
 
@@ -30,23 +31,22 @@ export function compareSetPolicies(
   return contexts.map((context, contextIndex) => {
     const candidates = buildSetCandidateProfiles(context);
     const baseline = decideSetTarget(candidates);
-    const candidateIds = new Set(candidates.map(candidate => candidate.player.id));
+    const setterId = context.setter?.player.id;
     const topSkill = Math.max(...candidates.map(candidate => candidate.attackSkill));
     const topSkillIds = new Set(
       candidates.filter(candidate => candidate.attackSkill === topSkill).map(candidate => candidate.player.id),
     );
     const legacySelections: Record<string, number> = Object.fromEntries(
-      candidates.map(candidate => [candidate.player.id, 0]),
+      context.options.map(option => [option.attacker.id, 0]),
     );
+    let legacySetterAttackCount = 0;
     const rnd = rndForContext(contextIndex);
     let legacyTopAttackCount = 0;
 
     for (let sample = 0; sample < samplesPerContext; sample += 1) {
       const selectedId = selectAttackTarget(context, rnd).attacker.id;
-      if (!candidateIds.has(selectedId)) {
-        throw new Error('El selector histórico devolvió un jugador ajeno a los candidatos de colocación');
-      }
       legacySelections[selectedId] += 1;
+      if (selectedId === setterId) legacySetterAttackCount += 1;
       if (topSkillIds.has(selectedId)) legacyTopAttackCount += 1;
     }
 
@@ -57,6 +57,7 @@ export function compareSetPolicies(
       baselineTargetId: baseline.target.player.id,
       baselineAttackSkill: baseline.target.attackSkill,
       legacySelections,
+      legacySetterAttackCount,
       legacyTopAttackShare: legacyTopAttackCount / samplesPerContext,
     };
   });
