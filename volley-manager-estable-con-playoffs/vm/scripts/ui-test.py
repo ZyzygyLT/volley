@@ -34,6 +34,7 @@ with sync_playwright() as p:
     pg.click('nav >> text=Guardar'); pg.click('section button:text-is("Guardar") >> nth=0'); pg.wait_for_timeout(300)
     pg.reload(); pg.wait_for_selector('h1'); pg.click('nav >> text=Guardar'); pg.wait_for_timeout(200)
     pg.click('section button:text-is("Cargar") >> nth=0'); pg.wait_for_timeout(200)
+    pg.click('nav >> text=Partido')
     chk('recupera el partido activo con su marcador y vuelve a Partido',pg.inner_text('.score')==score_saved and pg.is_visible('button:has-text("Punto")'),pg.inner_text('.score'))
     pg.click('button:has-text("Partido completo")'); chk('partido terminado',pg.is_visible('button:has-text("Cerrar jornada")'))
     chk('boxscore con suplente',len(pg.query_selector_all('section table tbody tr'))>=14)
