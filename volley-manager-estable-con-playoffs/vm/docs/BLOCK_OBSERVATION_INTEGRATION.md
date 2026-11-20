@@ -144,6 +144,6 @@ Cuando el estado es `observed`, el contrato registra por separado:
 - `attemptingBlockerIds`: participantes explícitos del intento;
 - `contactGroups`: contactos físicos efectivos, reutilizando `ContactGroup` y `PhysicalContact`.
 
-La validación comprueba identidad del ataque, separación de equipos, IDs únicos, pertenencia de participantes al conjunto elegible y coherencia entre participantes y contactos. No selecciona participantes, no deduce carriles, no determina matchups y no evalúa la calidad táctica. La procedencia queda identificada como `tactical-model` o `external-observation`.
+La validación comprueba identidad del ataque, separación de equipos, IDs no vacíos y únicos (con errores diferenciados para IDs vacíos y duplicados), pertenencia de participantes al conjunto elegible y coherencia entre participantes y contactos. No selecciona participantes, no deduce carriles, no determina matchups y no evalúa la calidad táctica. La procedencia queda identificada como `tactical-model` o `external-observation`.
 
 Este contrato es una frontera de datos y una base para pruebas; **no es todavía un sistema táctico que genere intentos**. La política que produzca `attemptingBlockerIds` sigue pendiente de definición y calibración. El motor probabilístico legado permanece sin cambios.

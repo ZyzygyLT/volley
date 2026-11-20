@@ -106,6 +106,17 @@ describe('observación explícita de intento de bloqueo', () => {
     expect(issues.map(issue => issue.code)).toContain('duplicate-attempting-blocker');
   });
 
+  it('distingue IDs vacíos de IDs duplicados en las listas', () => {
+    const issues = validateBlockObservation(observed({
+      eligibleBlockerIds: ['middle', ' '],
+      attemptingBlockerIds: ['middle', ''],
+    }));
+    expect(issues.map(issue => issue.code)).toContain('invalid-eligible-blocker-id');
+    expect(issues.map(issue => issue.code)).toContain('invalid-attempting-blocker-id');
+    expect(issues.map(issue => issue.code)).not.toContain('duplicate-eligible-blocker');
+    expect(issues.map(issue => issue.code)).not.toContain('duplicate-attempting-blocker');
+  });
+
   it('requiere equipos distintos y un identificador de ataque', () => {
     const issues = validateBlockObservation(observed({
       attackId: ' ',

@@ -40,7 +40,9 @@ export type BlockObservationIssueCode =
   | 'invalid-teams'
   | 'same-attacking-and-defending-team'
   | 'invalid-source'
+  | 'invalid-eligible-blocker-id'
   | 'duplicate-eligible-blocker'
+  | 'invalid-attempting-blocker-id'
   | 'duplicate-attempting-blocker'
   | 'attempting-player-not-eligible'
   | 'attacker-listed-as-blocker'
@@ -89,11 +91,17 @@ export function validateBlockObservation(
   const eligible = observation.eligibleBlockerIds;
   const attempting = observation.attemptingBlockerIds;
 
-  if (hasBlank(eligible) || hasDuplicates(eligible)) {
-    issues.push({ code: 'duplicate-eligible-blocker', message: 'La lista de elegibles contiene IDs vacíos o duplicados.' });
+  if (hasBlank(eligible)) {
+    issues.push({ code: 'invalid-eligible-blocker-id', message: 'La lista de elegibles contiene IDs vacíos.' });
   }
-  if (hasBlank(attempting) || hasDuplicates(attempting)) {
-    issues.push({ code: 'duplicate-attempting-blocker', message: 'La lista de participantes contiene IDs vacíos o duplicados.' });
+  if (hasDuplicates(eligible)) {
+    issues.push({ code: 'duplicate-eligible-blocker', message: 'La lista de elegibles contiene IDs duplicados.' });
+  }
+  if (hasBlank(attempting)) {
+    issues.push({ code: 'invalid-attempting-blocker-id', message: 'La lista de participantes contiene IDs vacíos.' });
+  }
+  if (hasDuplicates(attempting)) {
+    issues.push({ code: 'duplicate-attempting-blocker', message: 'La lista de participantes contiene IDs duplicados.' });
   }
   if (attempting.some(id => !eligible.includes(id))) {
     issues.push({ code: 'attempting-player-not-eligible', message: 'Todo participante del intento debe pertenecer al conjunto elegible declarado.' });
