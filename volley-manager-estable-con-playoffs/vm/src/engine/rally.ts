@@ -51,6 +51,16 @@ export function playRally(teams: [Team, Team], serving: Side, rnd: () => number,
     const attackContext = buildAttackContext(att, q, p);
     const at = selectAttackTarget(attackContext, rnd).attacker;
     const setter = attackContext.setter?.player;
+    if (setter) {
+      trace.setPlayObservations!.push({
+        phase,
+        setterId: setter.id,
+        selectedAttackerId: at.id,
+        selection: setter.id === at.id ? 'setter-second-touch' : 'teammate-target',
+        source: 'legacy-weighted-target-selector',
+        receptionQuality: attackContext.receptionQuality,
+      });
+    }
     const front = def.slice(3), bA = avg(front.map(x => x.blk)), dA = avg(effD.slice(0, 3).map(x => x.def));
     const qd = q - 0.55, sd = setter ? setter.set - 70 : 0;
     const baseK = phase === 'k1' ? p.killK1 : p.killK2, baseE = phase === 'k1' ? p.errK1 : p.errK2, baseB = phase === 'k1' ? p.blkK1 : p.blkK2;
