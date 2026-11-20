@@ -11,7 +11,7 @@ const rot = <T,>(l: T[], k: number) => [...l.slice(k), ...l.slice(0, k)];
 const rate = (a: number, b: number) => (b ? a / b : 0);
 
 export interface Meas {
-  R: number; oerr: number; so: number; cont: number; swap: number; capped: number; atkAll: number;
+  R: number; oerr: number; so: number; cont: number; swap: number; atkAll: number;
   sv: Record<Role, { n: number; ace: number; err: number }>; at: Record<Role, { n: number; kill: number; err: number; blk: number }>;
   rc: Record<Role, { n: number; err: number }>; q: { role: Role; q: number }[]; blk: Record<Role, number>; dig: Record<Role, number>;
   fk: { k1: { n: number; kill: number }; k2: { n: number; kill: number } };
@@ -22,13 +22,13 @@ const pool = () => (POOL ??= Array.from({ length: 200 }, (_, i) => makeSquads(10
 /** Simula `N` rallies entre equipos de liga (valoración media, sin ventaja) con rotaciones aleatorias y mide tasas por posición. */
 export function measure(p: Params, N: number, seed: number): Meas {
   const rnd = mulberry32(seed), pl = pool();
-  const m: Meas = { R: 0, oerr: 0, so: 0, cont: 0, swap: 0, capped: 0, atkAll: 0, sv: rec(() => ({ n: 0, ace: 0, err: 0 })), at: rec(() => ({ n: 0, kill: 0, err: 0, blk: 0 })),
+  const m: Meas = { R: 0, oerr: 0, so: 0, cont: 0, swap: 0, atkAll: 0, sv: rec(() => ({ n: 0, ace: 0, err: 0 })), at: rec(() => ({ n: 0, kill: 0, err: 0, blk: 0 })),
     rc: rec(() => ({ n: 0, err: 0 })), q: [], blk: rec(() => 0), dig: rec(() => 0), fk: { k1: { n: 0, kill: 0 }, k2: { n: 0, kill: 0 } } };
   for (let i = 0; i < N; i++) {
     const pr = pl[Math.floor(rnd() * pl.length)], sv = rnd() < 0.5 ? 0 : 1;
     const t: [any, any] = [{ name: 'A', lineup: rot(pr[0].slice(0, 6), Math.floor(rnd() * 6)), libero: pr[0][6], risk: 50 }, { name: 'B', lineup: rot(pr[1].slice(0, 6), Math.floor(rnd() * 6)), libero: pr[1][6], risk: 50 }];
     const r = playRally(t, sv as 0 | 1, rnd, p);
-    m.R++; if (r.winner !== sv) m.so++; if (r.trace.capped) m.capped++;
+    m.R++; if (r.winner !== sv) m.so++;
     for (const a of r.trace.atks) { m.atkAll++; const f = m.fk[a.phase]; f.n++; if (a.out === 'kill') f.kill++; if (a.out === 'cont') { m.cont++; if (a.swap) m.swap++; } }
     for (const e of r.trace.ev) {
       const ro = roleOfId(e.p);
@@ -121,7 +121,7 @@ export function report(p: Params, N: number) {
     out.push(`\n== ${title} ==`);
     for (const t of list) { const l = line(t, g[t.key]); tot++; if (l.ok) ok++; out.push(l.s); }
   }
-  out.push(`\nrallies cortados por el tope: ${(100 * rate(raw.capped, raw.R)).toFixed(3)} %   |  aprobados ${ok}/${tot}`);
+  out.push(`\nobjetivos aprobados ${ok}/${tot}`);
   out.push(`ataque k1 kill ${rate(raw.fk.k1.kill, raw.fk.k1.n).toFixed(3)} · k2 kill ${rate(raw.fk.k2.kill, raw.fk.k2.n).toFixed(3)} (preprint: k1≈0.50, k2≈0.42-0.47)`);
   return { got: g, text: out.join('\n'), ok, tot };
 }
