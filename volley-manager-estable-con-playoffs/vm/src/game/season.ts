@@ -161,7 +161,7 @@ export function seasonSummary(g: GameState): SeasonRecord {
 function assertSeasonCanClose(g: GameState): void {
   if (!isSeasonOver(g) || !g.playoffs) throw new Error('La temporada todavía no terminó');
   const rounds = totalRounds(g);
-  if (g.round !== rounds || g.results.length !== g.fixtures.length) {
+  if (g.round !== rounds || g.results.length < g.fixtures.length) {
     throw new Error('No se puede cerrar la temporada: la fase regular está incompleta');
   }
   const fixtures = new Set(g.fixtures.map(f => `${f.round}/${f.home}/${f.away}`));
