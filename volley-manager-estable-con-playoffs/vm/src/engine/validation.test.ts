@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createMatch, legalSubs, makePlayer, makeSquads, playMatch, substitute } from './match';
 import { mulberry32 } from './rng';
 import { P } from './params';
-import { validateMatch } from './validation';
+import { validateMatch, validateMatchAgainst } from './validation';
 
 describe('validateMatch', () => {
   it('acepta un partido nuevo y uno terminado', () => {
@@ -15,9 +15,15 @@ describe('validateMatch', () => {
     const bench = (offset: number) => (['S', 'OH', 'OH', 'MB', 'MB', 'OP', 'L'] as const)
       .map((role, i) => makePlayer(rnd, role, 0, `b${offset + i}`, `Sup${offset + i}`, 0));
     let match = createMatch(3, 50, { squads: [a, b], benches: [bench(0), bench(20)] });
+    const expected = structuredClone(match);
     const option = legalSubs(match, 0).find(candidate => !candidate.isLibero)!;
     match = substitute(match, 0, option.out.id, option.inn.id);
     expect(validateMatch(match)).toEqual([]);
+    expect(validateMatchAgainst(match, expected)).toEqual([]);
+
+    const wrongFixture = structuredClone(match);
+    wrongFixture.seed++;
+    expect(validateMatchAgainst(wrongFixture, expected).some(error => error.includes('no corresponde al fixture'))).toBe(true);
   });
 
   it('rechaza semillas que no sean uint32', () => {
