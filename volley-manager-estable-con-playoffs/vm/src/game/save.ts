@@ -31,11 +31,17 @@ function checkPlayer(p: unknown, where: string, e: string[]): boolean {
   return true;
 }
 function checkBox(b: unknown, where: string, e: string[]): void {
-  if (!isObj(b)) { e.push(`${where}: estadísticas inválidas`); return; }
+  if (!isObj(b)) { e.push(where + ': estadísticas inválidas'); return; }
   for (const [id, s] of Object.entries(b)) {
-    if (!isObj(s)) { e.push(`${where}: estadísticas inválidas de ${id}`); return; }
-    // contadores enteros (la suma de calidades de recepción puede ser decimal); tope de 10 millones: muy por encima de lo real y sin riesgo de desbordar al seguir jugando
-    for (const k of STAT_KEYS) if (!(k === 'recQSum' ? isNum(s[k], 0, 1e7) : isInt(s[k], 0, 1e7))) { e.push(`${where}: ${id}.${k} inválido`); return; }
+    if (!id.trim() || id.length > 40 || !isObj(s)) { e.push(where + ': estadísticas inválidas de ' + id); return; }
+    const keys = Object.keys(s);
+    if (keys.length !== STAT_KEYS.length || STAT_KEYS.some(k => !Object.prototype.hasOwnProperty.call(s, k))) {
+      e.push(where + ': estructura incompleta de estadísticas de ' + id); return;
+    }
+    // Contadores enteros; recQSum admite decimales.
+    for (const k of STAT_KEYS) if (!(k === 'recQSum' ? isNum(s[k], 0, 1e7) : isInt(s[k], 0, 1e7))) {
+      e.push(where + ': ' + id + '.' + k + ' inválido'); return;
+    }
   }
 }
 
