@@ -112,6 +112,10 @@ export default function App() {
   // Una sola pestaña controla la sesión. Al adquirir el lock recupera el último estado persistido antes de habilitar el juego.
   useEffect(() => {
     if (typeof navigator === 'undefined' || !navigator.locks) {
+      store.list().then(items => {
+        const saved = items.find(item => item.slot === 'auto') ?? items.find(item => item.slot === 'auto-backup');
+        if (saved) setPending({ ...saved, slot: 'auto' });
+      }).catch(() => setMsg('No se pudo comprobar el autoguardado. El autoguardado seguirá desactivado; exportá copias para conservar el progreso.'));
       setSessionStatus('unsupported');
       return;
     }
@@ -188,7 +192,32 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [game, live, liveKind, autoOn, store, writeQueue]);
-  const continueAuto = async () => { try { const recovered = await writeQueue(() => recoverAuto(store)); if (!recovered.session) throw new Error('No hay una copia válida disponible'); const restored = recovered.session; setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg(recovered.source === 'auto-backup' ? 'Partida recuperada desde la copia de seguridad anterior; se restauró el autoguardado principal.' : 'Continuás la partida automática'); setPending(null); setAutoOn(sessionStatus === 'ready'); refresh(); } catch (e) { setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar o empezar una partida nueva.`); } };
+  const continueAuto = async () => {
+    try {
+      const recovered = await writeQueue(() => sessionStatus === 'ready'
+        ? recoverAuto(store)
+        : (async () => {
+          const primary = await store.get('auto');
+          if (primary !== null) {
+            try { return { session: deserializeSession(primary), source: 'auto' as const }; } catch { /* probar la copia anterior sin modificar el almacenamiento */ }
+          }
+          const backup = await store.get('auto-backup');
+          return backup === null
+            ? { session: null, source: 'none' as const }
+            : { session: deserializeSession(backup), source: 'auto-backup' as const };
+        })());
+      if (!recovered.session) throw new Error('No hay una copia válida disponible');
+      const restored = recovered.session;
+      setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind);
+      setTab(restored.liveMatch ? 'partido' : 'liga');
+      setMsg(recovered.source === 'auto-backup'
+        ? (sessionStatus === 'ready' ? 'Partida recuperada desde la copia de seguridad anterior; se restauró el autoguardado principal.' : 'Partida abierta desde la copia de seguridad anterior; no se modificó el almacenamiento.')
+        : 'Continuás la partida automática');
+      setPending(null); setAutoOn(sessionStatus === 'ready'); refresh();
+    } catch (e) {
+      setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar o empezar una partida nueva.`);
+    }
+  };
 
   const setLineup = (l: Lineup) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, lineup: l } : t)) }));
   const setRisk = (risk: number) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, risk } : t)) }));
