@@ -275,6 +275,19 @@ describe('integridad semántica de guardados: fase regular', () => {
     rejected(corrupt);
     expect(() => serialize(corrupt)).toThrow(SaveError);
   });
+  it('no genera guardados que superen el límite admitido por deserialize', () => {
+    const game = jsonCopy(newGame(4341));
+    const template = game.market[0];
+    game.retiredPlayers = Array.from({ length: 20_000 }, (_, i) => ({
+      ...template,
+      id: `archived-${i}`,
+      name: `Jugador archivado ${i}`,
+      retiredSeason: 1,
+      lastTeam: 'Agente libre',
+    }));
+    expect(() => serialize(game)).toThrow(SaveError);
+  });
+
   it('deserialize rechaza los mismos datos incoherentes que validateGame', () => {
     const corrupt = jsonCopy(regular(2));
     corrupt.results.pop();
