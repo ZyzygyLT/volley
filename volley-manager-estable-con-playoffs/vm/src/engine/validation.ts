@@ -412,7 +412,7 @@ export function validateMatchAgainst(input: unknown, expected: MatchState): stri
       }
       return players;
     };
-    const actualRoster = collect(actual.base[side], actual.benches[side]);
+    const actualRoster = collect(actualBase[side], actualBenches[side]);
     const expectedRoster = collect(expected.base[side], expected.benches[side]);
     if (actualRoster.size !== expectedRoster.size) errors.push(`roster[${side}]: cantidad de participantes distinta del fixture`);
     for (const [id, player] of expectedRoster) {
@@ -423,21 +423,26 @@ export function validateMatchAgainst(input: unknown, expected: MatchState): stri
     for (const id of actualRoster.keys()) if (!expectedRoster.has(id)) errors.push(`roster[${side}]: jugador ajeno al fixture (${id})`);
 
   }
+  const actualBase = actual.base as unknown[][];
+  const actualBenches = actual.benches as unknown[][];
+  const subHistory: unknown[] = Array.isArray(actual.subHistory) ? actual.subHistory : [];
   if (Array.isArray(actual.subHistory)) {
     // La alineación del fixture puede haber cambiado después de iniciar el partido.
-    // Por eso reconstruimos la alineación inicial invirtiendo el historial desde el
-    // estado final; luego reproducimos los eventos para comprobar su legalidad.
-    const terminal = ([0, 1] as const).map(side => ({
-      base: (actual.base[side] as unknown[]).map(player => isRecord(player) ? player.id : null),
-      bench: (actual.benches[side] as unknown[]).map(player => isRecord(player) ? player.id : null),
+    // Reconstruimos la alineación inicial invirtiendo los cambios desde el estado final.
+    type LineupState = { base: (string | null)[]; bench: (string | null)[] };
+    const terminal: LineupState[] = ([0, 1] as const).map((side): LineupState => ({
+      base: actualBase[side].map((player: unknown) => isRecord(player) && isId(player.id) ? player.id : null),
+      bench: actualBenches[side].map((player: unknown) => isRecord(player) && isId(player.id) ? player.id : null),
     }));
-    const initial = terminal.map(state => ({ base: [...state.base], bench: [...state.bench] }));
-    for (let i = actual.subHistory.length - 1; i >= 0; i--) {
-      const raw = actual.subHistory[i];
+    const initial: LineupState[] = terminal.map((state: LineupState): LineupState => ({
+      base: [...state.base], bench: [...state.bench],
+    }));
+    for (let i = subHistory.length - 1; i >= 0; i--) {
+      const raw: unknown = subHistory[i];
       if (!isRecord(raw) || !isSide(raw.side) || !isId(raw.outId) || !isId(raw.inId)) continue;
-      const state = initial[raw.side];
-      const baseIndex = state.base.indexOf(raw.inId);
-      const benchIndex = state.bench.indexOf(raw.outId);
+      const state: LineupState = initial[raw.side];
+      const baseIndex: number = state.base.indexOf(raw.inId);
+      const benchIndex: number = state.bench.indexOf(raw.outId);
       if (baseIndex < 0 || benchIndex < 0) {
         errors.push(`subHistory[${i}]: no se puede reconstruir el estado anterior al cambio`);
         continue;
@@ -445,17 +450,25 @@ export function validateMatchAgainst(input: unknown, expected: MatchState): stri
       state.base[baseIndex] = raw.outId;
       state.bench[benchIndex] = raw.inId;
     }
-    const replay = initial.map((state, side) => ({
+    type ReplayState = LineupState & {
+      roles: Map<string, Role>;
+      setNo: number;
+      count: number;
+      swaps: Map<string, string>;
+      replaced: Set<string>;
+      usedIn: Set<string>;
+    };
+    const replay: ReplayState[] = initial.map((state: LineupState, side: number): ReplayState => ({
       base: [...state.base],
       bench: [...state.bench],
-      roles: new Map([...expected.base[side as Side], ...expected.benches[side as Side]].map(player => [player.id, player.role])),
+      roles: new Map<string, Role>([...expected.base[side as Side], ...expected.benches[side as Side]].map((player: Player) => [player.id, player.role])),
       setNo: 1, count: 0, swaps: new Map<string, string>(), replaced: new Set<string>(), usedIn: new Set<string>(),
     }));
-    for (let i = 0; i < actual.subHistory.length; i++) {
-      const raw = actual.subHistory[i];
+    for (let i = 0; i < subHistory.length; i++) {
+      const raw: unknown = subHistory[i];
       if (!isRecord(raw) || !isSide(raw.side) || !isInteger(raw.setNo) || !isId(raw.outId) || !isId(raw.inId)
         || typeof raw.isLibero !== 'boolean') continue;
-      const state = replay[raw.side];
+      const state: ReplayState = replay[raw.side];
       if (raw.setNo < state.setNo || raw.setNo > 5) {
         errors.push(`subHistory[${i}]: número de set fuera de orden`);
         continue;
@@ -463,9 +476,10 @@ export function validateMatchAgainst(input: unknown, expected: MatchState): stri
       if (raw.setNo > state.setNo) {
         state.setNo = raw.setNo; state.count = 0; state.swaps.clear(); state.replaced.clear(); state.usedIn.clear();
       }
-      const outId = raw.outId, inId = raw.inId;
-      const benchIndex = state.bench.indexOf(inId);
-      const baseIndex = state.base.indexOf(outId);
+      const outId: string = raw.outId;
+      const inId: string = raw.inId;
+      const benchIndex: number = state.bench.indexOf(inId);
+      const baseIndex: number = state.base.indexOf(outId);
       if (baseIndex < 0 || benchIndex < 0) {
         errors.push(`subHistory[${i}]: jugador saliente o entrante no está en la posición esperada`);
         continue;
