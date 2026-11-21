@@ -371,9 +371,9 @@ export default function App() {
           <h3>{l}</h3>
           <ol>{leaders(game, k, 5).map(x => <li key={x.player.id}>{x.player.name} <small>({x.team}, {x.player.role})</small> — <b>{x.value}</b></li>)}</ol></div>)}
         <h3>Mi equipo — temporada {game.season}</h3>
-        <Box title="" players={lineupToSquad(me.roster, me.lineup)} box={game.career} />
+        <Box title="" players={rosterSorted(me.roster)} box={game.career} />
         <h3>Mi equipo — histórico (todas las temporadas)</h3>
-        <Box title="" players={lineupToSquad(me.roster, me.lineup)} box={addBoxes(game.allTime, game.career)} />
+        <Box title="" players={rosterSorted(me.roster)} box={addBoxes(game.allTime, game.career)} />
         <h3>Historial de temporadas</h3>
         {game.history.length === 0 ? <p className="mu">Todavía no terminaste ninguna temporada.</p> : <div className="wrap"><table>
           <thead><tr><th>Temporada</th><th>Campeón</th><th>Mi puesto</th><th>Mis puntos</th><th>Premio</th></tr></thead>
