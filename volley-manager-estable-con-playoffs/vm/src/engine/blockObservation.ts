@@ -56,7 +56,14 @@ export type BlockObservationIssueCode =
   | 'attacker-not-in-attacking-team'
   | 'invalid-attacking-lineup'
   | 'invalid-defending-lineup'
-  | 'eligible-blockers-do-not-match-lineup';
+  | 'eligible-blockers-do-not-match-lineup'
+  | 'invalid-observation'
+  | 'invalid-observation-status'
+  | 'invalid-eligible-blocker-list'
+  | 'invalid-attempting-blocker-list'
+  | 'invalid-contact-groups'
+  | 'invalid-contact-group'
+  | 'invalid-contact';
 
 export interface BlockObservationIssue {
   code: BlockObservationIssueCode;
@@ -64,8 +71,12 @@ export interface BlockObservationIssue {
   groupIndex?: number;
 }
 
-const hasBlank = (values: readonly string[]) => values.some(value => !value.trim());
-const hasDuplicates = (values: readonly string[]) => new Set(values).size !== values.length;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const isNonBlank = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+const hasBlank = (values: readonly unknown[]) => values.some(value => !isNonBlank(value));
+const hasDuplicates = (values: readonly unknown[]) => new Set(values).size !== values.length;
 
 /**
  * Valida coherencia local de una observación. No determina si la táctica
@@ -76,10 +87,14 @@ export function validateBlockObservation(
 ): BlockObservationIssue[] {
   const issues: BlockObservationIssue[] = [];
 
-  if (!observation.attackId.trim()) {
+  if (!isRecord(observation)) {
+    return [{ code: 'invalid-observation', message: 'La observación debe ser un objeto válido.' }];
+  }
+
+  if (!isNonBlank(observation.attackId)) {
     issues.push({ code: 'invalid-attack-id', message: 'La observación debe identificar el ataque.' });
   }
-  if (!observation.attackerId.trim()) {
+  if (!isNonBlank(observation.attackerId)) {
     issues.push({ code: 'invalid-attacker-id', message: 'La observación debe identificar al atacante.' });
   }
   if ((observation.attackingTeam !== 0 && observation.attackingTeam !== 1) ||
@@ -94,6 +109,23 @@ export function validateBlockObservation(
   }
 
   if (observation.status === 'unavailable') return issues;
+  if (observation.status !== 'observed') {
+    issues.push({ code: 'invalid-observation-status', message: 'El estado de la observación no está reconocido.' });
+    return issues;
+  }
+
+  if (!Array.isArray(observation.eligibleBlockerIds)) {
+    issues.push({ code: 'invalid-eligible-blocker-list', message: 'La lista de elegibles debe ser un arreglo.' });
+  }
+  if (!Array.isArray(observation.attemptingBlockerIds)) {
+    issues.push({ code: 'invalid-attempting-blocker-list', message: 'La lista de participantes debe ser un arreglo.' });
+  }
+  if (!Array.isArray(observation.contactGroups)) {
+    issues.push({ code: 'invalid-contact-groups', message: 'Los grupos de contacto deben ser un arreglo.' });
+  }
+  if (!Array.isArray(observation.eligibleBlockerIds) ||
+      !Array.isArray(observation.attemptingBlockerIds) ||
+      !Array.isArray(observation.contactGroups)) return issues;
 
   const eligible = observation.eligibleBlockerIds;
   const attempting = observation.attemptingBlockerIds;
@@ -118,6 +150,10 @@ export function validateBlockObservation(
   }
 
   observation.contactGroups.forEach((group, groupIndex) => {
+    if (!isRecord(group) || !Array.isArray(group.contacts)) {
+      issues.push({ code: 'invalid-contact-group', message: 'Cada grupo debe contener un arreglo de contactos.', groupIndex });
+      return;
+    }
     if (group.contacts.length === 0) {
       issues.push({ code: 'empty-contact-group', message: 'Un grupo de contactos no puede estar vacío.', groupIndex });
       return;
@@ -132,6 +168,10 @@ export function validateBlockObservation(
       issues.push({ code: 'invalid-contact-group-size', message: 'La cantidad de contactos no coincide con la relación declarada.', groupIndex });
     }
     for (const contact of group.contacts) {
+      if (!isRecord(contact) || !isNonBlank(contact.playerId)) {
+        issues.push({ code: 'invalid-contact', message: 'Cada contacto debe identificar a un jugador.', groupIndex });
+        continue;
+      }
       if (contact.team !== observation.defendingTeam) {
         issues.push({ code: 'contact-team-mismatch', message: 'Los contactos deben pertenecer al equipo defensor.', groupIndex });
       }
