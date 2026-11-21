@@ -62,6 +62,19 @@ describe('parciales, equipo y cierre de temporada', () => {
     const names = [...g2.teams.flatMap(t => t.roster), ...g2.market].map(p => p.name); expect(new Set(names).size).toBe(names.length);
     expect(g2.market.length).toBeLessThanOrEqual(ECON.maxMarket); expect(g2.market.some(p => p.id.startsWith('fa2-'))).toBe(true);
   });
+  it('acumula estadísticas históricas exactamente una vez durante varias temporadas y conserva las de retirados', () => {
+    const firstCompleted = playSeason(713);
+    const firstClosed = endSeason(firstCompleted);
+    const secondCompleted = simulateSeason(firstClosed);
+    const secondClosed = endSeason(secondCompleted);
+    const expected = addBoxes(firstCompleted.career, secondCompleted.career);
+    expect(secondClosed.allTime).toEqual(expected);
+    expect(secondClosed.career).toEqual({});
+    for (const retired of secondClosed.retiredPlayers) {
+      if (expected[retired.id]) expect(secondClosed.allTime[retired.id]).toEqual(expected[retired.id]);
+    }
+    expect(deserialize(serialize(secondClosed)).allTime).toEqual(expected);
+  });
   it('la temporada 2 usa otras semillas y sigue siendo determinista', () => {
     const g1 = playSeason(7), a = playSeason2(g1), b = playSeason2(playSeason(7));
     expect(a.results).toEqual(b.results); expect(a.results[0].seed).not.toBe(g1.results[0].seed);
