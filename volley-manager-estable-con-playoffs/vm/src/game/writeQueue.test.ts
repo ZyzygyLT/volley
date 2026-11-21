@@ -13,6 +13,7 @@ describe('createWriteQueue', () => {
     });
     const second = queue(async () => { order.push('segunda'); });
 
+    expect(order).toEqual(['primera:inicio']);
     await Promise.resolve();
     expect(order).toEqual(['primera:inicio']);
     release();
