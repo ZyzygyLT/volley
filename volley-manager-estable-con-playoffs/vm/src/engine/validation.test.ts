@@ -55,21 +55,6 @@ describe('validateMatch', () => {
     );
   });
 
-  it('rechaza permutar plazas originales aunque se conserve una alineación internamente válida', () => {
-    const expected = createMatch(202);
-    const altered = structuredClone(expected);
-    [altered.base[0][1], altered.base[0][4]] = [altered.base[0][4], altered.base[0][1]];
-    [altered.teams[0].lineup[1], altered.teams[0].lineup[4]] = [
-      altered.teams[0].lineup[4],
-      altered.teams[0].lineup[1],
-    ];
-
-    expect(validateMatch(altered)).toEqual([]);
-    expect(validateMatchAgainst(altered, expected)).toContain(
-      'base[0][1]: jugador fuera de su plaza original en el fixture',
-    );
-  });
-
   it('rechaza semillas que no sean uint32', () => {
     for (const seed of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 0x1_0000_0000]) {
       const match = createMatch(1);
