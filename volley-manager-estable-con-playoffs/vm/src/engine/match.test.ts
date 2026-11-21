@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createMatch, playMatch, stepPoint, makeSquads, makePlayer, legalSubs, substitute, MAX_SUBS, sideForTeam } from './match';
+import { createMatch, playMatch, stepPoint, makeSquads, makePlayer, legalSubs, substitute, MAX_SUBS, sideForTeam, sideForPlayers } from './match';
 import { mulberry32 } from './rng';
 import { mergeBox, points, hitEff } from './stats';
 
@@ -9,6 +9,19 @@ describe('identificación de lado en partido', () => {
     expect(sideForTeam(m, m.teams[0].name)).toBe(0);
     expect(sideForTeam(m, m.teams[1].name)).toBe(1);
     expect(sideForTeam(m, 'Equipo que no participa')).toBeNull();
+  });
+
+  it('identifica al equipo por IDs de jugadores aunque ambos equipos tengan el mismo nombre', () => {
+    const squads = makeSquads(18);
+    const m = createMatch(18, 50, { squads, names: ['Andes', 'Andes'] });
+    const visitorIds = new Set(squads[1].map(player => player.id));
+    expect(sideForPlayers(m, visitorIds)).toBe(1);
+  });
+
+  it('no identifica un equipo si sus IDs no aparecen de forma inequívoca', () => {
+    const m = createMatch(19);
+    expect(sideForPlayers(m, new Set(['jugador-ajeno']))).toBeNull();
+  });
   });
 });
 
