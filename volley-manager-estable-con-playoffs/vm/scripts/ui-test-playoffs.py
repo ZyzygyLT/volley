@@ -36,3 +36,6 @@ with sync_playwright() as p:
     chk('se pudo probar el partido de playoffs del usuario (algún intento clasificó)',played)
     b.close()
 print('errores de consola:',errs or 'ninguno'); print(f'RESULTADO: {sum(res)}/{len(res)}')
+
+if not all(res) or errs:
+    raise SystemExit(1)
