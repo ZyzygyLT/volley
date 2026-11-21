@@ -75,6 +75,14 @@ describe('integridad semántica de guardados: fase regular', () => {
     const blank = jsonCopy(newGame(44));
     blank.teams[0].roster[0].name = '   ';
     rejected(blank);
+
+    const blankRosterId = jsonCopy(newGame(45));
+    blankRosterId.teams[0].roster[0].id = '   ';
+    rejected(blankRosterId);
+
+    const blankMarketId = jsonCopy(newGame(46));
+    blankMarketId.market[0].id = '';
+    rejected(blankMarketId);
   });
 
   it('rechaza semillas persistidas que no sean uint32', () => {
