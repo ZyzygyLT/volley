@@ -76,6 +76,19 @@ describe('temporada', () => {
     const manual = finishRound(g, playMatch(matchFor(g, f))), auto = finishRound(g);
     expect(manual.results).toEqual(auto.results);
   });
+  it('permite cambiar táctica y alineación para el siguiente partido mientras el actual sigue en curso', () => {
+    const g = newGame(29), f = userFixture(g)!;
+    const manual = playMatch(matchFor(g, f));
+    const changedTeams = g.teams.map(team => {
+      if (team.id !== f.home) return team;
+      const replacement = team.roster.find(p => p.role === 'OH' && !team.lineup.OH.includes(p.id))!;
+      return { ...team, risk: 15, lineup: { ...team.lineup, OH: [team.lineup.OH[0], replacement.id] as [string, string] } };
+    });
+    const changed = { ...g, teams: changedTeams };
+    const originalResult = finishRound(g, manual).results.find(r => r.home === f.home && r.away === f.away);
+    const changedResult = finishRound(changed, manual).results.find(r => r.home === f.home && r.away === f.away);
+    expect(changedResult).toEqual(originalResult);
+  });
   it('rechaza partidos manuales incompletos, de otro fixture o con semilla alterada sin modificar la jornada', () => {
     const g = newGame(19), f = userFixture(g)!;
     const incomplete = matchFor(g, f);
