@@ -128,6 +128,31 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
     expect(validateGame(migrated)).toEqual([]);
   });
 
+  it('conserva IDs históricos sin ficha en saves v1-v5 y rechaza marcadores heredados manipulados en v6', () => {
+    const progressed = simulateSeason(newGame(126));
+    const legacy = JSON.parse(serialize(progressed));
+    legacy.version = 5;
+    delete legacy.retiredPlayers;
+    const stats = Object.values(legacy.career)[0];
+    const retiredId = 'legacy-retired-player';
+    legacy.allTime[retiredId] = { ...stats };
+
+    const migrated = deserialize(JSON.stringify(legacy));
+    expect(migrated.legacyAllTimeIds).toContain(retiredId);
+    expect(migrated.allTime[retiredId]).toEqual(stats);
+    expect(validateGame(migrated)).toEqual([]);
+
+    const forgedCurrent = JSON.parse(serialize(newGame(127)));
+    const activeId = forgedCurrent.teams[0].roster[0].id;
+    forgedCurrent.allTime[activeId] = { ...stats };
+    forgedCurrent.legacyAllTimeIds = [activeId];
+    expect(() => deserialize(JSON.stringify(forgedCurrent))).toThrow(/Registro histórico heredado incoherente/);
+
+    const duplicateLegacyIds = JSON.parse(serialize(migrated));
+    duplicateLegacyIds.legacyAllTimeIds = [retiredId, retiredId];
+    expect(() => deserialize(JSON.stringify(duplicateLegacyIds))).toThrow(/Registro de identidades históricas heredadas inválido/);
+  });
+
   it('la migración histórica no muta el JSON de origen y es estable al volver a guardar', () => {
     const current = JSON.parse(serialize(finishRound(newGame(125))));
     const legacy = structuredClone(current);
