@@ -135,7 +135,7 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
     delete legacy.retiredPlayers;
     const stats = Object.values(legacy.career)[0];
     const retiredId = 'legacy-retired-player';
-    legacy.allTime[retiredId] = { ...stats };
+    legacy.allTime[retiredId] = stats;
 
     const migrated = deserialize(JSON.stringify(legacy));
     expect(migrated.legacyAllTimeIds).toContain(retiredId);
@@ -144,7 +144,7 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
 
     const forgedCurrent = JSON.parse(serialize(newGame(127)));
     const activeId = forgedCurrent.teams[0].roster[0].id;
-    forgedCurrent.allTime[activeId] = { ...stats };
+    forgedCurrent.allTime[activeId] = stats;
     forgedCurrent.legacyAllTimeIds = [activeId];
     expect(() => deserialize(JSON.stringify(forgedCurrent))).toThrow(/Registro histórico heredado incoherente/);
 
