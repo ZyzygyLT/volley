@@ -339,19 +339,21 @@ export function validateMatch(input: unknown): string[] {
         }
         const replaced = Array.isArray(raw.replaced) ? raw.replaced : [];
         const usedIn = Array.isArray(raw.usedIn) ? raw.usedIn : [];
-        const returned = new Set<string>();
+        const firstSeen = new Set<number>(), returned = new Set<number>();
         for (const event of ordinary) {
-          const pairIndex = replaced.findIndex((id, i) => id === event.outId && usedIn[i] === event.inId);
-          if (pairIndex >= 0) {
-            if (returned.has(event.outId)) errors.push(`subHistory: titular sustituido más de una vez en set actual (${event.outId})`);
-            returned.add(event.outId);
-            continue;
-          }
-          const originalIndex = usedIn.indexOf(event.outId);
-          if (originalIndex < 0 || replaced[originalIndex] !== event.inId) {
+          const firstIndex = replaced.findIndex((id, i) => id === event.outId && usedIn[i] === event.inId);
+          const returnIndex = usedIn.findIndex((id, i) => id === event.outId && replaced[i] === event.inId);
+          if (firstIndex >= 0) {
+            if (firstSeen.has(firstIndex)) errors.push(`subHistory: sustitución inicial duplicada en set actual (${event.outId})`);
+            firstSeen.add(firstIndex);
+          } else if (returnIndex >= 0) {
+            if (!firstSeen.has(returnIndex) || returned.has(returnIndex)) errors.push(`subHistory: retorno de sustitución no válido en set actual (${event.inId})`);
+            returned.add(returnIndex);
+          } else {
             errors.push(`subHistory: cambio no corresponde a las parejas de subState[${side}]`);
           }
         }
+        if (firstSeen.size !== replaced.length) errors.push(`subHistory: faltan sustituciones iniciales en set actual para subState[${side}]`);
       }
     }
   }
