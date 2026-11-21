@@ -236,6 +236,8 @@ function check(input: unknown, e: string[]): void {
   // Durante una temporada, un jugador puede estar en un plantel o en el mercado (si fue vendido), pero no desaparecer.
   if (isObj(g.career)) for (const id of Object.keys(g.career)) if (!activeIds.has(id))
     e.push('Estadísticas de la temporada: jugador inexistente en planteles y mercado (' + id + ')');
+  if (isObj(g.allTime)) for (const id of Object.keys(g.allTime)) if (!seen.has(id))
+    e.push('Estadísticas históricas: jugador inexistente en planteles, mercado y archivo de retirados (' + id + ')');
   checkPlayoffs(g.playoffs, n, g.round === rounds, teams, g.results as unknown[], e);
 }
 
