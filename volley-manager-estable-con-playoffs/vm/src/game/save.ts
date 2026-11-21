@@ -152,13 +152,13 @@ function check(input: unknown, e: string[]): void {
   if (!isInt(g.seed, 0, 0xffff_ffff)) e.push('Semilla de partida inválida: debe ser un entero uint32');
   const teams = g.teams;
   if (!Array.isArray(teams) || teams.length < 2 || teams.length > 32 || teams.length % 2) { e.push('Equipos inválidos'); return; }
-  const n = teams.length, seen = new Set<string>();
+  const n = teams.length, seen = new Set<string>(), seenNames = new Set<string>();
   teams.forEach((t: unknown, i) => {
     const w = `Equipo ${i}`;
     if (!isObj(t) || t.id !== i || !isStr(t.name, 60) || !isNum(t.risk, 0, 100) || !isNum(t.clubBoost, -50, 50)) { e.push(`${w}: datos inválidos`); return; }
     const roster = t.roster;
     if (!Array.isArray(roster) || roster.length < 7 || roster.length > MAX_ROSTER) { e.push(`${w}: el plantel debe tener entre 7 y ${MAX_ROSTER} jugadores`); return; }
-    let ok = true; for (const p of roster) { if (!checkPlayer(p, w, e)) { ok = false; break; } if (seen.has((p as Player).id)) { e.push(`${w}: id repetido ${(p as Player).id}`); ok = false; break; } seen.add((p as Player).id); }
+    let ok = true; for (const p of roster) { if (!checkPlayer(p, w, e)) { ok = false; break; } if (seen.has((p as Player).id)) { e.push(`${w}: id repetido ${(p as Player).id}`); ok = false; break; } seen.add((p as Player).id);\n      if (!(p as Player).name.trim() || seenNames.has((p as Player).name)) { e.push(`${w}: nombre vacío o repetido ${(p as Player).name}`); ok = false; break; } seenNames.add((p as Player).name); }
     if (!ok) return;
     for (const role of Object.keys(MIN_BY_ROLE) as Role[]) if ((roster as Player[]).filter(p => p.role === role).length < MIN_BY_ROLE[role]) { e.push(`${w}: faltan jugadores de la posición ${role}`); ok = false; }
     const l = t.lineup;
