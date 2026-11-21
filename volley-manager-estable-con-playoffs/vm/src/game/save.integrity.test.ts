@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SaveError, deserialize, serialize, validateGame } from './save';
-import { finishRound, newGame, regularSeasonOver, type GameState } from './season';
+import { endSeason, finishRound, newGame, regularSeasonOver, type GameState } from './season';
 import { finishPlayoffDay, simulateSeason, startPlayoffs } from './playoffs';
 
 const regular = (rounds: number, seed = 41): GameState => {
@@ -121,6 +121,33 @@ describe('integridad semántica de guardados: fase regular', () => {
     (extra.career[extraId] as typeof extra.career[string] & { unexpected?: number }).unexpected = 1;
     rejected(extra);
   });
+  it('exige un historial cronológico y coherente con la temporada actual', () => {
+    const completed = endSeason(simulateSeason(newGame(52)));
+    expect(completed.season).toBe(2);
+    expect(completed.history).toHaveLength(1);
+    expect(validateGame(completed)).toEqual([]);
+
+    const missing = jsonCopy(completed);
+    missing.history = [];
+    rejected(missing);
+
+    const wrongSeason = jsonCopy(completed);
+    wrongSeason.history[0].season = 2;
+    rejected(wrongSeason);
+
+    const blankChampion = jsonCopy(completed);
+    blankChampion.history[0].champion = '   ';
+    rejected(blankChampion);
+
+    const invalidRank = jsonCopy(completed);
+    invalidRank.history[0].userRank = invalidRank.teams.length + 1;
+    rejected(invalidRank);
+
+    const invalidPoints = jsonCopy(completed);
+    invalidPoints.history[0].userPoints = 6 * (invalidPoints.teams.length - 1) + 1;
+    rejected(invalidPoints);
+  });
+
   it('rechaza semillas persistidas que no sean uint32', () => {
     const corrupt = jsonCopy(newGame(41));
     corrupt.seed = -1;
