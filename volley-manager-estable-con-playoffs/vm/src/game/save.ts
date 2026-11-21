@@ -149,6 +149,7 @@ function check(input: unknown, e: string[]): void {
   if (!isObj(input)) { e.push('No es un objeto'); return; }
   const g = input as Record<string, unknown>;
   if (g.version !== GAME_VERSION) e.push(`Versión no soportada: ${String(g.version)}`);
+  if (!isInt(g.seed, 0, 0xffff_ffff)) e.push('Semilla de partida inválida: debe ser un entero uint32');
   const teams = g.teams;
   if (!Array.isArray(teams) || teams.length < 2 || teams.length > 32 || teams.length % 2) { e.push('Equipos inválidos'); return; }
   const n = teams.length, seen = new Set<string>();
