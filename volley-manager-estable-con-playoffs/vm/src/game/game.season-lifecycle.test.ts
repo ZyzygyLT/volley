@@ -20,6 +20,18 @@ describe('parciales, equipo y cierre de temporada', () => {
     expect(() => chooseTeam(finishRound(g), 2)).toThrow(/antes de jugar/); expect(() => chooseTeam(g, 99)).toThrow(/inexistente/);
   });
   it('cerrar la temporada exige que haya terminado', () => { expect(() => endSeason(newGame(2))).toThrow(/no terminó/); });
+  it('el cierre rechaza un cuadro de playoffs que altera el orden de clasificación', () => {
+    const tampered = structuredClone(playSeason(23));
+    const semi = tampered.playoffs!.series[0];
+    [semi.high, semi.low] = [semi.low, semi.high];
+    for (const game of semi.games) {
+      [game.home, game.away] = [game.away, game.home];
+      game.sets = [game.sets[1], game.sets[0]];
+      game.setScores = game.setScores.map(([a, b]) => [b, a]);
+      game.totals = [game.totals[1], game.totals[0]];
+    }
+    expect(() => endSeason(tampered)).toThrow(/clasificación|semifinal|playoffs/i);
+  });
   it('la nueva temporada conserva plantillas y dinero, cobra el premio y archiva estadísticas', () => {
     const g1 = playSeason(7), sum = seasonSummary(g1), g2 = endSeason(g1);
     expect([g2.season, g2.round, g2.results.length, g2.history.length]).toEqual([2, 0, 0, 1]); expect(g2.history[0]).toEqual(sum);
