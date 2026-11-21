@@ -57,6 +57,17 @@ describe('edades, progresión, retiros y fichajes de la computadora', () => {
       for (const t of g.teams) { expect(validateLineup(t.roster, t.lineup)).toEqual([]); for (const r of ['S', 'OH', 'MB', 'OP', 'L'] as const) expect(t.roster.filter(p => p.role === r).length).toBeGreaterThanOrEqual(t.id === g.userTeam ? MIN_BY_ROLE[r] : ROSTER_SLOTS[r]); expect(t.roster.length).toBeLessThanOrEqual(MAX_ROSTER); }
       expect(g.market.length).toBeLessThanOrEqual(ECON.maxMarket); }
   });
+  it('no elimina agentes existentes al completar el mercado durante la intersemana', () => {
+    const base = playSeason(92);
+    const market = Array.from({ length: ECON.maxMarket }, (_, i) => ({
+      ...base.market[i % base.market.length], id: `preserve-${i}`, name: `Agente preservado ${i}`,
+      srv: 95, rec: 95, set: 95, atk: 95, blk: 95, def: 95, cons: 95,
+    }));
+    const full = { ...base, market };
+    const next = endSeason(full);
+    expect(next.market).toHaveLength(ECON.maxMarket);
+    expect(next.market.map(p => p.id)).toEqual(market.map(p => p.id));
+  });
   it('el usuario ve la evolución de su plantel y las noticias, y todo se guarda', () => {
     const g = endSeason(playSeason(30)); expect(g.progressLog.length).toBeGreaterThan(5); expect(g.news.length).toBeGreaterThan(0);
     for (const e of g.progressLog) { const p = g.teams[g.userTeam].roster.find(x => x.id === e.id); expect(p, e.id).toBeTruthy(); expect(p!.age).toBe(e.age); }
