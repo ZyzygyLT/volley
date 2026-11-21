@@ -98,6 +98,37 @@ describe('observación explícita de intento de bloqueo', () => {
       .toContain('invalid-contact-group-relation');
   });
 
+  it('rechaza entradas nulas o estados desconocidos sin lanzar una excepción', () => {
+    expect(validateBlockObservation(null as unknown as BlockObservation).map(issue => issue.code))
+      .toContain('invalid-observation');
+    expect(validateBlockObservation(observed({ status: 'unknown' } as unknown as Partial<ObservedBlockAttempt> as Partial<ObservedBlockAttempt> & { status: 'observed' })).map(issue => issue.code))
+      .toContain('invalid-observation-status');
+  });
+
+  it('rechaza listas malformadas sin intentar iterarlas', () => {
+    const malformed = observed({
+      eligibleBlockerIds: null as unknown as string[],
+      attemptingBlockerIds: {} as unknown as string[],
+      contactGroups: null as unknown as ObservedBlockAttempt['contactGroups'],
+    });
+    const codes = validateBlockObservation(malformed).map(issue => issue.code);
+    expect(codes).toContain('invalid-eligible-blocker-list');
+    expect(codes).toContain('invalid-attempting-blocker-list');
+    expect(codes).toContain('invalid-contact-groups');
+  });
+
+  it('rechaza grupos y contactos malformados sin lanzar una excepción', () => {
+    const malformed = observed({
+      contactGroups: [
+        null,
+        { relation: 'single', contacts: [null] },
+      ] as unknown as ObservedBlockAttempt['contactGroups'],
+    });
+    const codes = validateBlockObservation(malformed).map(issue => issue.code);
+    expect(codes).toContain('invalid-contact-group');
+    expect(codes).toContain('invalid-contact');
+  });
+
   it('rechaza contactos atribuidos al equipo atacante', () => {
     const issues = validateBlockObservation(observed({
       contactGroups: [{
