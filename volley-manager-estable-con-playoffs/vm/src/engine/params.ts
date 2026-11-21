@@ -16,7 +16,7 @@ export interface Params {
   recWeight: ByRole;                               // [AJUSTE] reparto de recepciones por posición (VNL)
   perfQ: number; posQ: number;                     // [AJUSTE] umbrales de calidad para recepción perfecta/positiva (PlusLiga)
   killK1: number; errK1: number; blkK1: number; killK2: number; errK2: number; blkK2: number; // [AJUSTE] PlusLiga
-  roleKill: ByRole; roleErr: ByRole;               // [AJUSTE] diferencias por posición (VNL)
+  roleKill: ByRole; roleErr: ByRole;               // roleKill [AJUSTE VNL]; roleErr [PROVISIONAL: VNL no separa error y bloqueo por posición]
   atkWeight: ByRole; blkWeight: ByRole; digWeight: ByRole; // [AJUSTE] reparto de ataques, bloqueos y defensas (VNL)
   atkSkillScale: ByRole;                            // [AJUSTE] escala de la pendiente de ataque por posición (dispersión real VNL)
   atkW: number; setW: number; defW: number; blkKillW: number; qKill: number;  // [DISEÑO]
@@ -24,7 +24,7 @@ export interface Params {
   digBase: number; digW: number; digNoise: number; coverQ: number; // [DISEÑO]
   keepProb: number;                                 // [AJUSTE] 1-c (preprint)
   otherErr: number;                                 // [AJUSTE] errores de manejo por intercambio (PlusLiga: 2,4 % de los rallies)
-  maxExchanges: number;
+
 }
 const R = (S: number, OH: number, MB: number, OP: number, L: number): ByRole => ({ S, OH, MB, OP, L });
 export const P: Params = {
@@ -76,7 +76,7 @@ export const P: Params = {
   coverQ: 0.45,
   keepProb: 0.2002,
   otherErr: 0.0205,
-  maxExchanges: 14,
+
 };
 /** Desviación típica de la fuerza (puntos de valoración) entre equipos de una liga. [AJUSTE] a la distribución de marcadores de PlusLiga */
 export const TEAM_SD = 3.6;

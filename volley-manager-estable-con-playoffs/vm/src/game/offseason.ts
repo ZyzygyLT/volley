@@ -36,9 +36,14 @@ export function progressPlayer(p: Player, rnd: () => number): Player {
 export interface ProgressEntry { id: string; name: string; role: Role; age: number; from: number; to: number }
 
 // ============== CANTERA Y JÓVENES ==============
-function youth(rnd: () => number, role: Role, id: string, used: Set<string>, extraBoost = 0): Player {
-  const p = makePlayer(rnd, role, slotOf(role, 0), id, uniqueName(rnd, used), PROG.youthBoost + gauss(rnd) * TEAM_SD * 0.5 + extraBoost);
+export function makeYouth(rnd: () => number, role: Role, id: string, used: Set<string>, extraBoost = 0, slotIndex = 0): Player {
+  const p = makePlayer(rnd, role, slotOf(role, slotIndex), id, uniqueName(rnd, used), PROG.youthBoost + gauss(rnd) * TEAM_SD * 0.5 + extraBoost);
   return { ...p, age: rollYouthAge(rnd) };
+}
+
+/** Rota las posiciones nuevas para que el mercado no favorezca siempre a los primeros roles de ROSTER_ORDER. */
+export function seasonalAgentRoles(season: number, amount: number): Role[] {
+  return Array.from({ length: Math.max(0, Math.floor(amount)) }, (_, k) => ROSTER_ORDER[((Math.max(1, Math.floor(season)) - 2 + k) % ROSTER_ORDER.length + ROSTER_ORDER.length) % ROSTER_ORDER.length]);
 }
 
 const count = (r: Player[], role: Role) => r.filter(p => p.role === role).length;
@@ -69,7 +74,7 @@ export function runOffseason(g0: GameState, rnd: () => number, rankOf: Map<numbe
   let teams = g.teams.map(t => ({ ...t, roster: evolve(t.roster, t.id === g.userTeam, t.name) }));
   const used = new Set([...teams.flatMap(t => t.roster), ...market].map(p => p.name));
   let cant = 0;
-  const cantera = (teamId: number, role: Role): Player => youth(rnd, role, `c${season + 1}-${teamId}-${++cant}`, used, (g.teams.find(t => t.id === teamId)?.clubBoost ?? 0) * AI_CFG.clubFactor);
+  const cantera = (teamId: number, role: Role, slotIndex: number): Player => makeYouth(rnd, role, `c${season + 1}-${teamId}-${++cant}`, used, (g.teams.find(t => t.id === teamId)?.clubBoost ?? 0) * AI_CFG.clubFactor, slotIndex);
 
   // 3) computadoras: primero necesidades, luego mejoras (los peor clasificados eligen primero)
   const order = teams.filter(t => t.id !== g.userTeam).sort((a, b) => (rankOf.get(b.id) ?? 0) - (rankOf.get(a.id) ?? 0));
@@ -98,14 +103,14 @@ export function runOffseason(g0: GameState, rnd: () => number, rankOf: Map<numbe
   // 4) cantera: mínimos por posición (usuario) y planteles completos (computadoras)
   teams = teams.map(t => {
     const roster = [...t.roster], target = t.id === g.userTeam ? MIN_BY_ROLE : ROSTER_SLOTS;
-    for (const role of ROSTER_ORDER) while (count(roster, role) < target[role]) { const y = cantera(t.id, role); roster.push(y); if (t.id === g.userTeam) news.push(`Llega ${y.name} (${role}, ${y.age} años) desde la cantera para cubrir una baja`); }
+    for (const role of ROSTER_ORDER) while (count(roster, role) < target[role]) { const y = cantera(t.id, role, count(roster, role)); roster.push(y); if (t.id === g.userTeam) news.push(`Llega ${y.name} (${role}, ${y.age} años) desde la cantera para cubrir una baja`); }
     const lineup = validateLineup(roster, t.lineup).length ? autoLineup(roster) : t.lineup;
     if (t.id === g.userTeam && lineup !== t.lineup) news.push('Tu alineación se ajustó automáticamente por las bajas');
     return { ...t, roster, lineup };
   });
   // 5) jóvenes nuevos en el mercado y tope del mercado
-  const roles: Role[] = []; while (roles.length < ECON.newAgentsPerSeason) roles.push(...ROSTER_ORDER);
-  roles.slice(0, ECON.newAgentsPerSeason).forEach((role, k) => market.push(youth(rnd, role, `fa${season + 1}-${k + 1}`, used)));
+  seasonalAgentRoles(season + 1, ECON.newAgentsPerSeason).forEach((role, k) =>
+    market.push(makeYouth(rnd, role, `fa${season + 1}-${k + 1}`, used, 0, count(market, role))));
   market = sortDesc(market).slice(0, ECON.maxMarket);
   return { g: { ...g, teams, market }, news, progress };
 }

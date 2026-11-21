@@ -51,7 +51,7 @@ export const TARGETS: Target[] = [
     { key: `rshare.${r}`, value: T_REC_SHARE[r]!, tol: 0.05, src: `VNL reparto de recepciones (${r})` },
     { key: `perf.${r}`, value: VNL_REC.perf[r]! + (PL.perf - VNL_ALL.perf), tol: 0.03, src: `VNL recepción perfecta de ${r}, desplazada al nivel PL` }]),
 ];
-// Validaciones INDEPENDIENTES (no se usan para ajustar): salen solas del modelo.
+// Validaciones complementarias (no se usan para ajustar); algunas comparten eventos/denominadores con los objetivos principales.
 export const VALIDATION: Target[] = [
   { key: 'sideout', value: 0.675, tol: 0.035, src: 'A: P_receptor 0.65-0.68 por tipo de saque (≈0.70 en texto). PlusLiga no permite medirlo' },
   { key: 'share.kill', value: 0.562, tol: 0.015, src: 'PL: kills / rallies (composición del final del rally, independiente de las tasas por acción)' },

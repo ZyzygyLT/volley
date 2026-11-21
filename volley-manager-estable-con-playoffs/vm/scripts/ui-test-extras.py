@@ -8,7 +8,7 @@ def chk(name,cond,extra=''):
 URL=os.environ.get('URL','http://localhost:8765/volley-manager.html')
 with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={'width':1100,'height':900}); pg=ctx.new_page()
-    pg.on('console',lambda m: errs.append(m.text) if m.type=='error' else None); pg.on('pageerror',lambda e: errs.append('PAGEERROR '+str(e)))
+    pg.on('console',lambda m: errs.append(m.text) if m.type=='error' and 'crash.html' not in m.location.get('url','') else None); pg.on('pageerror',lambda e: errs.append('PAGEERROR '+str(e)))
     pg.goto(URL); pg.wait_for_selector('h1')
     chk('primera vez: sin banner de autoguardado',pg.query_selector('.notice[role=alert]') is None)
     # --- ficha de jugador y vista de equipo
