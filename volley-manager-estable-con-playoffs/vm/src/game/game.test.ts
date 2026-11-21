@@ -208,6 +208,14 @@ describe('economía y mercado (valores de diseño)', () => {
     for (let i = 0; i < onlyL.length - MIN_BY_ROLE.L; i++) h = sell(h, onlyL[i].id);
     expect(() => sell(h, onlyL[onlyL.length - 1].id)).toThrow(/al menos/);
   });
+  it('rechaza vender cuando el mercado está lleno sin alterar plantel, dinero ni mercado', () => {
+    const g = newGame(91), t = g.teams[g.userTeam], player = t.roster.find(p => p.role === 'OH')!;
+    const full = { ...g, market: Array.from({ length: ECON.maxMarket }, (_, i) => ({ ...g.market[i % g.market.length], id: `cap-${i}`, name: `Agente ${i}` })) };
+    expect(() => sell(full, player.id)).toThrow(/mercado está completo/);
+    expect(full.teams[full.userTeam].roster.some(p => p.id === player.id)).toBe(true);
+    expect(full.finance.budget).toBe(g.finance.budget);
+    expect(full.market).toHaveLength(ECON.maxMarket);
+  });
   it('cada jornada registra patrocinio, salarios y (si corresponde) entradas y premio', () => {
     const g = newGame(10), n = g.finance.ledger.length, a = finishRound(g), added = a.finance.ledger.slice(n);
     expect(added.some(e => e.concept === 'Patrocinio')).toBe(true); expect(added.find(e => e.concept === 'Salarios')!.amount).toBe(-roundWages(g));
