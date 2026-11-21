@@ -293,6 +293,16 @@ export function validateMatch(input: unknown): string[] {
       errors.push('playedIds: historial de participación inválido');
     } else {
       for (const id of m.playedIds) if (!sideByPlayerId.has(id)) errors.push(`playedIds: jugador ajeno al partido (${id})`);
+      // Los cambios ordinarios registran a cada suplente que ingresó. Si existe
+      // playedIds, no puede omitirse esa participación: afecta los partidos jugados
+      // (GP) al consolidar las estadísticas de la temporada.
+      for (const side of [0, 1] as const) {
+        const sub = subStates[side];
+        if (isRecord(sub) && Array.isArray(sub.usedIn)) {
+          for (const id of sub.usedIn) if (isId(id) && !m.playedIds.includes(id))
+            errors.push(`playedIds: falta jugador de sustitución (${id})`);
+        }
+      }
     }
   }
   for (const side of [0, 1] as const) {
