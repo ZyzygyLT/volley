@@ -64,13 +64,14 @@ export function runOffseason(g0: GameState, rnd: () => number, rankOf: Map<numbe
   const season = g.season; // temporada que acaba de terminar
   // 1) evolución y 2) retiros
   const progress: ProgressEntry[] = [];
-  const evolve = (ps: Player[], isUser: boolean, teamName?: string): Player[] => ps.flatMap(p => {
+  const retired = [...g.retiredPlayers];
+  const evolve = (ps: Player[], isUser: boolean, lastTeam: string): Player[] => ps.flatMap(p => {
     const q = progressPlayer(p, rnd);
-    if (rnd() < retireProb(q.age!)) { if (isUser) news.push(`Se retira ${p.name} (${p.role}, ${q.age} años)`); else if (overall(p) >= 72) news.push(`Se retira ${p.name} (${teamName ?? 'agente libre'}, ${q.age} años)`); return []; }
+    if (rnd() < retireProb(q.age!)) { retired.push({ ...q, retiredSeason: season, lastTeam }); if (isUser) news.push(`Se retira ${p.name} (${p.role}, ${q.age} años)`); else if (overall(p) >= 72) news.push(`Se retira ${p.name} (${lastTeam}, ${q.age} años)`); return []; }
     if (isUser) progress.push({ id: p.id, name: p.name, role: p.role, age: q.age!, from: Math.round(overall(p)), to: Math.round(overall(q)) });
     return [q];
   });
-  let market = evolve(g.market, false);
+  let market = evolve(g.market, false, 'Agente libre');
   let teams = g.teams.map(t => ({ ...t, roster: evolve(t.roster, t.id === g.userTeam, t.name) }));
   const used = new Set([...teams.flatMap(t => t.roster), ...market].map(p => p.name));
   let cant = 0;
@@ -113,5 +114,5 @@ export function runOffseason(g0: GameState, rnd: () => number, rankOf: Map<numbe
   seasonalAgentRoles(season + 1, Math.min(ECON.newAgentsPerSeason, vacancies)).forEach((role, k) =>
     market.push(makeYouth(rnd, role, `fa${season + 1}-${k + 1}`, used, 0, count(market, role))));
   // Nunca truncar el mercado: los agentes existentes no desaparecen por alcanzar el límite.
-  return { g: { ...g, teams, market }, news, progress };
+  return { g: { ...g, teams, market, retiredPlayers: retired }, news, progress };
 }
