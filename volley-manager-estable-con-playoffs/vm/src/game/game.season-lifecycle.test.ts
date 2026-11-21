@@ -32,6 +32,15 @@ describe('parciales, equipo y cierre de temporada', () => {
     }
     expect(() => endSeason(tampered)).toThrow(/clasificación|semifinal|playoffs/i);
   });
+  it('el cierre rechaza parciales y formato de series de playoffs manipulados', () => {
+    const badScore = structuredClone(playSeason(29));
+    badScore.playoffs!.series[0].games[0].totals[0]++;
+    expect(() => endSeason(badScore)).toThrow(/partido inválido|resultados/i);
+
+    const badFormat = structuredClone(playSeason(29));
+    badFormat.playoffs!.series[2].bestOf = 3;
+    expect(() => endSeason(badFormat)).toThrow(/series de playoffs/i);
+  });
   it('la nueva temporada conserva plantillas y dinero, cobra el premio y archiva estadísticas', () => {
     const g1 = playSeason(7), sum = seasonSummary(g1), g2 = endSeason(g1);
     expect([g2.season, g2.round, g2.results.length, g2.history.length]).toEqual([2, 0, 0, 1]); expect(g2.history[0]).toEqual(sum);
