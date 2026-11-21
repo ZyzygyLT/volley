@@ -182,6 +182,18 @@ function assertSeasonCanClose(g: GameState): void {
       || s.games.length < (s.bestOf === 3 ? 2 : 3) || s.games.length > s.bestOf)) {
     throw new Error('No se puede cerrar la temporada: las series de playoffs están incompletas o son inválidas');
   }
+  // El cuadro debe respetar la clasificación regular, no solo ser coherente consigo mismo.
+  const ranked = standings(g).map(s => s.team);
+  const rank = new Map(ranked.map((team, i) => [team, i]));
+  const better = (a: number, b: number): [number, number] =>
+    rank.get(a)! < rank.get(b)! ? [a, b] : [b, a];
+  const sf1 = p.series[0], sf2 = p.series[1], finalSeries = p.series[2], bronzeSeries = p.series[3];
+  const expectedSemis: [number, number][] = [[ranked[0], ranked[3]], [ranked[1], ranked[2]]];
+  if (sf1.high !== expectedSemis[0][0] || sf1.low !== expectedSemis[0][1]
+    || sf2.high !== expectedSemis[1][0] || sf2.low !== expectedSemis[1][1]) {
+    throw new Error('No se puede cerrar la temporada: semifinales incompatibles con la clasificación regular');
+  }
+
   for (const s of p.series) {
     const needed = s.bestOf === 3 ? 2 : 3;
     let highWins = 0, lowWins = 0;
@@ -206,6 +218,14 @@ function assertSeasonCanClose(g: GameState): void {
     if (actualWinner !== s.winner) throw new Error(`No se puede cerrar la temporada: ganador incorrecto en la serie ${s.id}`);
   }
 
+  const sfWinners = [sf1.winner!, sf2.winner!];
+  const sfLosers = [sf1.winner === sf1.high ? sf1.low : sf1.high, sf2.winner === sf2.high ? sf2.low : sf2.high];
+  const [expectedFinalHigh, expectedFinalLow] = better(sfWinners[0], sfWinners[1]);
+  const [expectedBronzeHigh, expectedBronzeLow] = better(sfLosers[0], sfLosers[1]);
+  if (finalSeries.high !== expectedFinalHigh || finalSeries.low !== expectedFinalLow
+    || bronzeSeries.high !== expectedBronzeHigh || bronzeSeries.low !== expectedBronzeLow) {
+    throw new Error('No se puede cerrar la temporada: final o bronce incompatibles con las semifinales y la clasificación');
+  }
   const final = p.series.find(s => s.id === 'F')!, bronze = p.series.find(s => s.id === 'B')!;
   const expectedTop = [final.winner!, final.winner === final.high ? final.low : final.high,
     bronze.winner!, bronze.winner === bronze.high ? bronze.low : bronze.high];
