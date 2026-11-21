@@ -56,6 +56,18 @@ describe('validateMatch', () => {
     badBox.box.intruder = { gp: 0, serves: 0, aces: 0, serveErr: 0, recs: 0, recPos: 0, recPerf: 0, recErr: 0, recQSum: 0, atks: 0, kills: 0, atkErr: 0, blocked: 0, blocks: 0, digs: 0, assists: 0, otherErr: 0 };
     expect(validateMatch(badBox).some(error => error.includes('jugador ajeno'))).toBe(true);
 
+    const inconsistentStats = structuredClone(playMatch(createMatch(9)));
+    inconsistentStats.stats[0].ace++;
+    expect(validateMatch(inconsistentStats).some(error => error.includes('no concilia con las estadísticas individuales'))).toBe(true);
+
+    const impossibleBox = structuredClone(createMatch(10));
+    const playerId = impossibleBox.base[0][0].id;
+    impossibleBox.box[playerId] = {
+      gp: 0, serves: 1, aces: 1, serveErr: 1, recs: 0, recPos: 0, recPerf: 0, recErr: 0,
+      recQSum: 0, atks: 0, kills: 0, atkErr: 0, blocked: 0, blocks: 0, digs: 0, assists: 0, otherErr: 0,
+    };
+    expect(validateMatch(impossibleBox).some(error => error.includes('aces + serveErr supera los saques'))).toBe(true);
+
     const badParams = structuredClone(P);
     badParams.posQ = 0.9;
     badParams.keepProb = 1.2;
