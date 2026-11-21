@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { finishRound, fixturesOfRound, leaguePoints, matchFor, newGame, roundRobin, standings, totalRounds, userFixture, leaders } from './season';
+import { endSeason, finishRound, fixturesOfRound, leaguePoints, matchFor, newGame, roundRobin, standings, totalRounds, userFixture, leaders } from './season';
 import { autoLineup, lineupToSquad, validateLineup, MAX_ROSTER, MIN_BY_ROLE } from './roster';
 import { deserialize, memoryStore, metaOf, SaveError, serialize, validateGame } from './save';
 import { ECON, marketValue, sell, sign, roundWages } from './economy';
@@ -57,6 +57,47 @@ describe('temporada', () => {
     expect(a.results.length).toBe(4 * totalRounds(a));
     for (const r of a.results) { const w = r.sets[0] > r.sets[1] ? 0 : 1; expect(r.totals[w]).toBeGreaterThanOrEqual(r.sets[w] === 3 && r.sets[1 - w] === 2 ? 65 : 75); }
   });
+  it('cierra una temporada íntegra, archiva estadísticas y prepara la siguiente', () => {
+    const completed = playSeason(31);
+    const next = endSeason(completed);
+    expect(next.season).toBe(2);
+    expect(next.round).toBe(0);
+    expect(next.results).toEqual([]);
+    expect(next.playoffs).toBeNull();
+    expect(next.history).toHaveLength(1);
+    expect(next.history[0]).toEqual({
+      season: 1,
+      champion: completed.teams[completed.playoffs!.champion!].name,
+      userRank: completed.playoffs!.ranking!.indexOf(completed.userTeam) + 1,
+      userPoints: standings(completed).find(x => x.team === completed.userTeam)!.points,
+      prize: next.history[0].prize,
+    });
+    expect(next.allTime).toEqual(completed.career);
+    // El nuevo estado no puede volver a cerrar la misma temporada.\n    expect(() => endSeason(next)).toThrow(/todavía no terminó/);
+  });
+
+  it('rechaza el cierre si falta un resultado de la fase regular', () => {
+    const completed = playSeason(32);
+    const corrupt = { ...completed, results: completed.results.slice(1) };
+    expect(() => endSeason(corrupt)).toThrow(/fase regular está incompleta/);
+    expect(completed.results).toHaveLength(completed.fixtures.length);
+  });
+
+  it('rechaza el cierre si el ranking final no coincide con las series', () => {
+    const completed = playSeason(33);
+    const ranking = [...completed.playoffs!.ranking!];
+    [ranking[0], ranking[1]] = [ranking[1], ranking[0]];
+    const corrupt = { ...completed, playoffs: { ...completed.playoffs!, ranking } };
+    expect(() => endSeason(corrupt)).toThrow(/ranking final incoherente/);
+  });
+
+  it('rechaza el cierre si una serie no refleja sus victorias reales', () => {
+    const completed = playSeason(34);
+    const series = completed.playoffs!.series.map((s, i) => i === 0 ? { ...s, winner: s.high === s.winner ? s.low : s.high } : s);
+    const corrupt = { ...completed, playoffs: { ...completed.playoffs!, series } };
+    expect(() => endSeason(corrupt)).toThrow(/ganador incorrecto/);
+  });
+
   it('trata como infinito el cociente con sets a favor y cero en contra', () => {
     const g = {
       ...newGame(77),
