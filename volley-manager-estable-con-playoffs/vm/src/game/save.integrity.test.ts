@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SaveError, deserialize, serialize, validateGame } from './save';
 import { endSeason, finishRound, newGame, regularSeasonOver, type GameState } from './season';
+import { sell } from './economy';
 import { finishPlayoffDay, simulateSeason, startPlayoffs } from './playoffs';
 
 const regular = (rounds: number, seed = 41): GameState => {
@@ -152,9 +153,9 @@ describe('integridad semántica de guardados: fase regular', () => {
     const game = jsonCopy(regular(1));
     const team = game.teams[game.userTeam];
     const player = team.roster.find(p => game.career[p.id] !== undefined)!;
-    team.roster = team.roster.filter(p => p.id !== player.id);
-    game.market.push(player);
-    expect(validateGame(game)).toEqual([]);
+    const sold = sell(game, player.id);
+    expect(sold.market.some(p => p.id === player.id)).toBe(true);
+    expect(validateGame(sold)).toEqual([]);
   });
 
   it('acepta asistencias acreditadas al colocador aunque no tenga kills', () => {
