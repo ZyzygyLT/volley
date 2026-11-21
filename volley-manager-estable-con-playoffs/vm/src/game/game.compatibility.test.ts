@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { newGame, finishRound, endSeason } from './season';
-import { serialize, deserialize } from './save';
+import { serialize, deserialize, validateGame } from './save';
 import { simulateSeason } from './playoffs';
 
 describe('compatibilidad con partidas de versiones anteriores', () => {
@@ -48,8 +48,8 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
       expect(migrated.teams).toHaveLength(current.teams.length);
       expect(migrated.fixtures).toEqual(current.fixtures);
       expect(migrated.results).toEqual(current.results.map((result: Record<string, unknown>) => ({
-        setScores: [],
         ...result,
+        setScores: [],
       })));
       expect(migrated.playoffs).toBeNull();
       expect(migrated.news).toEqual([]);
