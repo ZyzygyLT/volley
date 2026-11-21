@@ -126,6 +126,23 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
     expect(validateGame(migrated)).toEqual([]);
   });
 
+  it('rechaza versiones desconocidas sin intentar tratarlas como partidas actuales', () => {
+    const current = JSON.parse(serialize(newGame(124)));
+    for (const version of [0, 6, 999, -1, '5', null]) {
+      const unsupported = { ...current, version };
+      expect(() => deserialize(JSON.stringify(unsupported))).toThrow(/Versión no soportada/);
+    }
+    const missingVersion = { ...current };
+    delete missingVersion.version;
+    expect(() => deserialize(JSON.stringify(missingVersion))).toThrow(/Versión no soportada/);
+  });
+
+  it('rechaza raíces JSON que no representan una partida', () => {
+    for (const value of [null, [], 'partida', 42, true]) {
+      expect(() => deserialize(JSON.stringify(value))).toThrow(/Partida inválida/);
+    }
+  });
+
   it('los líberos nuevos nunca tienen ataque ni bloqueo negativos', () => {
     let g = newGame(9); for (let s = 0; s < 8; s++) { g = simulateSeason(g); g = endSeason(g); }
     for (const p of [...g.teams.flatMap(t => t.roster), ...g.market]) { expect(p.atk).toBeGreaterThanOrEqual(0); expect(p.blk).toBeGreaterThanOrEqual(0); }
