@@ -207,7 +207,8 @@ describe('integridad semántica de guardados: fase regular', () => {
     rejected(blankTeam);
 
     const valid = jsonCopy(newGame(434));
-    valid.retiredPlayers.push({ ...valid.market[0], retiredSeason: 1, lastTeam: 'Agente libre' });
+    const [retired] = valid.market.splice(0, 1);
+    valid.retiredPlayers.push({ ...retired, retiredSeason: 1, lastTeam: 'Agente libre' });
     expect(validateGame(valid)).toEqual([]);
   });
 
