@@ -79,7 +79,7 @@ describe('playoffs', () => {
   });
   it('el guardado funciona a mitad de playoffs y las partidas v4 se migran', () => {
     let g = startPlayoffs(regular(9)); g = finishPlayoffDay(g); expect(deserialize(serialize(g))).toEqual(g);
-    const old = JSON.parse(serialize(regular(9))); old.version = 4; delete old.playoffs; const m = deserialize(JSON.stringify(old)); expect([m.version, m.playoffs]).toEqual([5, null]);
+    const old = JSON.parse(serialize(regular(9))); old.version = 4; delete old.playoffs; const m = deserialize(JSON.stringify(old)); expect([m.version, m.playoffs]).toEqual([6, null]);
     expect(() => deserialize(JSON.stringify({ ...JSON.parse(serialize(newGame(2))), playoffs: { stage: 'semi', series: [] } }))).toThrow();
   });
 });
