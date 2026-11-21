@@ -22,7 +22,6 @@ describe('identificación de lado en partido', () => {
     const m = createMatch(19);
     expect(sideForPlayers(m, new Set(['jugador-ajeno']))).toBeNull();
   });
-  });
 });
 
 describe('motor', () => {
