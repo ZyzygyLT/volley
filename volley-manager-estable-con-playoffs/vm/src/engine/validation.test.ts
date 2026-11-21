@@ -19,11 +19,40 @@ describe('validateMatch', () => {
     const option = legalSubs(match, 0).find(candidate => !candidate.isLibero)!;
     match = substitute(match, 0, option.out.id, option.inn.id);
     expect(validateMatch(match)).toEqual([]);
+    const rotatedAfterSubstitution = structuredClone(match);
+    rotatedAfterSubstitution.teams[0].lineup = [
+      rotatedAfterSubstitution.teams[0].lineup[5],
+      ...rotatedAfterSubstitution.teams[0].lineup.slice(0, 5),
+    ];
+    expect(validateMatch(rotatedAfterSubstitution)).toEqual([]);
     expect(validateMatchAgainst(match, expected)).toEqual([]);
 
     const wrongFixture = structuredClone(match);
     wrongFixture.seed++;
     expect(validateMatchAgainst(wrongFixture, expected).some(error => error.includes('no corresponde al fixture'))).toBe(true);
+  });
+
+  it('acepta las seis rotaciones cíclicas y rechaza permutaciones no reglamentarias', () => {
+    const match = createMatch(101);
+    const starting = match.base[0].slice(0, 6);
+
+    for (let offset = 0; offset < 6; offset++) {
+      const rotated = structuredClone(match);
+      rotated.teams[0].lineup = Array.from(
+        { length: 6 },
+        (_, slot) => starting[(slot - offset + 6) % 6],
+      );
+      expect(validateMatch(rotated)).toEqual([]);
+    }
+
+    const impossible = structuredClone(match);
+    [impossible.teams[0].lineup[1], impossible.teams[0].lineup[4]] = [
+      impossible.teams[0].lineup[4],
+      impossible.teams[0].lineup[1],
+    ];
+    expect(validateMatch(impossible)).toContain(
+      'teams[0].lineup: orden no corresponde a una rotación legal',
+    );
   });
 
   it('rechaza semillas que no sean uint32', () => {
