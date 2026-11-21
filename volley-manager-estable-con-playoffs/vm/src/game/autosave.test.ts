@@ -21,6 +21,22 @@ describe('recuperación del autoguardado', () => {
     expect((await store.list()).find(x => x.slot === 'auto-backup')?.team).toBe(first.game.teams[first.game.userTeam].name);
   });
 
+  it('no sobrescribe auto si no puede guardar primero la copia de seguridad', async () => {
+    const base = memoryStore();
+    const first = session(113);
+    const second = session(114);
+    await writeAutoWithBackup(base, first.json, metaOf('auto', first.game, new Date().toISOString()));
+    const failingStore = {
+      ...base,
+      async put(slot: string, json: string, meta: ReturnType<typeof metaOf>) {
+        if (slot === 'auto-backup') throw new Error('backup write failed');
+        await base.put(slot, json, meta);
+      },
+    };
+    await expect(writeAutoWithBackup(failingStore, second.json, metaOf('auto', second.game, new Date().toISOString()))).rejects.toThrow('backup write failed');
+    expect(await base.get('auto')).toBe(first.json);
+  });
+
   it('usa auto cuando la copia principal es válida', async () => {
     const store = memoryStore();
     const first = session(103);
