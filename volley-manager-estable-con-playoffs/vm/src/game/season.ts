@@ -119,7 +119,7 @@ export function standings(g: GameState): Standing[] {
     h.pointsFor += r.totals[0]; h.pointsAgainst += r.totals[1]; a.pointsFor += r.totals[1]; a.pointsAgainst += r.totals[0];
     h.points += r.points[0]; a.points += r.points[1];
   }
-  const ratio = (a: number, b: number) => (b ? a / b : a);
+  const ratio = (a: number, b: number) => (b === 0 ? (a === 0 ? 0 : Number.POSITIVE_INFINITY) : a / b);
   // Desempate como en las competencias FIVB: puntos de partido, partidos ganados, cociente de sets, cociente de puntos.
   return s.sort((x, y) => y.points - x.points || y.won - x.won || ratio(y.setsFor, y.setsAgainst) - ratio(x.setsFor, x.setsAgainst) || ratio(y.pointsFor, y.pointsAgainst) - ratio(x.pointsFor, x.pointsAgainst) || x.team - y.team);
 }
