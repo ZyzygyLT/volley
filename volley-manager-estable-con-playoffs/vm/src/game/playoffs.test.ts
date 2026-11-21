@@ -40,6 +40,16 @@ describe('playoffs', () => {
     }
     throw new Error('ningún equipo 0 clasificó en 30 semillas');
   });
+  it('rechaza partidos manuales incompletos o ajenos a la serie activa', () => {
+    const g = startPlayoffs(regular(31)), series = userSeries(g)!;
+    const incomplete = matchForSeries(g, series);
+    expect(() => finishPlayoffDay(g, incomplete)).toThrow(/todavía no terminó/);
+
+    const altered = playMatch(matchForSeries(g, series));
+    altered.seed = (altered.seed + 1) >>> 0;
+    expect(() => finishPlayoffDay(g, altered)).toThrow(/fixture o serie/);
+    expect(g.playoffs?.series.every(s => s.games.length === 0)).toBe(true);
+  });
   it('la temporada solo termina con los playoffs y el premio sale del puesto final', () => {
     let g = regular(8); expect(isSeasonOver(g)).toBe(false); expect(() => endSeason(g)).toThrow(/no terminó/);
     g = startPlayoffs(g); expect(() => endSeason(g)).toThrow(/no terminó/);
