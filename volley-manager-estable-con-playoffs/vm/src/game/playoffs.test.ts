@@ -54,6 +54,11 @@ describe('playoffs', () => {
     altered.seed = (altered.seed + 1) >>> 0;
     expect(() => finishPlayoffDay(g, altered)).toThrow(/fixture o serie/);
     expect(g.playoffs?.series.every(s => s.games.length === 0)).toBe(true);
+
+    const eliminated = { ...g, userTeam: standings(g)[7].team };
+    const foreignSeries = eliminated.playoffs!.series[0];
+    expect(() => finishPlayoffDay(eliminated, playMatch(matchForSeries(eliminated, foreignSeries))))
+      .toThrow(/no tiene una serie activa/);
   });
   it('la temporada solo termina con los playoffs y el premio sale del puesto final', () => {
     let g = regular(8); expect(isSeasonOver(g)).toBe(false); expect(() => endSeason(g)).toThrow(/no terminó/);
