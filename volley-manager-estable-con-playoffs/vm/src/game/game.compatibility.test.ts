@@ -88,6 +88,44 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
     expect(validateGame(first)).toEqual([]);
   });
 
+  it('conserva el historial y las estadísticas al migrar una partida evolucionada de v4', () => {
+    const progressed = endSeason(simulateSeason(newGame(122)));
+    const legacy = JSON.parse(serialize(progressed));
+    legacy.version = 4;
+    delete legacy.playoffs;
+
+    const migrated = deserialize(JSON.stringify(legacy));
+    expect(migrated.version).toBe(5);
+    expect(migrated.season).toBe(2);
+    expect(migrated.history).toEqual(legacy.history);
+    expect(migrated.allTime).toEqual(legacy.allTime);
+    expect(migrated.teams).toEqual(legacy.teams);
+    expect(migrated.playoffs).toBeNull();
+    expect(validateGame(migrated)).toEqual([]);
+  });
+
+  it('reconstruye edades sin perder estadísticas acumuladas al migrar una partida evolucionada de v3', () => {
+    const progressed = endSeason(simulateSeason(newGame(123)));
+    const legacy = JSON.parse(serialize(progressed));
+    legacy.version = 3;
+    delete legacy.news;
+    delete legacy.progressLog;
+    for (const team of legacy.teams) {
+      delete team.clubBoost;
+      for (const player of team.roster) delete player.age;
+    }
+    for (const player of legacy.market) delete player.age;
+
+    const migrated = deserialize(JSON.stringify(legacy));
+    expect(migrated.version).toBe(5);
+    expect(migrated.season).toBe(2);
+    expect(migrated.history).toEqual(legacy.history);
+    expect(migrated.allTime).toEqual(legacy.allTime);
+    expect(migrated.teams.every(team => team.roster.every(player => Number.isInteger(player.age)))).toBe(true);
+    expect(migrated.teams.every(team => team.clubBoost === 0)).toBe(true);
+    expect(validateGame(migrated)).toEqual([]);
+  });
+
   it('los líberos nuevos nunca tienen ataque ni bloqueo negativos', () => {
     let g = newGame(9); for (let s = 0; s < 8; s++) { g = simulateSeason(g); g = endSeason(g); }
     for (const p of [...g.teams.flatMap(t => t.roster), ...g.market]) { expect(p.atk).toBeGreaterThanOrEqual(0); expect(p.blk).toBeGreaterThanOrEqual(0); }
