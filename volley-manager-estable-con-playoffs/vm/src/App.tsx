@@ -11,6 +11,7 @@ import { chooseTeam, endSeason, finishRound, fixturesOfRound, isSeasonOver, lead
 import { finishPlayoffDay, matchForSeries, simulateSeason, startPlayoffs, userSeries, winsOf } from './game/playoffs';
 import { deserializeSession, indexedDbStore, memoryStore, metaOf, serializeSession, type SaveMeta } from './game/save';
 import { createWriteQueue } from './game/writeQueue';
+import { recoverAuto, writeAutoWithBackup } from './game/autosave';
 
 type Tab = 'liga' | 'plantel' | 'partido' | 'mercado' | 'finanzas' | 'stats' | 'guardar' | 'acerca';
 const TABS: [Tab, string][] = [['liga', 'Liga'], ['plantel', 'Plantel'], ['partido', 'Partido'], ['mercado', 'Mercado'], ['finanzas', 'Finanzas'], ['stats', 'Estadísticas'], ['guardar', 'Guardar'], ['acerca', 'Acerca de']];
@@ -105,13 +106,13 @@ export default function App() {
   const store = useMemo(() => { try { return typeof indexedDB !== 'undefined' ? indexedDbStore() : memoryStore(); } catch { return memoryStore(); } }, []);
   const writeQueue = useMemo(() => createWriteQueue(), []);
   const me = game.teams[game.userTeam], uf = userFixture(game), over = isSeasonOver(game);
-  const refresh = () => store.list().then(setSaves).catch(() => setMsg('No se pudo leer el almacenamiento del navegador'));
+  const refresh = () => store.list().then(items => setSaves(items.filter(item => item.slot !== 'auto-backup'))).catch(() => setMsg('No se pudo leer el almacenamiento del navegador'));
   useEffect(() => { refresh(); }, []);
   // Autoguardado: al abrir se ofrece continuar la última partida automática; mientras se decide no se sobrescribe.
-  useEffect(() => { store.list().then(l => { const m = l.find(x => x.slot === 'auto'); if (m) setPending(m); else setAutoOn(true); }).catch(() => { setMsg('No se pudo comprobar el autoguardado. No se sobrescribirá ningún dato; revisá el almacenamiento y recargá para reintentar.'); setAutoOn(false); }); }, []);
+  useEffect(() => { store.list().then(l => { const m = l.find(x => x.slot === 'auto') ?? l.find(x => x.slot === 'auto-backup'); if (m) setPending({ ...m, slot: 'auto' }); else setAutoOn(true); }).catch(() => { setMsg('No se pudo comprobar el autoguardado. No se sobrescribirá ningún dato; revisá el almacenamiento y recargá para reintentar.'); setAutoOn(false); }); }, []);
   useEffect(() => {
     if (!autoOn) return;
-    const t = setTimeout(() => { try { writeQueue(() => store.put('auto', serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString()))).catch(e => setMsg(`No se pudo completar el autoguardado: ${(e as Error).message}`)); } catch (e) { setMsg(`No se pudo preparar el autoguardado: ${(e as Error).message}`); } }, 400);
+    const t = setTimeout(() => { try { writeQueue(() => writeAutoWithBackup(store, serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString()))).catch(e => setMsg(`No se pudo completar el autoguardado: ${(e as Error).message}`)); } catch (e) { setMsg(`No se pudo preparar el autoguardado: ${(e as Error).message}`); } }, 400);
     return () => clearTimeout(t);
   }, [game, live, liveKind, autoOn, writeQueue]);
   // Si la pestaña se oculta o se cierra antes del debounce, intentamos persistir el último estado.
@@ -133,7 +134,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [game, live, liveKind, autoOn, store, writeQueue]);
-  const continueAuto = async () => { try { const j = await store.get('auto'); if (j) { const restored = deserializeSession(j); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Continuás la partida automática'); } else setMsg('La partida automática ya no está disponible'); setPending(null); setAutoOn(true); } catch (e) { setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar.`); } };
+  const continueAuto = async () => { try { const recovered = await recoverAuto(store); if (!recovered.session) throw new Error('No hay una copia válida disponible'); const restored = recovered.session; setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg(recovered.source === 'auto-backup' ? 'Partida recuperada desde la copia de seguridad anterior; se restauró el autoguardado principal.' : 'Continuás la partida automática'); setPending(null); setAutoOn(true); refresh(); } catch (e) { setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar o empezar una partida nueva.`); } };
 
   const setLineup = (l: Lineup) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, lineup: l } : t)) }));
   const setRisk = (risk: number) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, risk } : t)) }));
