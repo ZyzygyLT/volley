@@ -36,6 +36,16 @@ describe('plantel y alineación', () => {
   });
 });
 
+describe('semillas de partida', () => {
+  it('acepta uint32 y rechaza semillas fuera de rango al crear una partida', () => {
+    expect(newGame(0).seed).toBe(0);
+    expect(newGame(0xffff_ffff).seed).toBe(0xffff_ffff);
+    for (const seed of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 0x1_0000_0000]) {
+      expect(() => newGame(seed)).toThrow(/uint32/);
+    }
+  });
+});
+
 describe('temporada', () => {
   it('es determinista y los puntos de liga suman 3 por partido', () => {
     const a = playSeason(5), b = playSeason(5);
