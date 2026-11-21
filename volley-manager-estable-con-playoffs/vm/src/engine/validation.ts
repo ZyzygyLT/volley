@@ -1,5 +1,5 @@
 import type { Params } from './params';
-import type { MatchState, Player, PStats, Role, Side, Stats, SubState } from './types';
+import type { Player, PStats, Role, Side, Stats, SubState } from './types';
 
 const ROLES: Role[] = ['S', 'OH', 'MB', 'OP', 'L'];
 const BASE_ROLES: Role[] = ['S', 'OH', 'MB', 'OP', 'OH', 'MB', 'L'];
@@ -46,7 +46,7 @@ function validatePlayer(value: unknown, path: string, errors: string[]): value i
     const max = value.role === 'L' && (key === 'atk' || key === 'blk') ? 120 : 100;
     if (!isFiniteNumber(n) || n < 0 || n > max) fail(`${key}: valoración fuera de rango`);
   }
-  if (value.age !== undefined && (!isInteger(value.age) || value.age < 0 || value.age > 100)) fail('age: edad inválida');
+  if (value.age !== undefined && (!isInteger(value.age) || value.age < 15 || value.age > 50)) fail('age: edad inválida');
   return valid;
 }
 
@@ -163,6 +163,7 @@ export function validateMatch(input: unknown): string[] {
 
   const rosterBySide: [Map<string, Player>, Map<string, Player>] = [new Map(), new Map()];
   const allIds = new Set<string>();
+  const sideByPlayerId = new Map<string, Side>();
   const lineupIds: [Set<string>, Set<string>] = [new Set(), new Set()];
   const benchIds: [Set<string>, Set<string>] = [new Set(), new Set()];
 
@@ -179,14 +180,14 @@ export function validateMatch(input: unknown): string[] {
       if (validatePlayer(player, `base[${side}][${i}]`, errors)) {
         if (player.role !== BASE_ROLES[i]) errors.push(`base[${side}][${i}].role: posición base incorrecta`);
         if (local.has(player.id) || allIds.has(player.id)) errors.push(`base[${side}][${i}].id: identificador duplicado (${player.id})`);
-        local.set(player.id, player); allIds.add(player.id);
+        local.set(player.id, player); allIds.add(player.id); sideByPlayerId.set(player.id, side);
       }
     }
     for (let i = 0; i < bench.length; i++) {
       const player = bench[i];
       if (validatePlayer(player, `benches[${side}][${i}]`, errors)) {
         if (local.has(player.id) || allIds.has(player.id)) errors.push(`benches[${side}][${i}].id: identificador duplicado (${player.id})`);
-        local.set(player.id, player); allIds.add(player.id); benchIds[side].add(player.id);
+        local.set(player.id, player); allIds.add(player.id); sideByPlayerId.set(player.id, side); benchIds[side].add(player.id);
       }
     }
     if (!Array.isArray(team.lineup) || team.lineup.length !== 6) errors.push(`teams[${side}].lineup: debe contener seis titulares`);
@@ -223,9 +224,11 @@ export function validateMatch(input: unknown): string[] {
     else errors.push(`subState[${side}]: estructura inválida`);
   }
 
+  const boxTotals: [Stats, Stats] = [emptyStats(), emptyStats()];
   if (isRecord(m.box)) {
     for (const [id, value] of Object.entries(m.box)) {
-      if (!allIds.has(id)) errors.push(`box[${id}]: jugador ajeno al partido`);
+      const playerSide = sideByPlayerId.get(id);
+      if (playerSide === undefined) errors.push(`box[${id}]: jugador ajeno al partido`);
       if (!isRecord(value)) { errors.push(`box[${id}]: estadísticas inválidas`); continue; }
       for (const key of PLAYER_STAT_KEYS) {
         const n = value[key];
@@ -240,6 +243,27 @@ export function validateMatch(input: unknown): string[] {
       if (isInteger(value.kills) && isInteger(value.atks) && value.kills > value.atks) errors.push(`box[${id}].kills: supera los ataques`);
       if (isInteger(value.atkErr) && isInteger(value.atks) && value.atkErr > value.atks) errors.push(`box[${id}].atkErr: supera los ataques`);
       if (isInteger(value.blocked) && isInteger(value.atks) && value.blocked > value.atks) errors.push(`box[${id}].blocked: supera los ataques`);
+      if (isInteger(value.aces) && isInteger(value.serveErr) && isInteger(value.serves)
+        && value.aces + value.serveErr > value.serves) errors.push(`box[${id}]: aces + serveErr supera los saques`);
+      if (isInteger(value.recPos) && isInteger(value.recErr) && isInteger(value.recs)
+        && value.recPos + value.recErr > value.recs) errors.push(`box[${id}]: recPos + recErr supera las recepciones`);
+      if (isInteger(value.kills) && isInteger(value.atkErr) && isInteger(value.blocked) && isInteger(value.atks)
+        && value.kills + value.atkErr + value.blocked > value.atks) errors.push(`box[${id}]: resultados de ataque superan los ataques`);
+      if (playerSide !== undefined) {
+        const totals = boxTotals[playerSide];
+        if (isInteger(value.aces)) totals.ace += value.aces;
+        if (isInteger(value.kills)) totals.kill += value.kills;
+        if (isInteger(value.blocks)) totals.blk += value.blocks;
+        for (const key of ['serveErr', 'atkErr', 'otherErr'] as const) if (isInteger(value[key])) totals.err += value[key];
+      }
+    }
+  }
+  for (const side of [0, 1] as const) {
+    const teamStats = m.stats[side];
+    if (isRecord(teamStats)) for (const key of STAT_KEYS) {
+      if (isInteger(teamStats[key]) && teamStats[key] !== boxTotals[side][key]) {
+        errors.push(`stats[${side}].${key}: no concilia con las estadísticas individuales`);
+      }
     }
   }
 
