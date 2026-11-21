@@ -22,7 +22,7 @@ export interface PlayoffState { stage: 'semi' | 'final' | 'done'; series: Series
 
 export interface SeasonRecord { season: number; champion: string; userRank: number; userPoints: number; prize: number }
 export interface RetiredPlayer extends Player { retiredSeason: number; lastTeam: string }
-export interface GameState { version: number; seed: number; userTeam: number; teams: TeamData[]; fixtures: Fixture[]; round: number; results: Result[]; career: Record<string, PStats>; finance: Finance; market: Player[]; season: number; history: SeasonRecord[]; allTime: Record<string, PStats>; retiredPlayers: RetiredPlayer[]; news: string[]; progressLog: ProgressEntry[]; playoffs: PlayoffState | null }
+export interface GameState { version: number; seed: number; userTeam: number; teams: TeamData[]; fixtures: Fixture[]; round: number; results: Result[]; career: Record<string, PStats>; finance: Finance; market: Player[]; season: number; history: SeasonRecord[]; allTime: Record<string, PStats>; retiredPlayers: RetiredPlayer[]; /** IDs históricos sin ficha recuperable en saves anteriores al archivo de retirados. */ legacyAllTimeIds?: string[]; news: string[]; progressLog: ProgressEntry[]; playoffs: PlayoffState | null }
 
 /** Doble liga todos contra todos (método del círculo): cada equipo juega una vez por jornada y dos veces contra cada rival. */
 export function roundRobin(n: number): Fixture[] {
