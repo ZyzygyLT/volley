@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { playMatch } from '../engine/match';
+import { lineupToSquad } from './roster';
 import { ECON } from './economy';
 import { deserialize, serialize } from './save';
 import { endSeason, finalRanking, finishRound, isSeasonOver, newGame, regularSeasonOver, seasonSummary, standings, type GameState } from './season';
@@ -8,6 +9,25 @@ import { advance, finishPlayoffDay, matchForSeries, simulateSeason, startPlayoff
 const regular = (seed: number): GameState => { let g = newGame(seed); while (!regularSeasonOver(g)) g = finishRound(g); return g; };
 
 describe('playoffs', () => {
+  it('acredita el partido manual de playoffs a la alineación con la que comenzó, no a la siguiente', () => {
+    const regularSeason = regular(711);
+    const game = startPlayoffs(regularSeason);
+    const series = userSeries(game)!;
+    const manual = playMatch(matchForSeries(game, series));
+    const user = game.teams[game.userTeam];
+    const originalStarter = user.lineup.OH[1];
+    const replacement = user.roster.find(player => player.role === 'OH' && !user.lineup.OH.includes(player.id))!;
+    const changed = {
+      ...game,
+      teams: game.teams.map(team => team.id === game.userTeam
+        ? { ...team, lineup: { ...team.lineup, OH: [team.lineup.OH[0], replacement.id] as [string, string] } }
+        : team),
+    };
+    const next = finishPlayoffDay(changed, manual);
+    expect(next.career[originalStarter]?.gp).toBe(1);
+    expect(next.career[replacement.id]?.gp ?? 0).toBe(0);
+  });
+
   it('no empiezan antes de terminar la fase regular ni dos veces', () => {
     expect(() => startPlayoffs(newGame(1))).toThrow(/no terminó/); const g = startPlayoffs(regular(1)); expect(() => startPlayoffs(g)).toThrow(/ya empezaron/);
   });
