@@ -141,6 +141,22 @@ describe('integridad semántica de guardados: fase regular', () => {
     }
   });
 
+  it('rechaza estadísticas de temporada asociadas a un jugador inexistente', () => {
+    const game = jsonCopy(regular(1));
+    const id = Object.keys(game.career)[0];
+    game.career['ghost-player'] = { ...game.career[id] };
+    rejected(game);
+  });
+
+  it('conserva estadísticas de jugadores vendidos que permanecen en el mercado', () => {
+    const game = jsonCopy(regular(1));
+    const team = game.teams[game.userTeam];
+    const player = team.roster.find(p => game.career[p.id] !== undefined)!;
+    team.roster = team.roster.filter(p => p.id !== player.id);
+    game.market.push(player);
+    expect(validateGame(game)).toEqual([]);
+  });
+
   it('acepta asistencias acreditadas al colocador aunque no tenga kills', () => {
     const game = jsonCopy(regular(1));
     const id = Object.keys(game.career)[0];
