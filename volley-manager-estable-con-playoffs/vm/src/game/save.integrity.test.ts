@@ -121,6 +121,27 @@ describe('integridad semántica de guardados: fase regular', () => {
     (extra.career[extraId] as typeof extra.career[string] & { unexpected?: number }).unexpected = 1;
     rejected(extra);
   });
+  it('rechaza relaciones imposibles entre contadores individuales', () => {
+    const base = jsonCopy(regular(1));
+    const corruptions = [
+      (s: typeof base.career[string]) => { s.serves = 1; s.aces = 1; s.serveErr = 1; },
+      (s: typeof base.career[string]) => { s.recs = 1; s.recErr = 2; },
+      (s: typeof base.career[string]) => { s.recs = 1; s.recErr = 1; s.recPos = 1; },
+      (s: typeof base.career[string]) => { s.recs = 1; s.recPos = 0; s.recPerf = 1; },
+      (s: typeof base.career[string]) => { s.atks = 1; s.kills = 1; s.atkErr = 1; },
+      (s: typeof base.career[string]) => { s.kills = 1; s.assists = 2; },
+    ];
+    for (const corrupt of corruptions) {
+      const game = jsonCopy(base);
+      const id = Object.keys(game.career)[0];
+      expect(id).toBeDefined();
+      const stats = game.career[id];
+      for (const key of Object.keys(stats) as (keyof typeof stats)[]) stats[key] = 0;
+      corrupt(stats);
+      rejected(game);
+    }
+  });
+
   it('exige un historial cronológico y coherente con la temporada actual', () => {
     const completed = endSeason(simulateSeason(newGame(52)));
     expect(completed.season).toBe(2);
