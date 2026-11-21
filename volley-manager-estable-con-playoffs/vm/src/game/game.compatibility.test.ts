@@ -10,7 +10,7 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
   });
   it('migra cada versión histórica hasta el esquema actual', () => {
     const current = JSON.parse(serialize(finishRound(newGame(120))));
-    const legacy = (version: 1 | 2 | 3 | 4) => {
+    const legacy = (version: 1 | 2 | 3 | 4 | 5) => {
       const value = structuredClone(current);
       value.version = version;
       if (version <= 3) {
@@ -39,12 +39,13 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
         delete value.progressLog;
       }
       if (version <= 4) delete value.playoffs;
+      if (version <= 5) delete value.retiredPlayers;
       return value;
     };
 
-    for (const version of [1, 2, 3, 4] as const) {
+    for (const version of [1, 2, 3, 4, 5] as const) {
       const migrated = deserialize(JSON.stringify(legacy(version)));
-      expect(migrated.version).toBe(5);
+      expect(migrated.version).toBe(6);
       expect(migrated.teams).toHaveLength(current.teams.length);
       expect(migrated.fixtures).toEqual(current.fixtures);
       expect(migrated.results).toEqual(current.results.map((result: Record<string, unknown>) =>
@@ -149,7 +150,7 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
 
   it('rechaza versiones desconocidas sin intentar tratarlas como partidas actuales', () => {
     const current = JSON.parse(serialize(newGame(124)));
-    for (const version of [0, 6, 999, -1, '5', null]) {
+    for (const version of [0, 7, 999, -1, '5', null]) {
       const unsupported = { ...current, version };
       expect(() => deserialize(JSON.stringify(unsupported))).toThrow(/Versión no soportada/);
     }
