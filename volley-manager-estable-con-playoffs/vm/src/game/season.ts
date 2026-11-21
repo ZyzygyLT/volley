@@ -187,12 +187,8 @@ function assertSeasonCanClose(g: GameState): void {
       const expectedAway = expectedHome === s.high ? s.low : s.high;
       if (game.game !== i + 1 || game.home !== expectedHome || game.away !== expectedAway
         || game.sets[0] === game.sets[1] || Math.max(...game.sets) !== 3
-        || (game.sets[0] > game.sets[1] ? game.home : game.away) !== s.winner) {
-        // A series may contain wins by both teams; only the winner check is performed below.
-        if (game.game !== i + 1 || game.home !== expectedHome || game.away !== expectedAway
-          || game.sets[0] === game.sets[1] || Math.max(...game.sets) !== 3) {
-          throw new Error(`No se puede cerrar la temporada: partido inválido en la serie ${s.id}`);
-        }
+        || Math.min(...game.sets) > 2) {
+        throw new Error(`No se puede cerrar la temporada: partido inválido en la serie ${s.id}`);
       }
       const winner = game.sets[0] > game.sets[1] ? game.home : game.away;
       if (winner === s.high) highWins++; else if (winner === s.low) lowWins++;
