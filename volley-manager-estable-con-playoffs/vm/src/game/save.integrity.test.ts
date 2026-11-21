@@ -129,7 +129,6 @@ describe('integridad semántica de guardados: fase regular', () => {
       (s: typeof base.career[string]) => { s.recs = 1; s.recErr = 1; s.recPos = 1; },
       (s: typeof base.career[string]) => { s.recs = 1; s.recPos = 0; s.recPerf = 1; },
       (s: typeof base.career[string]) => { s.atks = 1; s.kills = 1; s.atkErr = 1; },
-      (s: typeof base.career[string]) => { s.kills = 1; s.assists = 2; },
     ];
     for (const corrupt of corruptions) {
       const game = jsonCopy(base);
@@ -140,6 +139,15 @@ describe('integridad semántica de guardados: fase regular', () => {
       corrupt(stats);
       rejected(game);
     }
+  });
+
+  it('acepta asistencias acreditadas al colocador aunque no tenga kills', () => {
+    const game = jsonCopy(regular(1));
+    const id = Object.keys(game.career)[0];
+    const stats = game.career[id];
+    stats.kills = 0;
+    stats.assists = 1;
+    expect(validateGame(game)).toEqual([]);
   });
 
   it('exige un historial cronológico y coherente con la temporada actual', () => {
