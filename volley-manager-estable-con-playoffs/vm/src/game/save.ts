@@ -313,7 +313,9 @@ export function serializeSession(game: GameState, liveMatch: MatchState | null, 
     if (!expected || validateMatchAgainst(liveMatch, expected).length)
       throw new SaveError('El partido en curso no corresponde a la partida guardada');
   }
-  return JSON.stringify({ format: 'volley-session-v1', game: JSON.parse(gameJson), liveMatch, liveKind });
+  const json = JSON.stringify({ format: 'volley-session-v1', game: JSON.parse(gameJson), liveMatch, liveKind });
+  if (json.length > MAX_SAVE_CHARS) throw new SaveError('La sesión supera el tamaño máximo permitido para un guardado');
+  return json;
 }
 
 /** Acepta sesiones nuevas y partidas antiguas sin partido en curso. */
@@ -339,7 +341,9 @@ export function deserializeSession(json: string): SaveSession {
 export function serialize(g: GameState): string {
   const errs = validateGame(g);
   if (errs.length) throw new SaveError(`No se puede guardar: ${errs[0]}`);
-  return JSON.stringify(g);
+  const json = JSON.stringify(g);
+  if (json.length > MAX_SAVE_CHARS) throw new SaveError('La partida supera el tamaño máximo permitido para un guardado');
+  return json;
 }
 /** Migra partidas de versiones anteriores. */
 function migrate(input: GameState): GameState {
