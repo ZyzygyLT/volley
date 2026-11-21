@@ -127,10 +127,17 @@ export function standings(g: GameState): Standing[] {
   return s.sort((x, y) => y.points - x.points || y.won - x.won || ratio(y.setsFor, y.setsAgainst) - ratio(x.setsFor, x.setsAgainst) || ratio(y.pointsFor, y.pointsAgainst) - ratio(x.pointsFor, x.pointsAgainst) || x.team - y.team);
 }
 
-/** Líderes de temporada en una estadística acumulada. */
+/** Líderes de temporada en una estadística acumulada, incluidos los jugadores vendidos que siguen en el mercado. */
 export function leaders(g: GameState, key: keyof PStats, n = 10, minRecs = 0): { player: Player; team: string; value: number }[] {
   const out: { player: Player; team: string; value: number }[] = [];
-  for (const t of g.teams) for (const p of t.roster) { const s = g.career[p.id]; if (s && s.recs >= minRecs) out.push({ player: p, team: t.name, value: s[key] }); }
+  for (const t of g.teams) for (const p of t.roster) {
+    const s = g.career[p.id];
+    if (s && s.recs >= minRecs) out.push({ player: p, team: t.name, value: s[key] });
+  }
+  for (const p of g.market) {
+    const s = g.career[p.id];
+    if (s && s.recs >= minRecs) out.push({ player: p, team: 'Agente libre', value: s[key] });
+  }
   return out.sort((a, b) => b.value - a.value).slice(0, n);
 }
 
