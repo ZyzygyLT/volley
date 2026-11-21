@@ -113,7 +113,7 @@ function checkPlayoffs(p: unknown, n: number, regularOver: boolean, teams: unkno
       const winner = isPair(game.sets, x => isInt(x, 0, 3))
         ? ((game.sets as number[])[0] > (game.sets as number[])[1] ? game.home : game.away) : -1;
       if (game.game !== k + 1 || game.home !== expectedHome || game.away !== expectedAway
-        || !validMatchScore(game.sets, game.setScores, game.totals) || !isNum(game.seed)
+        || !validMatchScore(game.sets, game.setScores, game.totals) || !isInt(game.seed, 0, 0xffff_ffff)
         || (winner !== high && winner !== low)) gamesValid = false;
       if (winner === high) winsHigh++; else if (winner === low) winsLow++;
     });
@@ -203,7 +203,7 @@ function check(input: unknown, e: string[]): void {
       const valid = r.home !== r.away && validMatchScore(r.sets, r.setScores, r.totals)
         && isPair(r.points, x => isInt(x, 0, 3))
         && JSON.stringify(r.points) === JSON.stringify(leaguePoints(r.sets as [number, number]))
-        && isNum(r.seed);
+        && isInt(r.seed, 0, 0xffff_ffff);
       if (!valid) { e.push('Resultado inválido o puntos de liga incoherentes'); break; }
     }
     if (seenResults.size !== expected.size) e.push('Resultados: faltan partidos del calendario completado');
