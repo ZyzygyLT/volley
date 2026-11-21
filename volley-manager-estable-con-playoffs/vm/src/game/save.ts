@@ -236,7 +236,19 @@ function check(input: unknown, e: string[]): void {
   // Durante una temporada, un jugador puede estar en un plantel o en el mercado (si fue vendido), pero no desaparecer.
   if (isObj(g.career)) for (const id of Object.keys(g.career)) if (!activeIds.has(id))
     e.push('Estadísticas de la temporada: jugador inexistente en planteles y mercado (' + id + ')');
-  if (isObj(g.allTime)) for (const id of Object.keys(g.allTime)) if (!seen.has(id))
+  const legacyAllTime = new Set<string>();
+  if (g.legacyAllTimeIds !== undefined) {
+    if (!Array.isArray(g.legacyAllTimeIds) || g.legacyAllTimeIds.length > 100_000
+      || g.legacyAllTimeIds.some((id: unknown) => !isStr(id, 40) || !id.trim())
+      || new Set(g.legacyAllTimeIds).size !== g.legacyAllTimeIds.length) {
+      e.push('Registro de identidades históricas heredadas inválido');
+    } else for (const id of g.legacyAllTimeIds as string[]) {
+      if (!isObj(g.allTime) || !Object.prototype.hasOwnProperty.call(g.allTime, id) || seen.has(id))
+        e.push('Registro histórico heredado incoherente (' + id + ')');
+      else legacyAllTime.add(id);
+    }
+  }
+  if (isObj(g.allTime)) for (const id of Object.keys(g.allTime)) if (!seen.has(id) && !legacyAllTime.has(id))
     e.push('Estadísticas históricas: jugador inexistente en planteles, mercado y archivo de retirados (' + id + ')');
   checkPlayoffs(g.playoffs, n, g.round === rounds, teams, g.results as unknown[], e);
 }
@@ -350,6 +362,7 @@ export function serialize(g: GameState): string {
 /** Migra partidas de versiones anteriores. */
 function migrate(input: GameState): GameState {
   let g = input as unknown as Record<string, unknown> & { version: number; results?: Record<string, unknown>[] };
+  const sourceVersion = g && typeof g === 'object' ? g.version : GAME_VERSION;
   if (g && typeof g === 'object' && g.version === 1) g = { ...g, version: 2, finance: { budget: ECON.startBudget, ledger: [] }, market: [] };
   if (g && typeof g === 'object' && g.version === 2) g = { ...g, version: 3, season: 1, history: [], allTime: {}, results: (g.results ?? []).map(r => ({ setScores: [], ...r })) };
   if (g && typeof g === 'object' && g.version === 3) { // v4: edades (asignadas de forma determinista por jugador), noticias y evolución
@@ -359,6 +372,18 @@ function migrate(input: GameState): GameState {
   }
   if (g && typeof g === 'object' && g.version === 4) g = { ...g, version: 5, playoffs: null };
   if (g && typeof g === 'object' && g.version === 5) g = { ...g, version: 6, retiredPlayers: [] };
+  // Antes de v6 no existía un archivo de retirados: conservar IDs de allTime
+  // sin ficha recuperable como legado, sin permitir IDs desconocidos nuevos.
+  if (sourceVersion < 6 && g && typeof g === 'object' && isObj(g.allTime) && Array.isArray(g.teams)) {
+    const known = new Set<string>([
+      ...g.teams.flatMap((t: unknown) => isObj(t) && Array.isArray(t.roster)
+        ? t.roster.flatMap((p: unknown) => isObj(p) && typeof p.id === 'string' ? [p.id] : []) : []),
+      ...(Array.isArray(g.market) ? g.market.flatMap((p: unknown) => isObj(p) && typeof p.id === 'string' ? [p.id] : []) : []),
+      ...(Array.isArray(g.retiredPlayers) ? g.retiredPlayers.flatMap((p: unknown) => isObj(p) && typeof p.id === 'string' ? [p.id] : []) : []),
+    ]);
+    const legacyIds = Object.keys(g.allTime).filter(id => !known.has(id));
+    if (legacyIds.length) g = { ...g, legacyAllTimeIds: legacyIds };
+  }
   return sanitize(g as unknown as GameState);
 }
 /** Limpieza de datos benignos de versiones anteriores: el ataque y el bloqueo del líbero (que no se usan) podían quedar negativos. */
