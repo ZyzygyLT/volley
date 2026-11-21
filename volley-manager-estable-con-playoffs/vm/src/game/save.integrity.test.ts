@@ -183,6 +183,19 @@ describe('integridad semántica de guardados: fase regular', () => {
     rejected(game);
   });
 
+  it('rechaza estadísticas históricas de IDs desconocidos y acepta jugadores retirados', () => {
+    const unknown = jsonCopy(newGame(441));
+    const template = Object.values(regular(1).career)[0];
+    unknown.allTime['ghost-player'] = { ...template };
+    rejected(unknown);
+
+    const retired = jsonCopy(newGame(442));
+    const [player] = retired.market.splice(0, 1);
+    retired.retiredPlayers.push({ ...player, retiredSeason: 1, lastTeam: 'Agente libre' });
+    retired.allTime[player.id] = { ...template };
+    expect(validateGame(retired)).toEqual([]);
+  });
+
   it('conserva estadísticas de jugadores vendidos que permanecen en el mercado', () => {
     const game = jsonCopy(regular(1));
     const team = game.teams[game.userTeam];
