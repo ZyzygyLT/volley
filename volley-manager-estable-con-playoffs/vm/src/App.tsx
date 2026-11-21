@@ -138,6 +138,7 @@ export default function App() {
   const lineupErrors = validateLineup(me.roster, me.lineup);
   const regOver = regularSeasonOver(game), us = userSeries(game);
   const play = () => {
+    if (live) { setMsg('Ya hay un partido en curso. Cerralo antes de iniciar otro.'); setTab('partido'); return; }
     if (lineupErrors.length) return;
     if (regOver && game.playoffs && us) { setLive(matchForSeries(game, us)); setLiveKind('playoff'); }
     else if (uf && !regOver) { setLive(matchFor(game, uf)); setLiveKind('liga'); }
@@ -157,6 +158,7 @@ export default function App() {
     }
   };
   const simulate = () => {
+    if (live) { setMsg('Terminá y cerrá el partido en curso antes de simular la jornada.'); setTab('partido'); return; }
     if (lineupErrors.length) return;
     try {
       const next = regOver ? finishPlayoffDay(game) : finishRound(game);
@@ -232,8 +234,8 @@ export default function App() {
         {!over && regOver && !game.playoffs && <div className="notice">
           <p><b>Fase regular terminada.</b> Clasifican los 4 mejores: {standings(game).slice(0, 4).map(s => s.name).join(', ')}.</p>
           <p className="mu"><small>Semifinales 1°-4° y 2°-3° al mejor de 3; final al mejor de 5; el mejor clasificado es local en el primer partido y la localía alterna. Formato inspirado en la PlusLiga (adaptado a 8 equipos).</small></p>
-          <button onClick={() => attempt(() => startPlayoffs(game), 'Empiezan los playoffs')}>Empezar playoffs</button>{' '}
-          <button onClick={() => attempt(() => simulateSeason(game), 'Se simularon los playoffs')}>Simular los playoffs</button></div>}
+          <button onClick={() => attempt(() => startPlayoffs(game), 'Empiezan los playoffs')} disabled={!!live}>Empezar playoffs</button>{' '}
+          <button onClick={() => attempt(() => simulateSeason(game), 'Se simularon los playoffs')} disabled={!!live}>Simular los playoffs</button></div>}
         {game.playoffs && <div className="notice">
           <b>Playoffs</b>{' '}<small className="mu">{game.playoffs.stage === 'semi' ? 'semifinales' : game.playoffs.stage === 'final' ? 'final y partido por el bronce' : 'terminados'}</small>
           {game.playoffs.series.map((s: Series) => { const hi = name(s.high), lo = name(s.low), n = s.games.length + 1, nextHome = n % 2 === 1 ? s.high : s.low;
@@ -243,16 +245,16 @@ export default function App() {
               {s.winner === undefined ? <small className="mu"> · próximo: {name(nextHome)} (local) vs {name(nextHome === s.high ? s.low : s.high)}</small> : <small className="okc"> · pasa {name(s.winner)}</small>}</div>; })}
           {!over && <p>
             {lineupErrors.length > 0 && <span className="err">Alineación inválida: {lineupErrors[0]}. </span>}
-            {us ? <button onClick={play} disabled={lineupErrors.length > 0}>Jugar mi partido de playoffs</button> : <small className="mu">Tu equipo no está en juego en esta etapa. </small>}{' '}
-            <button onClick={simulate} disabled={lineupErrors.length > 0}>Simular día de playoffs</button>{' '}
-            <button onClick={() => attempt(() => simulateSeason(game), 'Se simularon los playoffs')}>Simular los playoffs completos</button></p>}
+            {us ? <button onClick={play} disabled={!!live || lineupErrors.length > 0}>Jugar mi partido de playoffs</button> : <small className="mu">Tu equipo no está en juego en esta etapa. </small>}{' '}
+            <button onClick={simulate} disabled={!!live || lineupErrors.length > 0}>Simular día de playoffs</button>{' '}
+            <button onClick={() => attempt(() => simulateSeason(game), 'Se simularon los playoffs')} disabled={!!live}>Simular los playoffs completos</button></p>}
         </div>}
         {!over && !regOver && <>
           <h3>Jornada {game.round + 1}</h3>
           <ul>{fixturesOfRound(game).map((f, i) => <li key={i}><b>{f === uf ? '▶ ' : ''}</b>{name(f.home)} vs {name(f.away)}</li>)}</ul>
           {lineupErrors.length > 0 && <p className="err">Alineación inválida: {lineupErrors[0]}</p>}
-          <button onClick={play} disabled={lineupErrors.length > 0}>Jugar mi partido</button>{' '}
-          <button onClick={simulate} disabled={lineupErrors.length > 0}>Simular jornada</button>
+          <button onClick={play} disabled={!!live || lineupErrors.length > 0}>Jugar mi partido</button>{' '}
+          <button onClick={simulate} disabled={!!live || lineupErrors.length > 0}>Simular jornada</button>
         </>}
         {game.news.length > 0 && <>
           <h3>Noticias del mercado</h3>
