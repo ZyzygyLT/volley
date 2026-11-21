@@ -164,6 +164,23 @@ describe('temporada', () => {
       value: transferred.career[player.id].kills,
     });
   });
+
+  it('conserva las estadísticas al vender y volver a fichar al mismo jugador', () => {
+    const played = finishRound(newGame(714));
+    const team = played.teams[played.userTeam];
+    const player = team.roster.find(p => p.id === team.lineup.OH[0])!;
+    const careerBeforeTransfer = structuredClone(played.career[player.id]);
+
+    const sold = sell(played, player.id);
+    expect(sold.career[player.id]).toEqual(careerBeforeTransfer);
+    expect(leaders(sold, 'kills', 100).find(x => x.player.id === player.id)?.team).toBe('Agente libre');
+
+    const resigned = sign(sold, player.id);
+    expect(resigned.career[player.id]).toEqual(careerBeforeTransfer);
+    expect(resigned.market.some(p => p.id === player.id)).toBe(false);
+    expect(resigned.teams[resigned.userTeam].roster.some(p => p.id === player.id)).toBe(true);
+    expect(leaders(resigned, 'kills', 100).find(x => x.player.id === player.id)?.team).toBe(team.name);
+  });
 });
 
 describe('guardado', () => {
