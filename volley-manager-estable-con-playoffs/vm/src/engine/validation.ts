@@ -161,6 +161,12 @@ export function validateMatch(input: unknown): string[] {
     && Array.isArray(m.stats) && m.stats.length === 2;
   if (!structurallyComplete) return errors;
 
+  const teams = m.teams as unknown[];
+  const bases = m.base as unknown[];
+  const benches = m.benches as unknown[];
+  const subStates = m.subState as unknown[];
+  const teamStatsBySide = m.stats as unknown[];
+
   const rosterBySide: [Map<string, Player>, Map<string, Player>] = [new Map(), new Map()];
   const allIds = new Set<string>();
   const sideByPlayerId = new Map<string, Side>();
@@ -168,7 +174,7 @@ export function validateMatch(input: unknown): string[] {
   const benchIds: [Set<string>, Set<string>] = [new Set(), new Set()];
 
   for (const side of [0, 1] as const) {
-    const team = m.teams[side], base = m.base[side], bench = m.benches[side], stats = m.stats[side];
+    const team = teams[side], base = bases[side], bench = benches[side], stats = teamStatsBySide[side];
     if (!isRecord(team)) { errors.push(`teams[${side}]: equipo inválido`); continue; }
     if (typeof team.name !== 'string' || !team.name.trim()) errors.push(`teams[${side}].name: nombre inválido`);
     if (!isFiniteNumber(team.risk) || team.risk < 0 || team.risk > 100) errors.push(`teams[${side}].risk: riesgo fuera de rango`);
@@ -211,7 +217,7 @@ export function validateMatch(input: unknown): string[] {
     if (!validatePlayer(team.libero, `teams[${side}].libero`, errors) || team.libero.role !== 'L') errors.push(`teams[${side}].libero: líbero inválido`);
     else {
       const baseLibero = base[6];
-      if (!isRecord(baseLibero) || baseLibero.id !== team.libero.id || !samePlayer(baseLibero as Player, team.libero)) errors.push(`teams[${side}].libero: no coincide con el líbero de base`);
+      if (!isRecord(baseLibero) || baseLibero.id !== team.libero.id || !samePlayer(baseLibero as unknown as Player, team.libero)) errors.push(`teams[${side}].libero: no coincide con el líbero de base`);
     }
     if (isRecord(stats)) {
       for (const key of STAT_KEYS) if (!isInteger(stats[key]) || (stats[key] as number) < 0) errors.push(`stats[${side}].${key}: valor inválido`);
@@ -219,7 +225,7 @@ export function validateMatch(input: unknown): string[] {
   }
 
   for (const side of [0, 1] as const) {
-    const raw = m.subState[side];
+    const raw = subStates[side];
     if (isRecord(raw)) validateSubState(raw, side, rosterBySide[side], lineupIds[side], benchIds[side], errors);
     else errors.push(`subState[${side}]: estructura inválida`);
   }
@@ -259,7 +265,7 @@ export function validateMatch(input: unknown): string[] {
     }
   }
   for (const side of [0, 1] as const) {
-    const teamStats = m.stats[side];
+    const teamStats = teamStatsBySide[side];
     if (isRecord(teamStats)) for (const key of STAT_KEYS) {
       if (isInteger(teamStats[key]) && teamStats[key] !== boxTotals[side][key]) {
         errors.push(`stats[${side}].${key}: no concilia con las estadísticas individuales`);
@@ -321,7 +327,7 @@ function validateProgress(m: UnknownRecord, errors: string[]): void {
   const wins: [number, number] = [0, 0];
   const sums: [number, number] = [0, 0];
   for (let i = 0; i < completed; i++) {
-    const pair = m.setScores[i];
+    const pair: unknown = m.setScores[i];
     if (!Array.isArray(pair) || pair.length !== 2 || pair.some(x => !isInteger(x) || x < 0)) {
       errors.push(`setScores[${i}]: marcador de set inválido`); continue;
     }
