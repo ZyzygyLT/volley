@@ -192,8 +192,9 @@ export default function App() {
     try { setLive(substitute(live, mySide, o, i)); setSubPick(''); setMsg(''); }
     catch (e) { setMsg((e as Error).message); }
   };
-  const allPlayers = [...game.teams.flatMap(t => t.roster), ...game.market];
+  const allPlayers = [...game.teams.flatMap(t => t.roster), ...game.market, ...game.retiredPlayers];
   const card = cardId ? allPlayers.find(p => p.id === cardId) : undefined;
+  const retiredCard = card ? game.retiredPlayers.find(p => p.id === card.id) : undefined;
   const Name = ({ p }: { p: Player }) => <button className="lnk" onClick={() => setCardId(p.id)}>{p.name}</button>;
   const rosterSorted = (ps: Player[]) => ROSTER_ORDER.flatMap(r => ps.filter(p => p.role === r).sort((a, b) => overall(b) - overall(a)));
   const ratings = (p: Player) => <><td>{p.srv}</td><td>{p.rec}</td><td>{p.set}</td><td>{p.role === 'L' ? '–' : p.atk}</td><td>{p.role === 'L' ? '–' : p.blk}</td><td>{p.def}</td><td>{p.cons}</td></>;
@@ -212,7 +213,7 @@ export default function App() {
         <button onClick={() => setCardId(null)}>Cerrar</button>
         <div className="bars">{([['Saque', card.srv], ['Recepción', card.rec], ['Colocación', card.set], ['Ataque', card.atk], ['Bloqueo', card.blk], ['Defensa', card.def], ['Consistencia', card.cons]] as const).map(([l, v]) =>
           card.role === 'L' && (l === 'Ataque' || l === 'Bloqueo') ? null : <div key={l} className="bar"><span>{l}</span><i style={{ width: `${Math.max(0, Math.min(100, v))}%` }} /><b>{v}</b></div>)}</div>
-        <small className="mu">Valor de mercado {money(marketValue(card))} · salario anual {money(annualWage(card))} (valores de diseño)</small>
+        {retiredCard ? <p><small>Retirado al finalizar la temporada {retiredCard.retiredSeason} · último equipo: {retiredCard.lastTeam}</small></p> : <small className="mu">Valor de mercado {money(marketValue(card))} · salario anual {money(annualWage(card))} (valores de diseño)</small>}
         {(() => { const s = addBoxes(game.allTime, game.career)[card.id]; return s ? <p><small>Histórico: {s.gp} partidos · {s.kills} ataques ganadores · {s.aces} aces · {s.blocks} bloqueos · {s.digs} defensas · {s.assists} asistencias</small></p> : null; })()}
       </div>}
 
@@ -374,6 +375,11 @@ export default function App() {
         <Box title="" players={rosterSorted(me.roster)} box={game.career} />
         <h3>Mi equipo — histórico (todas las temporadas)</h3>
         <Box title="" players={rosterSorted(me.roster)} box={addBoxes(game.allTime, game.career)} />
+        <h3>Archivo de jugadores retirados ({game.retiredPlayers.length})</h3>
+        {game.retiredPlayers.length === 0 ? <p className="mu">Todavía no hay jugadores retirados registrados.</p> : <div className="wrap"><table>
+          <thead><tr><th>Jugador</th><th>Rol</th><th>Edad</th><th>Último equipo</th><th>Retiro</th><th>Valoración</th></tr></thead>
+          <tbody>{[...game.retiredPlayers].sort((a, b) => b.retiredSeason - a.retiredSeason || a.name.localeCompare(b.name)).map(p => <tr key={p.id}><td><Name p={p} /></td><td>{p.role}</td><td>{p.age ?? '–'}</td><td>{p.lastTeam}</td><td>T{p.retiredSeason}</td><td>{overall(p).toFixed(0)}</td></tr>)}</tbody>
+        </table></div>}
         <h3>Historial de temporadas</h3>
         {game.history.length === 0 ? <p className="mu">Todavía no terminaste ninguna temporada.</p> : <div className="wrap"><table>
           <thead><tr><th>Temporada</th><th>Campeón</th><th>Mi puesto</th><th>Mis puntos</th><th>Premio</th></tr></thead>
