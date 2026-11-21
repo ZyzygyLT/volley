@@ -19,6 +19,11 @@ describe('validateMatch', () => {
     const option = legalSubs(match, 0).find(candidate => !candidate.isLibero)!;
     match = substitute(match, 0, option.out.id, option.inn.id);
     expect(validateMatch(match)).toEqual([]);
+    const missingParticipation = structuredClone(match);
+    missingParticipation.playedIds = (missingParticipation.playedIds ?? []).filter(id => id !== option.inn.id);
+    expect(validateMatch(missingParticipation)).toContain(
+      `playedIds: falta jugador de sustitución (${option.inn.id})`,
+    );
     const rotatedAfterSubstitution = structuredClone(match);
     rotatedAfterSubstitution.teams[0].lineup = [
       rotatedAfterSubstitution.teams[0].lineup[5],
