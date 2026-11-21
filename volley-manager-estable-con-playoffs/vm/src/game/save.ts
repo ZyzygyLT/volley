@@ -7,6 +7,7 @@ import { ECON } from './economy';
 import type { MatchState, Player, Role } from '../engine/types';
 import { rollAge } from './ages';
 import { mulberry32 } from '../engine/rng';
+import { validateMatch } from '../engine/validation';
 
 export class SaveError extends Error {}
 export interface SaveMeta { slot: string; savedAt: string; team: string; round: number }
@@ -245,7 +246,8 @@ function validLiveMatch(input: unknown): input is MatchState {
     || (!m.over && ((m.sets as number[])[0] === 3 || (m.sets as number[])[1] === 3))) return false;
   const expectedA = pointsA + (m.over ? 0 : (m.score as number[])[0]);
   const expectedB = pointsB + (m.over ? 0 : (m.score as number[])[1]);
-  return (m.totals as number[])[0] === expectedA && (m.totals as number[])[1] === expectedB;
+  return (m.totals as number[])[0] === expectedA && (m.totals as number[])[1] === expectedB
+    && validateMatch(m).length === 0;
 }
 
 function sessionTeamNames(game: GameState, kind: 'liga' | 'playoff'): [string, string] | null {
