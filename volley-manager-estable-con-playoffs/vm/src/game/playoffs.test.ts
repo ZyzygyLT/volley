@@ -46,7 +46,9 @@ describe('playoffs', () => {
     throw new Error('ningún equipo 0 clasificó en 30 semillas');
   });
   it('rechaza partidos manuales incompletos o ajenos a la serie activa', () => {
-    const g = startPlayoffs(regular(31)), series = userSeries(g)!;
+    const completed = regular(31);
+    const g = startPlayoffs({ ...completed, userTeam: standings(completed)[0].team });
+    const series = userSeries(g)!;
     const incomplete = matchForSeries(g, series);
     expect(() => finishPlayoffDay(g, incomplete)).toThrow(/todavía no terminó/);
 
