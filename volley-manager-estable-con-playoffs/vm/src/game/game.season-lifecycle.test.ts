@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { chooseTeam, endSeason, finishRound, newGame, seasonSummary } from './season';
 import { serialize, deserialize } from './save';
-import { simulateSeason } from './playoffs';
+import { simulateSeason, startPlayoffs } from './playoffs';
 import { ECON } from './economy';
 import { addBoxes } from '../engine/stats';
 import { emptyP } from '../engine/stats';
@@ -20,6 +20,11 @@ describe('parciales, equipo y cierre de temporada', () => {
     expect(() => chooseTeam(finishRound(g), 2)).toThrow(/antes de jugar/); expect(() => chooseTeam(g, 99)).toThrow(/inexistente/);
   });
   it('cerrar la temporada exige que haya terminado', () => { expect(() => endSeason(newGame(2))).toThrow(/no terminó/); });
+  it('iniciar playoffs exige todos los resultados únicos de la fase regular', () => {
+    const incomplete = structuredClone(newGame(37));
+    incomplete.round = incomplete.fixtures.reduce((max, f) => Math.max(max, f.round), -1) + 1;
+    expect(() => startPlayoffs(incomplete)).toThrow(/resultados incompletos o duplicados/i);
+  });
   it('el cierre rechaza un cuadro de playoffs que altera el orden de clasificación', () => {
     const tampered = structuredClone(playSeason(23));
     const semi = tampered.playoffs!.series[0];
