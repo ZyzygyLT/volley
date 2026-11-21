@@ -61,7 +61,7 @@ describe('edades, progresión, retiros y fichajes de la computadora', () => {
     const base = playSeason(92);
     const market = Array.from({ length: ECON.maxMarket }, (_, i) => ({
       ...base.market[i % base.market.length], id: `preserve-${i}`, name: `Agente preservado ${i}`,
-      srv: 95, rec: 95, set: 95, atk: 95, blk: 95, def: 95, cons: 95,
+      srv: 95, rec: 95, set: 95, atk: 95, blk: 95, def: 95, cons: 95, age: 20,
     }));
     const full = { ...base, market };
     const next = endSeason(full);
