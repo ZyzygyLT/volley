@@ -423,6 +423,65 @@ export function validateMatchAgainst(input: unknown, expected: MatchState): stri
     for (const id of actualRoster.keys()) if (!expectedRoster.has(id)) errors.push(`roster[${side}]: jugador ajeno al fixture (${id})`);
 
   }
+  if (Array.isArray(actual.subHistory)) {
+    const replay = ([0, 1] as const).map(side => ({
+      base: expected.base[side].map(player => player.id),
+      bench: expected.benches[side].map(player => player.id),
+      roles: new Map([...expected.base[side], ...expected.benches[side]].map(player => [player.id, player.role])),
+      setNo: 1, count: 0, swaps: new Map<string, string>(), replaced: new Set<string>(), usedIn: new Set<string>(),
+    }));
+    for (let i = 0; i < actual.subHistory.length; i++) {
+      const raw = actual.subHistory[i];
+      if (!isRecord(raw) || !isSide(raw.side) || !isInteger(raw.setNo) || !isId(raw.outId) || !isId(raw.inId)
+        || typeof raw.isLibero !== 'boolean') continue;
+      const state = replay[raw.side];
+      if (raw.setNo > state.setNo) {
+        state.setNo = raw.setNo; state.count = 0; state.swaps.clear(); state.replaced.clear(); state.usedIn.clear();
+      }
+      const outId = raw.outId, inId = raw.inId;
+      const benchIndex = state.bench.indexOf(inId);
+      if (raw.isLibero) {
+        if (outId !== state.base[6] || benchIndex < 0 || state.roles.get(outId) !== 'L' || state.roles.get(inId) !== 'L') {
+          errors.push(`subHistory[${i}]: cambio de líbero imposible según el plantel inicial`);
+          continue;
+        }
+      } else {
+        if (state.count >= 6 || benchIndex < 0 || state.roles.get(outId) !== state.roles.get(inId)) {
+          errors.push(`subHistory[${i}]: sustitución ordinaria imposible según el plantel inicial`);
+          continue;
+        }
+        if (state.swaps.has(outId)) {
+          if (state.swaps.get(outId) !== inId) {
+            errors.push(`subHistory[${i}]: el suplente no retorna por su titular original`);
+            continue;
+          }
+          state.swaps.delete(outId);
+        } else {
+          if (!state.base.slice(0, 6).includes(outId) || state.replaced.has(outId) || state.usedIn.has(inId)) {
+            errors.push(`subHistory[${i}]: titular o suplente ya utilizado en el set`);
+            continue;
+          }
+          state.swaps.set(inId, outId); state.replaced.add(outId); state.usedIn.add(inId);
+        }
+        state.count++;
+      }
+      const baseIndex = state.base.indexOf(outId);
+      if (baseIndex < 0) {
+        errors.push(`subHistory[${i}]: jugador saliente no estaba en cancha`);
+        continue;
+      }
+      state.base[baseIndex] = inId;
+      state.bench[benchIndex] = outId;
+    }
+    for (const side of [0, 1] as const) {
+      const actualBase = Array.isArray(actual.base[side]) ? (actual.base[side] as unknown[]).map(player => isRecord(player) ? player.id : null) : [];
+      const actualBench = Array.isArray(actual.benches[side]) ? (actual.benches[side] as unknown[]).map(player => isRecord(player) ? player.id : null) : [];
+      if (JSON.stringify(replay[side].base) !== JSON.stringify(actualBase)
+        || JSON.stringify(replay[side].bench) !== JSON.stringify(actualBench)) {
+        errors.push(`subHistory: el historial no reconstruye base y banquillo del lado ${side}`);
+      }
+    }
+  }
   try {
     if (JSON.stringify(actual.params ?? null) !== JSON.stringify(expected.params ?? null)) errors.push('params: configuración distinta del partido esperado');
   } catch {
