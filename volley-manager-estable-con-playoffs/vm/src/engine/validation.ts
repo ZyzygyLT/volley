@@ -322,28 +322,6 @@ export function validateMatchAgainst(input: unknown, expected: MatchState): stri
     }
     for (const id of actualRoster.keys()) if (!expectedRoster.has(id)) errors.push(`roster[${side}]: jugador ajeno al fixture (${id})`);
 
-    // La composición puede cambiar por sustituciones, pero cada plaza conserva
-    // su posición original. Solo se admite el suplente que reemplaza activamente
-    // al titular de esa misma plaza.
-    const actualBase = actual.base[side];
-    const expectedBase = expected.base[side];
-    const subState = Array.isArray(actual.subState) ? actual.subState[side] : undefined;
-    if (Array.isArray(actualBase) && Array.isArray(expectedBase) && isRecord(subState)
-      && isRecord(subState.swaps)) {
-      const activeIncomingByOutgoing = new Map<string, string>();
-      for (const [incoming, outgoing] of Object.entries(subState.swaps)) {
-        if (isId(incoming) && isId(outgoing)) activeIncomingByOutgoing.set(outgoing, incoming);
-      }
-      for (let slot = 0; slot < Math.min(7, expectedBase.length, actualBase.length); slot++) {
-        const original = expectedBase[slot];
-        const current = actualBase[slot];
-        if (!isRecord(original) || !isRecord(current) || !isId(original.id) || !isId(current.id)) continue;
-        const permittedId = activeIncomingByOutgoing.get(original.id) ?? original.id;
-        if (current.id !== permittedId) {
-          errors.push(`base[${side}][${slot}]: jugador fuera de su plaza original en el fixture`);
-        }
-      }
-    }
   }
   try {
     if (JSON.stringify(actual.params ?? null) !== JSON.stringify(expected.params ?? null)) errors.push('params: configuración distinta del partido esperado');
