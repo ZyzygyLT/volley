@@ -32,6 +32,11 @@ describe('parciales, equipo y cierre de temporada', () => {
     }
     expect(() => endSeason(tampered)).toThrow(/clasificación|semifinal|playoffs/i);
   });
+  it('el cierre rechaza resultados duplicados aunque todos los fixtures estén cubiertos', () => {
+    const tampered = structuredClone(playSeason(31));
+    tampered.results.push(structuredClone(tampered.results[0]));
+    expect(() => endSeason(tampered)).toThrow(/resultados|calendario/i);
+  });
   it('el cierre rechaza parciales y formato de series de playoffs manipulados', () => {
     const badScore = structuredClone(playSeason(29));
     badScore.playoffs!.series[0].games[0].totals[0]++;
