@@ -126,6 +126,27 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
     expect(validateGame(migrated)).toEqual([]);
   });
 
+  it('la migración histórica no muta el JSON de origen y es estable al volver a guardar', () => {
+    const current = JSON.parse(serialize(finishRound(newGame(125))));
+    const legacy = structuredClone(current);
+    legacy.version = 3;
+    delete legacy.news;
+    delete legacy.progressLog;
+    for (const team of legacy.teams) {
+      delete team.clubBoost;
+      for (const player of team.roster) delete player.age;
+    }
+    for (const player of legacy.market) delete player.age;
+    const original = structuredClone(legacy);
+
+    const migrated = deserialize(JSON.stringify(legacy));
+    expect(legacy).toEqual(original);
+    const savedAgain = serialize(migrated);
+    const reopened = deserialize(savedAgain);
+    expect(reopened).toEqual(migrated);
+    expect(serialize(reopened)).toBe(savedAgain);
+  });
+
   it('rechaza versiones desconocidas sin intentar tratarlas como partidas actuales', () => {
     const current = JSON.parse(serialize(newGame(124)));
     for (const version of [0, 6, 999, -1, '5', null]) {
