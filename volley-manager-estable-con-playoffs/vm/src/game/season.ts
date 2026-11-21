@@ -1,5 +1,5 @@
 import type { MatchState, PStats } from '../engine/types';
-import { boostPlayers, createMatch, gauss, playMatch } from '../engine/match';
+import { boostPlayers, createMatch, gauss, playMatch, startingPlayerIds } from '../engine/match';
 import { mulberry32 } from '../engine/rng';
 import { HOME_BOOST, TEAM_SD } from '../engine/params';
 import { addBoxes, mergeBox } from '../engine/stats';
@@ -102,7 +102,10 @@ export function finishRound(g: GameState, userMatch?: MatchState): GameState {
     let m: MatchState = f === uf && userMatch ? userMatch : matchFor(g, f);
     if (!m.over) m = playMatch(m);
     // Participan los titulares y quien haya tenido alguna acción (suplentes que entraron).
-    const played = [...new Set([...lineupToSquad(g.teams[f.home].roster, g.teams[f.home].lineup), ...lineupToSquad(g.teams[f.away].roster, g.teams[f.away].lineup)].map(p => p.id).concat(m.playedIds ?? [], Object.keys(m.box)))];
+    const starters = f === uf && userMatch
+      ? startingPlayerIds(m)
+      : [...lineupToSquad(g.teams[f.home].roster, g.teams[f.home].lineup), ...lineupToSquad(g.teams[f.away].roster, g.teams[f.away].lineup)].map(p => p.id);
+    const played = [...new Set([...starters, ...(m.playedIds ?? []), ...Object.keys(m.box)])];
     career = mergeBox(career, m.box, played);
     results.push({ round: f.round, home: f.home, away: f.away, sets: [m.sets[0], m.sets[1]], setScores: m.setScores.map(x => [x[0], x[1]] as [number, number]), points: leaguePoints([m.sets[0], m.sets[1]]), totals: [m.totals[0], m.totals[1]], seed: m.seed });
     if (f === uf) { userHome = f.home === g.userTeam; userWon = userHome ? m.sets[0] > m.sets[1] : m.sets[1] > m.sets[0]; }
