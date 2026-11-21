@@ -82,6 +82,32 @@ describe('validateMatch', () => {
     expect(validateMatch(match).some(error => error.includes('subState[0].count'))).toBe(true);
   });
 
+  it('valida el intercambio y retorno del líbero sin consumir cambios ordinarios', () => {
+    const match = createMatch(304);
+    const incomingLibero = makePlayer(mulberry32(45), 'L', 6, 'bench-libero', 'Líbero suplente', 0);
+    match.benches[0].push(incomingLibero);
+
+    const firstOption = legalSubs(match, 0).find(candidate => candidate.isLibero)!;
+    const changed = substitute(match, 0, firstOption.out.id, firstOption.inn.id);
+    expect(changed.teams[0].libero.id).toBe(incomingLibero.id);
+    expect(changed.base[0][6].id).toBe(incomingLibero.id);
+    expect(changed.subState[0].count).toBe(0);
+    expect(validateMatch(changed)).toEqual([]);
+
+    const returnOption = legalSubs(changed, 0).find(candidate =>
+      candidate.isLibero && candidate.inn.id === firstOption.out.id,
+    )!;
+    const restored = substitute(changed, 0, returnOption.out.id, returnOption.inn.id);
+    expect(restored.teams[0].libero.id).toBe(firstOption.out.id);
+    expect(restored.base[0][6].id).toBe(firstOption.out.id);
+    expect(restored.subState[0].count).toBe(0);
+    expect(validateMatch(restored)).toEqual([]);
+
+    const corrupted = structuredClone(changed);
+    corrupted.teams[0].libero = firstOption.out;
+    expect(validateMatch(corrupted)).toContain('teams[0].libero: no coincide con el líbero de base');
+  });
+
   it('valida que el historial conserve las parejas reales de sustitución', () => {
     const match = createMatch(303);
     const rnd = mulberry32(44);
