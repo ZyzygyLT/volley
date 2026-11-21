@@ -127,9 +127,13 @@ describe('temporada', () => {
       return { ...team, risk: 15, lineup: { ...team.lineup, OH: [team.lineup.OH[0], replacement.id] as [string, string] } };
     });
     const changed = { ...g, teams: changedTeams };
+    const originalStarter = g.teams[f.home].lineup.OH[1];
     const originalResult = finishRound(g, manual).results.find(r => r.home === f.home && r.away === f.away);
-    const changedResult = finishRound(changed, manual).results.find(r => r.home === f.home && r.away === f.away);
+    const changedAfter = finishRound(changed, manual);
+    const changedResult = changedAfter.results.find(r => r.home === f.home && r.away === f.away);
     expect(changedResult).toEqual(originalResult);
+    expect(changedAfter.career[originalStarter]?.gp).toBe(1);
+    expect(changedAfter.career[replacement.id]?.gp ?? 0).toBe(0);
   });
   it('rechaza partidos manuales incompletos, de otro fixture o con semilla alterada sin modificar la jornada', () => {
     const g = newGame(19), f = userFixture(g)!;
