@@ -79,7 +79,7 @@ export function createMatch(seed: number, myRisk = 50, opts: MatchOpts = {}): Ma
   const mk = (name: string, sq: Player[], risk: number): Team => ({ name, lineup: sq.slice(0, 6), libero: sq[6], risk });
   return { params: opts.params, seed, teams: [mk(opts.names?.[0] ?? 'Tu equipo', a, myRisk), mk(opts.names?.[1] ?? 'Rival', b, opts.riskB ?? 50)], base: [a, b],
     score: [0, 0], totals: [0, 0], sets: [0, 0], setScores: [], setNo: 1, serving: firstServer(seed, 1), over: false, stats: [emptyStats(), emptyStats()], box: {}, log: [],
-    benches: opts.benches ?? [[], []], subState: [emptySub(), emptySub()] };
+    benches: opts.benches ?? [[], []], subState: [emptySub(), emptySub()], playedIds: [] };
 }
 
 /** Avanza un punto. Devuelve un estado nuevo (el original no se modifica). */
@@ -125,6 +125,7 @@ export function substitute(prev: MatchState, side: Side, outId: string, inId: st
   const opt = legalSubs(prev, side).find(o => o.out.id === outId && o.inn.id === inId);
   if (!opt) throw new Error('Cambio no permitido por el reglamento');
   const s: MatchState = structuredClone(prev), team = s.teams[side], st = s.subState[side];
+  s.playedIds = [...new Set([...(s.playedIds ?? []), opt.inn.id])];
   const swap = (p: Player) => (p.id === outId ? opt.inn : p);
   if (opt.isLibero) team.libero = opt.inn; else team.lineup = team.lineup.map(swap);
   s.base[side] = s.base[side].map(swap);
