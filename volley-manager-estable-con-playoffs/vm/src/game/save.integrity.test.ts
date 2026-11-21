@@ -78,6 +78,26 @@ describe('integridad semántica de guardados: fase regular', () => {
     expect(deserialize(JSON.stringify(legacy)).results[0].setScores).toEqual([]);
   });
 
+  it('alinea los límites de valoración con el motor de partidos', () => {
+    const highServe = jsonCopy(newGame(74));
+    highServe.teams[0].roster.find(p => p.role !== 'L')!.srv = 101;
+    rejected(highServe);
+
+    const highAttack = jsonCopy(newGame(75));
+    highAttack.teams[0].roster.find(p => p.role !== 'L')!.atk = 101;
+    rejected(highAttack);
+
+    const highLiberoServe = jsonCopy(newGame(76));
+    highLiberoServe.teams[0].roster.find(p => p.role === 'L')!.srv = 101;
+    rejected(highLiberoServe);
+
+    const validLibero = jsonCopy(newGame(77));
+    const libero = validLibero.teams[0].roster.find(p => p.role === 'L')!;
+    libero.atk = 120;
+    libero.blk = 120;
+    expect(validateGame(validLibero)).toEqual([]);
+  });
+
   it('rechaza mercados por encima del límite y nombres de jugadores duplicados', () => {
     const full = jsonCopy(newGame(42));
     full.market = Array.from({ length: 25 }, (_, i) => ({ ...full.market[i % full.market.length], id: `over-cap-${i}`, name: `Agente extra ${i}` }));
