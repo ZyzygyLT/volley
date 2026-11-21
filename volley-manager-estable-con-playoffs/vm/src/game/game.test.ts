@@ -124,9 +124,9 @@ describe('temporada', () => {
     const initial = matchFor(g, f);
     const sub = legalSubs(initial, side).find(option => !option.isLibero)!;
     const manual = playMatch(substitute(initial, side, sub.out.id, sub.inn.id));
+    const replacement = g.teams[f.home].roster.find(p => p.role === 'OH' && !g.teams[f.home].lineup.OH.includes(p.id))!;
     const changedTeams = g.teams.map(team => {
       if (team.id !== f.home) return team;
-      const replacement = team.roster.find(p => p.role === 'OH' && !team.lineup.OH.includes(p.id))!;
       return { ...team, risk: 15, lineup: { ...team.lineup, OH: [team.lineup.OH[0], replacement.id] as [string, string] } };
     });
     const changed = { ...g, teams: changedTeams };
