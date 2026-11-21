@@ -1,5 +1,5 @@
 import type { Params } from './params';
-import type { Player, PStats, Role, Side, Stats, SubState } from './types';
+import type { MatchState, Player, PStats, Role, Side, Stats, SubState } from './types';
 
 const ROLES: Role[] = ['S', 'OH', 'MB', 'OP', 'L'];
 const BASE_ROLES: Role[] = ['S', 'OH', 'MB', 'OP', 'OH', 'MB', 'L'];
@@ -268,6 +268,50 @@ export function validateMatch(input: unknown): string[] {
   }
 
   validateProgress(m, errors);
+  return errors;
+}
+
+/**
+ * Comprueba que un partido en curso pertenece a la misma competición y participantes
+ * que el partido inicial esperado. Permite rotaciones y sustituciones legales: compara
+ * el conjunto completo de jugadores, no el orden mutable de base/banquillo.
+ */
+export function validateMatchAgainst(input: unknown, expected: MatchState): string[] {
+  const errors = validateMatch(input);
+  if (!isRecord(input)) return errors;
+  const actual = input;
+  if (actual.seed !== expected.seed) errors.push('seed: no corresponde al fixture o serie');
+  if (!Array.isArray(actual.teams) || actual.teams.length !== 2
+    || !Array.isArray(actual.base) || actual.base.length !== 2
+    || !Array.isArray(actual.benches) || actual.benches.length !== 2) return errors;
+
+  for (const side of [0, 1] as const) {
+    const team = actual.teams[side];
+    if (!isRecord(team)) continue;
+    if (team.name !== expected.teams[side].name) errors.push(`teams[${side}].name: no corresponde al fixture`);
+    if (team.risk !== expected.teams[side].risk) errors.push(`teams[${side}].risk: táctica distinta de la del fixture`);
+    const collect = (base: unknown, bench: unknown): Map<string, Player> => {
+      const players = new Map<string, Player>();
+      for (const list of [base, bench]) if (Array.isArray(list)) {
+        for (const raw of list) if (isRecord(raw) && isId(raw.id) && isRole(raw.role)) players.set(raw.id, raw as unknown as Player);
+      }
+      return players;
+    };
+    const actualRoster = collect(actual.base[side], actual.benches[side]);
+    const expectedRoster = collect(expected.base[side], expected.benches[side]);
+    if (actualRoster.size !== expectedRoster.size) errors.push(`roster[${side}]: cantidad de participantes distinta del fixture`);
+    for (const [id, player] of expectedRoster) {
+      const current = actualRoster.get(id);
+      if (!current) errors.push(`roster[${side}]: falta el jugador ${id} del fixture`);
+      else if (!samePlayer(current, player)) errors.push(`roster[${side}][${id}]: datos del jugador distintos del fixture`);
+    }
+    for (const id of actualRoster.keys()) if (!expectedRoster.has(id)) errors.push(`roster[${side}]: jugador ajeno al fixture (${id})`);
+  }
+  try {
+    if (JSON.stringify(actual.params ?? null) !== JSON.stringify(expected.params ?? null)) errors.push('params: configuración distinta del partido esperado');
+  } catch {
+    errors.push('params: configuración no serializable');
+  }
   return errors;
 }
 
