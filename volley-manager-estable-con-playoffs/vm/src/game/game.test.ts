@@ -194,6 +194,16 @@ describe('sustituciones en la liga', () => {
     const after = finishRound(g, m);
     expect(after.career[o.inn.id]?.gp).toBe(1);
   });
+  it('acredita participación al suplente que entra aunque no registre acciones estadísticas', () => {
+    const g = newGame(12), f = userFixture(g)!; let m = matchFor(g, f);
+    const side = f.home === g.userTeam ? 0 : 1, o = legalSubs(m, side).find(x => x.out.role === 'OH')!;
+    m = playMatch(substitute(m, side, o.out.id, o.inn.id));
+    // Simula un jugador que participó pero no generó eventos estadísticos.
+    m.box = {};
+    m.stats = [{ ace: 0, kill: 0, blk: 0, err: 0 }, { ace: 0, kill: 0, blk: 0, err: 0 }];
+    const after = finishRound(g, m);
+    expect(after.career[o.inn.id]?.gp).toBe(1);
+  });
 });
 
 describe('economía y mercado (valores de diseño)', () => {
