@@ -103,13 +103,67 @@ export default function App() {
   const [liveKind, setLiveKind] = useState<'liga' | 'playoff'>('liga');
   const [pending, setPending] = useState<SaveMeta | null>(null);
   const [autoOn, setAutoOn] = useState(false);
+  const [sessionStatus, setSessionStatus] = useState<'waiting' | 'ready' | 'unsupported' | 'error'>('waiting');
   const store = useMemo(() => { try { return typeof indexedDB !== 'undefined' ? indexedDbStore() : memoryStore(); } catch { return memoryStore(); } }, []);
   const writeQueue = useMemo(() => createWriteQueue(), []);
   const me = game.teams[game.userTeam], uf = userFixture(game), over = isSeasonOver(game);
   const refresh = () => store.list().then(items => setSaves(items.filter(item => item.slot !== 'auto-backup'))).catch(() => setMsg('No se pudo leer el almacenamiento del navegador'));
   useEffect(() => { refresh(); }, []);
-  // Autoguardado: al abrir se ofrece continuar la última partida automática; mientras se decide no se sobrescribe.
-  useEffect(() => { store.list().then(l => { const m = l.find(x => x.slot === 'auto') ?? l.find(x => x.slot === 'auto-backup'); if (m) setPending({ ...m, slot: 'auto' }); else setAutoOn(true); }).catch(() => { setMsg('No se pudo comprobar el autoguardado. No se sobrescribirá ningún dato; revisá el almacenamiento y recargá para reintentar.'); setAutoOn(false); }); }, []);
+  // Una sola pestaña controla la sesión. Al adquirir el lock recupera el último estado persistido antes de habilitar el juego.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.locks) {
+      setSessionStatus('unsupported');
+      return;
+    }
+    let active = true;
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const controller = new AbortController();
+    const acquire = async () => {
+      try {
+        await navigator.locks.request<Promise<void>>(
+          'volley-manager:active-session',
+          { mode: 'exclusive', signal: controller.signal },
+          async () => {
+            if (!active) return;
+            try {
+              const recovered = await writeQueue(() => recoverAuto(store));
+              const items = await store.list();
+              if (!active) return;
+              const saved = items.find(item => item.slot === 'auto') ?? items.find(item => item.slot === 'auto-backup');
+              if (recovered.session) {
+                const meta = saved ?? metaOf('auto', recovered.session.game, new Date().toISOString());
+                setPending({ ...meta, slot: 'auto' });
+              } else if (saved) {
+                // Hay datos, pero ninguna copia pudo validarse: conservar la decisión explícita del usuario.
+                setPending({ ...saved, slot: 'auto' });
+              } else {
+                setAutoOn(true);
+              }
+              setSessionStatus('ready');
+              await held;
+            } catch (error) {
+              if (active) {
+                setMsg(`No se pudo preparar la sesión: ${(error as Error).message}. El autoguardado permanecerá desactivado.`);
+                setSessionStatus('error');
+              }
+            }
+          }
+        ).then(result => result);
+      } catch (error) {
+        if (active && (error as Error).name !== 'AbortError') {
+          setMsg(`No se pudo obtener el control exclusivo de esta sesión: ${(error as Error).message}. El autoguardado permanecerá desactivado.`);
+          setSessionStatus('error');
+        }
+      }
+    };
+    void acquire();
+    return () => {
+      active = false;
+      controller.abort();
+      release();
+    };
+  }, [store, writeQueue]);
   useEffect(() => {
     if (!autoOn) return;
     const t = setTimeout(() => { try { writeQueue(() => writeAutoWithBackup(store, serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString()))).catch(e => setMsg(`No se pudo completar el autoguardado: ${(e as Error).message}`)); } catch (e) { setMsg(`No se pudo preparar el autoguardado: ${(e as Error).message}`); } }, 400);
@@ -134,7 +188,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [game, live, liveKind, autoOn, store, writeQueue]);
-  const continueAuto = async () => { try { const recovered = await writeQueue(() => recoverAuto(store)); if (!recovered.session) throw new Error('No hay una copia válida disponible'); const restored = recovered.session; setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg(recovered.source === 'auto-backup' ? 'Partida recuperada desde la copia de seguridad anterior; se restauró el autoguardado principal.' : 'Continuás la partida automática'); setPending(null); setAutoOn(true); refresh(); } catch (e) { setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar o empezar una partida nueva.`); } };
+  const continueAuto = async () => { try { const recovered = await writeQueue(() => recoverAuto(store)); if (!recovered.session) throw new Error('No hay una copia válida disponible'); const restored = recovered.session; setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg(recovered.source === 'auto-backup' ? 'Partida recuperada desde la copia de seguridad anterior; se restauró el autoguardado principal.' : 'Continuás la partida automática'); setPending(null); setAutoOn(sessionStatus === 'ready'); refresh(); } catch (e) { setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar o empezar una partida nueva.`); } };
 
   const setLineup = (l: Lineup) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, lineup: l } : t)) }));
   const setRisk = (risk: number) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, risk } : t)) }));
@@ -200,14 +254,19 @@ export default function App() {
   const ratings = (p: Player) => <><td>{p.srv}</td><td>{p.rec}</td><td>{p.set}</td><td>{p.role === 'L' ? '–' : p.atk}</td><td>{p.role === 'L' ? '–' : p.blk}</td><td>{p.def}</td><td>{p.cons}</td></>;
   const RH = ['Jugador', 'Rol', 'Edad', 'Saque', 'Gen', 'Sq', 'Rec', 'Col', 'Atq', 'Blq', 'Def', 'Cons'];
 
+  if (sessionStatus === 'waiting') {
+    return <main><h1>Volley Manager</h1><p role="status" className="notice">Otra pestaña está utilizando esta partida. Esta pestaña esperará su turno y, cuando obtenga el control, recuperará la última partida guardada antes de habilitar la edición.</p></main>;
+  }
+
   return (
     <main>
       <h1>Volley Manager <small>— {me.name} · temporada {game.season} · {regOver ? (over ? 'temporada terminada' : 'playoffs') : `jornada ${game.round + 1}/${totalRounds(game)}`} · {money(game.finance.budget)}</small></h1>
       <nav>{TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</nav>
       {msg && <p role="status" className="mu"><i>{msg}</i></p>}
       {!store.persistent && <p role="alert" className="notice">El almacenamiento persistente no está disponible. Esta partida se conserva solo en memoria y se perderá al cerrar o recargar la pestaña. Exportá una copia desde Guardar para conservarla.</p>}
+      {(sessionStatus === 'unsupported' || sessionStatus === 'error') && <p role="alert" className="notice">No hay control exclusivo entre pestañas. El autoguardado está desactivado para evitar que otra pestaña sobrescriba esta sesión. Exportá copias desde Guardar para conservar el progreso.</p>}
       {pending && <div className="notice" role="alert">Hay una partida automática guardada ({pending.team}, {pending.round} jornadas jugadas, {pending.savedAt ? new Date(pending.savedAt).toLocaleString() : ''}).{' '}
-        <button onClick={continueAuto}>Continuar esa partida</button> <button onClick={() => { setPending(null); setAutoOn(true); }}>Empezar de cero</button></div>}
+        <button onClick={continueAuto}>Continuar esa partida</button> <button onClick={() => { setPending(null); setAutoOn(sessionStatus === 'ready'); }}>Empezar de cero</button></div>}
       {card && <div className="notice card">
         <b>{card.name}</b> <small>{card.role} · {card.age ?? '–'} años · saque {card.serveType} · valoración {overall(card).toFixed(0)}</small>{' '}
         <button onClick={() => setCardId(null)}>Cerrar</button>
