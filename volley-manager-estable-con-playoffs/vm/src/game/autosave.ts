@@ -2,7 +2,7 @@ import { deserializeSession, type SaveMeta, type SaveSession, type SaveStore } f
 
 const withAutoLock = <T,>(operation: () => Promise<T>): Promise<T> => {
   if (typeof navigator === 'undefined' || !navigator.locks) return operation();
-  return navigator.locks.request<T>('volley-manager:auto-save', { mode: 'exclusive' }, operation);
+  return navigator.locks.request<Promise<T>>('volley-manager:auto-save', { mode: 'exclusive' }, operation).then(result => result);
 };
 
 /** Preserves the previous valid autosave before replacing it. Call inside the write queue. */
