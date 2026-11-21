@@ -63,7 +63,21 @@ describe('integridad semántica de guardados: fase regular', () => {
     expect(deserialize(JSON.stringify(legacy)).results[0].setScores).toEqual([]);
   });
 
-  it('rechaza mercados por encima del límite y nombres de jugadores duplicados', () => {\n    const full = jsonCopy(newGame(42));\n    full.market = Array.from({ length: 25 }, (_, i) => ({ ...full.market[i % full.market.length], id: `over-cap-${i}`, name: `Agente extra ${i}` }));\n    rejected(full);\n\n    const duplicate = jsonCopy(newGame(43));\n    duplicate.market[0].name = duplicate.teams[0].roster[0].name;\n    rejected(duplicate);\n\n    const blank = jsonCopy(newGame(44));\n    blank.teams[0].roster[0].name = '   ';\n    rejected(blank);\n  });\n\n  it('rechaza semillas persistidas que no sean uint32', () => {
+  it('rechaza mercados por encima del límite y nombres de jugadores duplicados', () => {
+    const full = jsonCopy(newGame(42));
+    full.market = Array.from({ length: 25 }, (_, i) => ({ ...full.market[i % full.market.length], id: `over-cap-${i}`, name: `Agente extra ${i}` }));
+    rejected(full);
+
+    const duplicate = jsonCopy(newGame(43));
+    duplicate.market[0].name = duplicate.teams[0].roster[0].name;
+    rejected(duplicate);
+
+    const blank = jsonCopy(newGame(44));
+    blank.teams[0].roster[0].name = '   ';
+    rejected(blank);
+  });
+
+  it('rechaza semillas persistidas que no sean uint32', () => {
     const corrupt = jsonCopy(newGame(41));
     corrupt.seed = -1;
     rejected(corrupt);
