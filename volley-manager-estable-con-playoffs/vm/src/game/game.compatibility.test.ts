@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { newGame, endSeason } from './season';
+import { newGame, finishRound, endSeason } from './season';
 import { serialize, deserialize } from './save';
 import { simulateSeason } from './playoffs';
 
@@ -9,7 +9,7 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
     const g = deserialize(JSON.stringify(base)); const l = g.teams[0].roster.find(p => p.role === 'L')!; expect([l.atk, l.blk]).toEqual([0, 0]);
   });
   it('migra cada versión histórica hasta el esquema actual', () => {
-    const current = JSON.parse(serialize(newGame(120)));
+    const current = JSON.parse(serialize(finishRound(newGame(120))));
     const legacy = (version: 1 | 2 | 3 | 4) => {
       const value = structuredClone(current);
       value.version = version;
