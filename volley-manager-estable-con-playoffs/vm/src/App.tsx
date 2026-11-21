@@ -183,7 +183,7 @@ export default function App() {
   const exportFile = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([serializeSession(game, live, liveKind)], { type: 'application/json' })); a.download = `volley-manager-jornada${game.round}.json`; a.click(); URL.revokeObjectURL(a.href); };
 
   // Boxscore: la plantilla actual y los suplentes que tuvieron acciones.
-  const squadsOf = (m: MatchState) => [0, 1].map(i => [...m.base[i], ...m.benches[i].filter(b => m.box[b.id])]);
+  const squadsOf = (m: MatchState) => [0, 1].map(i => [...m.base[i], ...m.benches[i].filter(b => (m.playedIds ?? []).includes(b.id) || m.box[b.id])]);
   const mySide = live ? sideForTeam(live, me.name) : null;
   const subOpts = live && mySide !== null ? legalSubs(live, mySide) : [];
   const doSub = () => {
