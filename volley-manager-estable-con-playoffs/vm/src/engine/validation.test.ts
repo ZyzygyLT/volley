@@ -159,6 +159,14 @@ describe('validateMatch', () => {
     };
     expect(validateMatch(impossibleBox).some(error => error.includes('aces + serveErr supera los saques'))).toBe(true);
 
+    const extraBoxField = structuredClone(playMatch(createMatch(11)));
+    const extraBoxPlayer = Object.keys(extraBoxField.box)[0];
+    expect(extraBoxPlayer).toBeDefined();
+    (extraBoxField.box[extraBoxPlayer] as unknown as Record<string, unknown>).unexpected = 1;
+    expect(validateMatch(extraBoxField)).toContain(
+      `box[${extraBoxPlayer}]: estructura de estadísticas inválida`,
+    );
+
     const badParams = structuredClone(P);
     badParams.posQ = 0.9;
     badParams.keepProb = 1.2;
