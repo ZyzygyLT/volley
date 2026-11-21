@@ -40,6 +40,12 @@ with sync_playwright() as p:
     chk('boxscore con suplente',len(pg.query_selector_all('section table tbody tr'))>=14)
     pg.click('button:has-text("Cerrar jornada")'); chk('vuelve a Liga, jornada 2',('Jornada 2' in pg.inner_text('main')))
     b1=budget(pg); chk('presupuesto cambió tras la jornada',b1!=b0,f'{b0} -> {b1}')
+    # --- Estadísticas: deben incluir titulares y suplentes del plantel, no solo los 7 de la alineación
+    pg.click('nav >> text=Estadísticas')
+    season_rows=pg.locator('h3:has-text("Mi equipo — temporada") + div table tbody tr').count()
+    chk('estadísticas de temporada incluyen todo el plantel',season_rows==13,season_rows)
+    career_rows=pg.locator('h3:has-text("Mi equipo — histórico") + div table tbody tr').count()
+    chk('estadísticas históricas incluyen todo el plantel',career_rows==13,career_rows)
     # --- Mercado
     pg.click('nav >> text=Mercado'); rows=pg.query_selector_all('section table')[0].query_selector_all('tbody tr'); n0=len(rows)
     pg.click('section table >> nth=0 >> button:text-is("Fichar"):not([disabled]) >> nth=0'); chk('fichaje descuenta presupuesto',budget(pg)<b1,f'{b1} -> {budget(pg)}')
