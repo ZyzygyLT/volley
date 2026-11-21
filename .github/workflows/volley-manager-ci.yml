@@ -2,12 +2,12 @@ name: Validate Volley Manager
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, chore/project-foundation]
     paths:
       - "volley-manager-estable-con-playoffs/vm/**"
       - ".github/workflows/volley-manager-ci.yml"
   push:
-    branches: [develop]
+    branches: [develop, chore/project-foundation]
     paths:
       - "volley-manager-estable-con-playoffs/vm/**"
       - ".github/workflows/volley-manager-ci.yml"
