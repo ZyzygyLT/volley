@@ -47,6 +47,8 @@ export function leaguePoints(sets: [number, number]): [number, number] {
 
 export function newGame(seed: number, userTeam = 0, nTeams = 8): GameState {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff) throw new Error('La semilla de la partida debe ser un entero uint32');
+  if (!Number.isInteger(nTeams) || nTeams < 2 || nTeams > 32 || nTeams % 2 !== 0) throw new Error('La liga debe tener entre 2 y 32 equipos, en número par');
+  if (!Number.isInteger(userTeam) || userTeam < 0 || userTeam >= nTeams) throw new Error('El equipo del usuario no existe');
   const rnd = mulberry32(seed), used = new Set<string>();
   const teams: TeamData[] = Array.from({ length: nTeams }, (_, i) => {
     const boost = gauss(rnd) * TEAM_SD, roster = makeRoster(rnd, boost, i, used);
