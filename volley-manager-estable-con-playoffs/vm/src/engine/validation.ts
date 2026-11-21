@@ -224,7 +224,7 @@ export function validateMatch(input: unknown): string[] {
     else errors.push(`subState[${side}]: estructura inválida`);
   }
 
-  const boxTotals: [Stats, Stats] = [emptyStats(), emptyStats()];
+  const boxTotals: [Stats, Stats] = [{ ace: 0, kill: 0, blk: 0, err: 0 }, { ace: 0, kill: 0, blk: 0, err: 0 }];
   if (isRecord(m.box)) {
     for (const [id, value] of Object.entries(m.box)) {
       const playerSide = sideByPlayerId.get(id);
