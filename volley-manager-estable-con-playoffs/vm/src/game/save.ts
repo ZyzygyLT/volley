@@ -24,7 +24,7 @@ export const MAX_SAVE_CHARS = 3_000_000;
 
 function checkPlayer(p: unknown, where: string, e: string[]): boolean {
   if (!isObj(p)) { e.push(`${where}: jugador inválido`); return false; }
-  if (!isStr(p.id, 40) || !isStr(p.name, 60)) { e.push(`${where}: id o nombre inválido`); return false; }
+  if (!isStr(p.id, 40) || !p.id.trim() || !isStr(p.name, 60) || !p.name.trim()) { e.push(`${where}: id o nombre vacío o inválido`); return false; }
   if (!ROLES.includes(p.role as never) || !SERVES.includes(p.serveType as never)) { e.push(`${where}: posición o tipo de saque inválido (${p.id})`); return false; }
   for (const k of ['srv', 'rec', 'set', 'atk', 'blk', 'def', 'cons']) if (!isNum(p[k], 0, 120)) { e.push(`${where}: ${p.id} tiene ${k} inválido`); return false; }
   if (p.age !== undefined && !isInt(p.age, 15, 50)) { e.push(`${where}: edad inválida (${p.id})`); return false; }
