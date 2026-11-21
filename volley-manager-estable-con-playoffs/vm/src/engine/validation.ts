@@ -213,6 +213,16 @@ export function validateMatch(input: unknown): string[] {
       if (counts.S !== 1 || counts.OH !== 2 || counts.MB !== 2 || counts.OP !== 1 || counts.L) errors.push(`teams[${side}].lineup: distribución de posiciones inválida`);
       const expectedStarters = base.slice(0, 6).filter(isRecord).map(p => p.id).filter(isId).sort();
       if (expectedStarters.length === 6 && [...lineupIds[side]].sort().join('|') !== expectedStarters.join('|')) errors.push(`teams[${side}].lineup: no coincide con los seis jugadores de base`);
+      // La rotación solo desplaza cíclicamente el sexteto inicial; no permite permutar
+      // jugadores entre posiciones de la formación, aunque coincidan sus roles.
+      if (Array.isArray(base) && base.length >= 6 && team.lineup.every(isRecord)
+        && base.slice(0, 6).every(isRecord)) {
+        const lineup = team.lineup as UnknownRecord[];
+        const rotationIsLegal = Array.from({ length: 6 }, (_, offset) =>
+          lineup.every((player, slot) => player.id === (base[(slot - offset + 6) % 6] as UnknownRecord).id),
+        ).some(Boolean);
+        if (!rotationIsLegal) errors.push(`teams[${side}].lineup: orden no corresponde a una rotación legal`);
+      }
     }
     if (!validatePlayer(team.libero, `teams[${side}].libero`, errors) || team.libero.role !== 'L') errors.push(`teams[${side}].libero: líbero inválido`);
     else {
