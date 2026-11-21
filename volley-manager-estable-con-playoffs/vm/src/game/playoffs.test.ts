@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { playMatch } from '../engine/match';
-import { lineupToSquad } from './roster';
 import { ECON } from './economy';
 import { deserialize, serialize } from './save';
 import { endSeason, finalRanking, finishRound, isSeasonOver, newGame, regularSeasonOver, seasonSummary, standings, type GameState } from './season';
