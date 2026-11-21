@@ -82,6 +82,30 @@ describe('validateMatch', () => {
     expect(validateMatch(match).some(error => error.includes('subState[0].count'))).toBe(true);
   });
 
+  it('valida que el historial conserve las parejas reales de sustitución', () => {
+    const match = createMatch(303);
+    const rnd = mulberry32(44);
+    const incomingOH = makePlayer(rnd, 'OH', 1, 'bench-oh', 'Suplente OH', 0);
+    const incomingMB = makePlayer(rnd, 'MB', 2, 'bench-mb', 'Suplente MB', 0);
+    match.benches[0].push(incomingOH, incomingMB);
+
+    const option = legalSubs(match, 0).find(candidate => candidate.out.role === 'OH')!;
+    const changed = substitute(match, 0, option.out.id, incomingOH.id);
+    expect(validateMatch(changed)).toEqual([]);
+
+    const mismatchedPair = structuredClone(changed);
+    mismatchedPair.subState[0].usedIn[0] = incomingMB.id;
+    expect(validateMatch(mismatchedPair)).toContain(
+      'subState[0].historiales[0]: pareja de sustitución con posiciones diferentes',
+    );
+
+    const mismatchedActiveSwap = structuredClone(changed);
+    mismatchedActiveSwap.subState[0].swaps[incomingOH.id] = match.base[0][2].id;
+    expect(validateMatch(mismatchedActiveSwap)).toContain(
+      'subState[0].swaps: pareja activa no coincide con el historial',
+    );
+  });
+
   it('rechaza progresión, estadísticas y parámetros corruptos', () => {
     const badProgress = structuredClone(createMatch(1));
     badProgress.score = [25, 20];
