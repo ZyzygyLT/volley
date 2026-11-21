@@ -260,6 +260,12 @@ export function validateMatch(input: unknown): string[] {
       const playerSide = sideByPlayerId.get(id);
       if (playerSide === undefined) errors.push(`box[${id}]: jugador ajeno al partido`);
       if (!isRecord(value)) { errors.push(`box[${id}]: estadísticas inválidas`); continue; }
+      const statKeys = Object.keys(value);
+      if (statKeys.length !== PLAYER_STAT_KEYS.length
+        || PLAYER_STAT_KEYS.some(key => !Object.prototype.hasOwnProperty.call(value, key))) {
+        errors.push(`box[${id}]: estructura de estadísticas inválida`);
+        continue;
+      }
       for (const key of PLAYER_STAT_KEYS) {
         const n = value[key];
         if (!isFiniteNumber(n) || n < 0 || (key !== 'recQSum' && !Number.isInteger(n))) errors.push(`box[${id}].${key}: valor inválido`);
