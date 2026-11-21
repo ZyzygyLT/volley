@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createMatch, legalSubs, makePlayer, makeSquads, playMatch, substitute } from './match';
+import { createMatch, legalSubs, makePlayer, makeSquads, playMatch, stepPoint, substitute } from './match';
 import { mulberry32 } from './rng';
 import { P } from './params';
 import { validateMatch, validateMatchAgainst } from './validation';
