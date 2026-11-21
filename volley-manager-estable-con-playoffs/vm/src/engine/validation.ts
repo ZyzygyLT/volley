@@ -400,6 +400,9 @@ export function validateMatchAgainst(input: unknown, expected: MatchState): stri
   if (!Array.isArray(actual.teams) || actual.teams.length !== 2
     || !Array.isArray(actual.base) || actual.base.length !== 2
     || !Array.isArray(actual.benches) || actual.benches.length !== 2) return errors;
+  const actualBase = actual.base as unknown[][];
+  const actualBenches = actual.benches as unknown[][];
+  const subHistory: unknown[] = Array.isArray(actual.subHistory) ? actual.subHistory : [];
 
   for (const side of [0, 1] as const) {
     const team = actual.teams[side];
@@ -423,9 +426,6 @@ export function validateMatchAgainst(input: unknown, expected: MatchState): stri
     for (const id of actualRoster.keys()) if (!expectedRoster.has(id)) errors.push(`roster[${side}]: jugador ajeno al fixture (${id})`);
 
   }
-  const actualBase = actual.base as unknown[][];
-  const actualBenches = actual.benches as unknown[][];
-  const subHistory: unknown[] = Array.isArray(actual.subHistory) ? actual.subHistory : [];
   if (Array.isArray(actual.subHistory)) {
     // La alineación del fixture puede haber cambiado después de iniciar el partido.
     // Reconstruimos la alineación inicial invirtiendo los cambios desde el estado final.
