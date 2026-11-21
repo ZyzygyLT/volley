@@ -166,10 +166,26 @@ function assertSeasonCanClose(g: GameState): void {
   }
   const fixtures = new Set(g.fixtures.map(f => `${f.round}/${f.home}/${f.away}`));
   const results = new Set(g.results.map(r => `${r.round}/${r.home}/${r.away}`));
+  const scoreMatches = (sets: number[], scores: number[][], totals: number[], allowLegacyEmpty = false): boolean => {
+    if (!Array.isArray(sets) || sets.length !== 2 || !((sets[0] === 3 && sets[1] <= 2) || (sets[1] === 3 && sets[0] <= 2))
+      || !Array.isArray(totals) || totals.length !== 2 || !totals.every(x => Number.isInteger(x) && x >= 0)
+      || !Array.isArray(scores)) return false;
+    if (allowLegacyEmpty && scores.length === 0) return true;
+    if (scores.length !== sets[0] + sets[1]) return false;
+    let winsA = 0, winsB = 0, sumA = 0, sumB = 0;
+    for (let i = 0; i < scores.length; i++) {
+      const pair = scores[i];
+      if (!Array.isArray(pair) || pair.length !== 2 || !pair.every(x => Number.isInteger(x) && x >= 0 && x <= 200)) return false;
+      const [a, b] = pair, target = i === 4 ? 15 : 25;
+      if (Math.max(a, b) < target || Math.abs(a - b) < 2) return false;
+      if (a > b) winsA++; else winsB++;
+      sumA += a; sumB += b;
+    }
+    return winsA === sets[0] && winsB === sets[1] && sumA === totals[0] && sumB === totals[1];
+  };
   if (results.size !== g.fixtures.length || [...fixtures].some(key => !results.has(key))
-    || g.results.some(r => !((r.sets[0] === 3 && r.sets[1] <= 2) || (r.sets[1] === 3 && r.sets[0] <= 2))
+    || g.results.some(r => !scoreMatches(r.sets, r.setScores, r.totals, true)
       || r.points[0] !== leaguePoints(r.sets)[0] || r.points[1] !== leaguePoints(r.sets)[1]
-      || !r.totals.every(x => Number.isInteger(x) && x >= 0)
       || !Number.isInteger(r.seed) || r.seed < 0 || r.seed > 0xffff_ffff)) {
     throw new Error('No se puede cerrar la temporada: los resultados no coinciden con el calendario o son inválidos');
   }
@@ -177,7 +193,7 @@ function assertSeasonCanClose(g: GameState): void {
   const p = g.playoffs;
   const expectedIds = ['SF1', 'SF2', 'F', 'B'];
   if (p.stage !== 'done' || p.series.length !== expectedIds.length
-    || p.series.some((s, i) => s.id !== expectedIds[i] || s.winner === undefined
+    || p.series.some((s, i) => s.id !== expectedIds[i] || s.bestOf !== (i === 2 ? 5 : 3) || s.winner === undefined
       || (s.winner !== s.high && s.winner !== s.low)
       || s.games.length < (s.bestOf === 3 ? 2 : 3) || s.games.length > s.bestOf)) {
     throw new Error('No se puede cerrar la temporada: las series de playoffs están incompletas o son inválidas');
@@ -202,8 +218,7 @@ function assertSeasonCanClose(g: GameState): void {
       const expectedHome = i % 2 === 0 ? s.high : s.low;
       const expectedAway = expectedHome === s.high ? s.low : s.high;
       if (game.game !== i + 1 || game.home !== expectedHome || game.away !== expectedAway
-        || game.sets[0] === game.sets[1] || Math.max(...game.sets) !== 3
-        || Math.min(...game.sets) > 2 || !game.totals.every(x => Number.isInteger(x) && x >= 0)
+        || !scoreMatches(game.sets, game.setScores, game.totals)
         || !Number.isInteger(game.seed) || game.seed < 0 || game.seed > 0xffff_ffff) {
         throw new Error(`No se puede cerrar la temporada: partido inválido en la serie ${s.id}`);
       }
