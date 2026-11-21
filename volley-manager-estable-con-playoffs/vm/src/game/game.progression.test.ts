@@ -8,6 +8,7 @@ import { makeYouth, progressPlayer, seasonalAgentRoles } from './offseason';
 import { mulberry32 } from '../engine/rng';
 import { deserialize, serialize } from './save';
 const playSeason = (seed: number) => simulateSeason(newGame(seed));
+const playSeasonFrom = (game: ReturnType<typeof newGame>) => simulateSeason(game);
 describe('distribución de agentes libres por temporada', () => {
   it('rota el rol adicional y equilibra las altas en ciclos de cinco temporadas', () => {
     const roles = Array.from({ length: 5 }, (_, i) => seasonalAgentRoles(i + 1, 6)).flat();
@@ -78,6 +79,28 @@ describe('edades, progresión, retiros y fichajes de la computadora', () => {
     for (const t of base.teams) { delete t.clubBoost; t.roster.forEach((p: { age?: number }) => delete p.age); } base.market.forEach((p: { age?: number }) => delete p.age);
     const a = deserialize(JSON.stringify(base)), b = deserialize(JSON.stringify(base));
     expect(a.teams[0].roster.map(p => p.age)).toEqual(b.teams[0].roster.map(p => p.age)); expect(a.teams[0].roster.every(p => p.age! >= 18 && p.age! <= 40)).toBe(true); expect(a.version).toBe(5);
+  });
+  it('archiva las fichas de jugadores retirados y conserva sus estadísticas y último equipo', () => {
+    let game = newGame(211);
+    const team = game.teams[game.userTeam];
+    const player = team.roster.find(p => p.id === team.lineup.S)!;
+    const freeAgent = game.market[0];
+    game = {
+      ...game,
+      teams: game.teams.map(t => t.id === game.userTeam
+        ? { ...t, roster: t.roster.map(p => p.id === player.id ? { ...p, age: 41 } : p) }
+        : t),
+      market: game.market.map(p => p.id === freeAgent.id ? { ...p, age: 41 } : p),
+    };
+    const finished = endSeason(playSeasonFrom(game));
+    const archivedPlayer = finished.retiredPlayers.find(p => p.id === player.id);
+    const archivedAgent = finished.retiredPlayers.find(p => p.id === freeAgent.id);
+    expect(archivedPlayer).toMatchObject({ name: player.name, role: player.role, age: 42, retiredSeason: 1, lastTeam: team.name });
+    expect(archivedAgent).toMatchObject({ name: freeAgent.name, retiredSeason: 1, lastTeam: 'Agente libre' });
+    expect(finished.allTime[player.id]?.gp).toBeGreaterThan(0);
+    expect(finished.teams.flatMap(t => t.roster).some(p => p.id === player.id)).toBe(false);
+    expect(finished.market.some(p => p.id === freeAgent.id)).toBe(false);
+    expect(deserialize(serialize(finished))).toEqual(finished);
   });
   it('la liga se mantiene estable durante 10 temporadas: edad, nivel y diferencias entre equipos', () => {
     const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
