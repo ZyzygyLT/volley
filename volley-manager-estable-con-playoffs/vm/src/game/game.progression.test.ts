@@ -78,7 +78,7 @@ describe('edades, progresión, retiros y fichajes de la computadora', () => {
     const base = JSON.parse(serialize(newGame(5))); base.version = 3; delete base.news; delete base.progressLog;
     for (const t of base.teams) { delete t.clubBoost; t.roster.forEach((p: { age?: number }) => delete p.age); } base.market.forEach((p: { age?: number }) => delete p.age);
     const a = deserialize(JSON.stringify(base)), b = deserialize(JSON.stringify(base));
-    expect(a.teams[0].roster.map(p => p.age)).toEqual(b.teams[0].roster.map(p => p.age)); expect(a.teams[0].roster.every(p => p.age! >= 18 && p.age! <= 40)).toBe(true); expect(a.version).toBe(5);
+    expect(a.teams[0].roster.map(p => p.age)).toEqual(b.teams[0].roster.map(p => p.age)); expect(a.teams[0].roster.every(p => p.age! >= 18 && p.age! <= 40)).toBe(true); expect(a.version).toBe(6);
   });
   it('archiva las fichas de jugadores retirados y conserva sus estadísticas y último equipo', () => {
     let game = newGame(211);
