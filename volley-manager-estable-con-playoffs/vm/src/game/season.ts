@@ -166,8 +166,12 @@ function assertSeasonCanClose(g: GameState): void {
   }
   const fixtures = new Set(g.fixtures.map(f => `${f.round}/${f.home}/${f.away}`));
   const results = new Set(g.results.map(r => `${r.round}/${r.home}/${r.away}`));
-  if (results.size !== g.fixtures.length || [...fixtures].some(key => !results.has(key))) {
-    throw new Error('No se puede cerrar la temporada: los resultados no coinciden con el calendario');
+  if (results.size !== g.fixtures.length || [...fixtures].some(key => !results.has(key))
+    || g.results.some(r => !((r.sets[0] === 3 && r.sets[1] <= 2) || (r.sets[1] === 3 && r.sets[0] <= 2))
+      || r.points[0] !== leaguePoints(r.sets)[0] || r.points[1] !== leaguePoints(r.sets)[1]
+      || !r.totals.every(x => Number.isInteger(x) && x >= 0)
+      || !Number.isInteger(r.seed) || r.seed < 0 || r.seed > 0xffff_ffff)) {
+    throw new Error('No se puede cerrar la temporada: los resultados no coinciden con el calendario o son inválidos');
   }
 
   const p = g.playoffs;
@@ -187,7 +191,8 @@ function assertSeasonCanClose(g: GameState): void {
       const expectedAway = expectedHome === s.high ? s.low : s.high;
       if (game.game !== i + 1 || game.home !== expectedHome || game.away !== expectedAway
         || game.sets[0] === game.sets[1] || Math.max(...game.sets) !== 3
-        || Math.min(...game.sets) > 2) {
+        || Math.min(...game.sets) > 2 || !game.totals.every(x => Number.isInteger(x) && x >= 0)
+        || !Number.isInteger(game.seed) || game.seed < 0 || game.seed > 0xffff_ffff) {
         throw new Error(`No se puede cerrar la temporada: partido inválido en la serie ${s.id}`);
       }
       const winner = game.sets[0] > game.sets[1] ? game.home : game.away;
