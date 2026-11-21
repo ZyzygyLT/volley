@@ -9,7 +9,7 @@ import { ECON, roundCashflow, type Finance } from './economy';
 import type { Player } from '../engine/types';
 import { validateMatchAgainst } from '../engine/validation';
 
-export const GAME_VERSION = 5;
+export const GAME_VERSION = 6;
 const TEAM_NAMES = ['Río Plata', 'Andes', 'Pampa', 'Costa Azul', 'Patagonia', 'Delta', 'Sierras', 'Quebrada', 'Litoral', 'Cuyo', 'Atlántico', 'Mesopotamia'];
 
 export interface TeamData { id: number; name: string; roster: Player[]; lineup: Lineup; risk: number; clubBoost: number }
@@ -21,7 +21,8 @@ export interface Series { id: 'SF1' | 'SF2' | 'F' | 'B'; high: number; low: numb
 export interface PlayoffState { stage: 'semi' | 'final' | 'done'; series: Series[]; champion?: number; ranking?: number[] }
 
 export interface SeasonRecord { season: number; champion: string; userRank: number; userPoints: number; prize: number }
-export interface GameState { version: number; seed: number; userTeam: number; teams: TeamData[]; fixtures: Fixture[]; round: number; results: Result[]; career: Record<string, PStats>; finance: Finance; market: Player[]; season: number; history: SeasonRecord[]; allTime: Record<string, PStats>; news: string[]; progressLog: ProgressEntry[]; playoffs: PlayoffState | null }
+export interface RetiredPlayer extends Player { retiredSeason: number; lastTeam: string }
+export interface GameState { version: number; seed: number; userTeam: number; teams: TeamData[]; fixtures: Fixture[]; round: number; results: Result[]; career: Record<string, PStats>; finance: Finance; market: Player[]; season: number; history: SeasonRecord[]; allTime: Record<string, PStats>; retiredPlayers: RetiredPlayer[]; news: string[]; progressLog: ProgressEntry[]; playoffs: PlayoffState | null }
 
 /** Doble liga todos contra todos (método del círculo): cada equipo juega una vez por jornada y dos veces contra cada rival. */
 export function roundRobin(n: number): Fixture[] {
@@ -55,7 +56,7 @@ export function newGame(seed: number, userTeam = 0, nTeams = 8): GameState {
     return { id: i, name: TEAM_NAMES[i % TEAM_NAMES.length], roster, lineup: autoLineup(roster), risk: 50, clubBoost: boost };
   });
   const market = makeFreeAgents(rnd, used, TEAM_SD);
-  return { version: GAME_VERSION, seed, userTeam, teams, fixtures: roundRobin(nTeams), round: 0, results: [], career: {}, finance: { budget: ECON.startBudget, ledger: [] }, market, season: 1, history: [], allTime: {}, news: [], progressLog: [], playoffs: null };
+  return { version: GAME_VERSION, seed, userTeam, teams, fixtures: roundRobin(nTeams), round: 0, results: [], career: {}, finance: { budget: ECON.startBudget, ledger: [] }, market, season: 1, history: [], allTime: {}, retiredPlayers: [], news: [], progressLog: [], playoffs: null };
 }
 
 export const totalRounds = (g: GameState) => (g.fixtures.length ? Math.max(...g.fixtures.map(f => f.round)) + 1 : 0);
