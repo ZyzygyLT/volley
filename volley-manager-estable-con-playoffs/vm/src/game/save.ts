@@ -188,6 +188,15 @@ function check(input: unknown, e: string[]): void {
   if (!isInt(g.userTeam, 0, n - 1)) e.push('Equipo del usuario inválido');
   if (!Array.isArray(g.market) || g.market.length > ECON.maxMarket) e.push(`Mercado inválido: máximo ${ECON.maxMarket} agentes libres`);
   else for (const p of g.market) { if (!checkPlayer(p, 'Mercado', e)) break; if (seen.has((p as Player).id)) { e.push(`Mercado: id repetido ${(p as Player).id}`); break; } seen.add((p as Player).id); if (!(p as Player).name.trim() || seenNames.has((p as Player).name)) { e.push(`Mercado: nombre vacío o repetido ${(p as Player).name}`); break; } seenNames.add((p as Player).name); }
+  if (!Array.isArray(g.retiredPlayers) || g.retiredPlayers.length > 100_000) e.push('Archivo de retirados inválido');
+  else for (const retired of g.retiredPlayers) {
+    if (!checkPlayer(retired, 'Archivo de retirados', e)) break;
+    const p = retired as Record<string, unknown>;
+    if (seen.has(p.id as string)) { e.push(`Archivo de retirados: id repetido ${String(p.id)}`); break; }
+    if (!isInt(p.retiredSeason, 1, isInt(g.season, 1, 1000) ? g.season : 1000)
+      || !isStr(p.lastTeam, 60) || !p.lastTeam.trim()) { e.push(`Archivo de retirados: metadatos inválidos (${String(p.id)})`); break; }
+    seen.add(p.id as string);
+  }
   // calendario: debe ser exactamente la doble vuelta estándar de ese número de equipos
   const fx = roundRobin(n), rounds = 2 * (n - 1);
   if (!Array.isArray(g.fixtures) || g.fixtures.length !== fx.length || g.fixtures.some((f: unknown, i: number) => !isObj(f) || f.round !== fx[i].round || f.home !== fx[i].home || f.away !== fx[i].away)) e.push('Calendario inválido');
@@ -342,6 +351,7 @@ function migrate(input: GameState): GameState {
     g = { ...g, version: 4, news: [], progressLog: [], teams: gg.teams.map(t => ({ clubBoost: 0, ...t, roster: t.roster.map(addAge) })), market: (gg.market ?? []).map(addAge) } as unknown as typeof g;
   }
   if (g && typeof g === 'object' && g.version === 4) g = { ...g, version: 5, playoffs: null };
+  if (g && typeof g === 'object' && g.version === 5) g = { ...g, version: 6, retiredPlayers: [] };
   return sanitize(g as unknown as GameState);
 }
 /** Limpieza de datos benignos de versiones anteriores: el ataque y el bloqueo del líbero (que no se usan) podían quedar negativos. */
