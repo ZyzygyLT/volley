@@ -37,6 +37,36 @@ describe('validateMatch', () => {
     expect(validateMatchAgainst(wrongFixture, expected).some(error => error.includes('no corresponde al fixture'))).toBe(true);
   });
 
+  it('conserva y valida las entradas de suplentes entre sets', () => {
+    const [a, b] = makeSquads(21), rnd = mulberry32(505);
+    const bench = (offset: number) => (['S', 'OH', 'OH', 'MB', 'MB', 'OP', 'L'] as const)
+      .map((role, i) => makePlayer(rnd, role, 0, `persist-${offset + i}`, `Persist ${offset + i}`, 0));
+    let match = createMatch(503, 50, { squads: [a, b], benches: [bench(0), bench(20)] });
+    const first = legalSubs(match, 0).find(option => !option.isLibero)!;
+    match = substitute(match, 0, first.out.id, first.inn.id);
+    expect(validateMatch(match)).toEqual([]);
+    while (match.setNo === 1 && !match.over) match = stepPoint(match);
+    expect(match.setNo).toBeGreaterThan(1);
+    const second = legalSubs(match, 0).find(option => !option.isLibero && option.out.id !== first.inn.id)!;
+    match = substitute(match, 0, second.out.id, second.inn.id);
+    expect(match.subState[0].usedIn).toContain(second.inn.id);
+    expect(match.subHistory).toHaveLength(2);
+    expect(match.subHistory?.map(event => event.setNo)).toEqual([1, 2]);
+    expect(validateMatch(match)).toEqual([]);
+
+    const missing = structuredClone(match);
+    missing.playedIds = (missing.playedIds ?? []).filter(id => id !== first.inn.id);
+    expect(validateMatch(missing)).toContain('playedIds: no coincide con las entradas del historial persistente');
+
+    const invented = structuredClone(match);
+    invented.playedIds = [...(invented.playedIds ?? []), invented.benches[0].find(player => player.id !== second.inn.id)!.id];
+    expect(validateMatch(invented)).toContain('playedIds: no coincide con las entradas del historial persistente');
+
+    const legacy = structuredClone(match);
+    delete legacy.subHistory;
+    expect(validateMatch(legacy)).toEqual([]);
+  });
+
   it('acepta las seis rotaciones cíclicas y rechaza permutaciones no reglamentarias', () => {
     const match = createMatch(101);
     const starting = match.base[0].slice(0, 6);
