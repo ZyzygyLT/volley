@@ -42,6 +42,12 @@ function checkBox(b: unknown, where: string, e: string[]): void {
     for (const k of STAT_KEYS) if (!(k === 'recQSum' ? isNum(s[k], 0, 1e7) : isInt(s[k], 0, 1e7))) {
       e.push(where + ': ' + id + '.' + k + ' inválido'); return;
     }
+    // Relaciones garantizadas por applyEvents(): los resultados de cada contacto son excluyentes.
+    if (s.aces + s.serveErr > s.serves
+      || s.recErr > s.recs || s.recPos > s.recs - s.recErr || s.recPerf > s.recPos
+      || s.kills + s.atkErr + s.blocked > s.atks || s.assists > s.kills) {
+      e.push(where + ': relaciones estadísticas imposibles para ' + id); return;
+    }
   }
 }
 
