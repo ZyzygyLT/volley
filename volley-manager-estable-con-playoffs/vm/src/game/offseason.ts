@@ -109,8 +109,9 @@ export function runOffseason(g0: GameState, rnd: () => number, rankOf: Map<numbe
     return { ...t, roster, lineup };
   });
   // 5) jóvenes nuevos en el mercado y tope del mercado
-  seasonalAgentRoles(season + 1, ECON.newAgentsPerSeason).forEach((role, k) =>
+  const vacancies = Math.max(0, ECON.maxMarket - market.length);
+  seasonalAgentRoles(season + 1, Math.min(ECON.newAgentsPerSeason, vacancies)).forEach((role, k) =>
     market.push(makeYouth(rnd, role, `fa${season + 1}-${k + 1}`, used, 0, count(market, role))));
-  market = sortDesc(market).slice(0, ECON.maxMarket);
+  // Nunca truncar el mercado: los agentes existentes no desaparecen por alcanzar el límite.
   return { g: { ...g, teams, market }, news, progress };
 }
