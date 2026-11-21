@@ -7,11 +7,19 @@ import { applyEvents } from './stats';
 /** Orden de un plantel: 6 titulares (S, OH, MB, OP, OH, MB) + líbero. Los ids siguen este orden. */
 export const ROLES7: Role[] = ['S', 'OH', 'MB', 'OP', 'OH', 'MB', 'L'];
 
-/** Devuelve el lado del equipo dentro de un partido; null si no participa. */
+/** Devuelve el lado del equipo dentro de un partido; null si no participa o la identidad es ambigua. */
 export function sideForTeam(match: MatchState, teamName: string): Side | null {
-  if (match.teams[0].name === teamName) return 0;
-  if (match.teams[1].name === teamName) return 1;
-  return null;
+  const home = match.teams[0].name === teamName;
+  const away = match.teams[1].name === teamName;
+  return home === away ? null : home ? 0 : 1;
+}
+
+/** Identifica un equipo por sus IDs de plantilla, que son únicos aunque se repitan los nombres. */
+export function sideForPlayers(match: MatchState, playerIds: ReadonlySet<string>): Side | null {
+  const belongs = (side: Side) =>
+    [...match.base[side], ...match.benches[side]].some(player => playerIds.has(player.id));
+  const home = belongs(0), away = belongs(1);
+  return home === away ? null : home ? 0 : 1;
 }
 export const roleOfId = (id: string): Role => ROLES7[+id.slice(1) % 7];
 type Base = Omit<Player, 'id' | 'name' | 'role' | 'serveType'>;
