@@ -74,14 +74,14 @@ function About() {
   </section>;
 }
 
-/** Evita la pantalla en blanco si algo falla al dibujar: muestra el error y recuerda que el autoguardado sigue disponible. */
+/** Evita la pantalla en blanco si algo falla al dibujar y no promete que los últimos cambios estén guardados. */
 export class Boundary extends Component<{ children: ReactNode }, { err: Error | null }> {
   state: { err: Error | null } = { err: null };
   static getDerivedStateFromError(err: Error) { return { err }; }
   render() {
     if (!this.state.err) return this.props.children;
     return <main><h1>Algo salió mal</h1><p className="err">{this.state.err.message}</p>
-      <p>Tu última partida automática sigue guardada en este navegador. Recargá la página para continuarla.</p>
+      <p>El autoguardado puede no incluir los últimos cambios. Recargá para intentar recuperar la última copia disponible; no se puede garantizar que la sesión completa se haya guardado.</p>
       <button onClick={() => location.reload()}>Recargar</button></main>;
   }
 }
@@ -203,6 +203,7 @@ export default function App() {
       <h1>Volley Manager <small>— {me.name} · temporada {game.season} · {regOver ? (over ? 'temporada terminada' : 'playoffs') : `jornada ${game.round + 1}/${totalRounds(game)}`} · {money(game.finance.budget)}</small></h1>
       <nav>{TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</nav>
       {msg && <p role="status" className="mu"><i>{msg}</i></p>}
+      {!store.persistent && <p role="alert" className="notice">El almacenamiento persistente no está disponible. Esta partida se conserva solo en memoria y se perderá al cerrar o recargar la pestaña. Exportá una copia desde Guardar para conservarla.</p>}
       {pending && <div className="notice" role="alert">Hay una partida automática guardada ({pending.team}, {pending.round} jornadas jugadas, {pending.savedAt ? new Date(pending.savedAt).toLocaleString() : ''}).{' '}
         <button onClick={continueAuto}>Continuar esa partida</button> <button onClick={() => { setPending(null); setAutoOn(true); }}>Empezar de cero</button></div>}
       {card && <div className="notice card">
