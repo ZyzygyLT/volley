@@ -7,6 +7,7 @@ import { autoLineup, lineupToSquad, makeFreeAgents, makeRoster, type Lineup } fr
 import { runOffseason, type ProgressEntry } from './offseason';
 import { ECON, roundCashflow, type Finance } from './economy';
 import type { Player } from '../engine/types';
+import { validateMatchAgainst } from '../engine/validation';
 
 export const GAME_VERSION = 5;
 const TEAM_NAMES = ['Río Plata', 'Andes', 'Pampa', 'Costa Azul', 'Patagonia', 'Delta', 'Sierras', 'Quebrada', 'Litoral', 'Cuyo', 'Atlántico', 'Mesopotamia'];
@@ -81,8 +82,18 @@ export const matchFor = (g: GameState, f: Fixture): MatchState => matchBetween(g
  * Función pura: devuelve un estado nuevo.
  */
 export function finishRound(g: GameState, userMatch?: MatchState): GameState {
-  if (regularSeasonOver(g)) return g;
-  const uf = userFixture(g), results: Result[] = [...g.results]; let career = g.career, userHome = false, userWon = false;
+  if (regularSeasonOver(g)) {
+    if (userMatch) throw new Error('No se puede registrar un partido manual: la fase regular ya terminó');
+    return g;
+  }
+  const uf = userFixture(g);
+  if (userMatch) {
+    if (!uf) throw new Error('No existe un fixture del usuario para esta jornada');
+    if (!userMatch.over) throw new Error('El partido manual todavía no terminó');
+    const errors = validateMatchAgainst(userMatch, matchFor(g, uf));
+    if (errors.length) throw new Error(`Partido manual inválido: ${errors.join('; ')}`);
+  }
+  const results: Result[] = [...g.results]; let career = g.career, userHome = false, userWon = false;
   for (const f of fixturesOfRound(g)) {
     let m: MatchState = f === uf && userMatch ? userMatch : matchFor(g, f);
     if (!m.over) m = playMatch(m);
