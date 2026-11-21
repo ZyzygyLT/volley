@@ -85,6 +85,22 @@ describe('integridad semántica de guardados: fase regular', () => {
     rejected(blankMarketId);
   });
 
+  it('limita el libro financiero y valida sus movimientos', () => {
+    const tooMany = jsonCopy(newGame(47));
+    tooMany.finance.ledger = Array.from({ length: 61 }, (_, i) => ({
+      round: i % 14, season: 1, concept: 'Movimiento', amount: 100,
+    }));
+    rejected(tooMany);
+
+    const blankConcept = jsonCopy(newGame(48));
+    blankConcept.finance.ledger = [{ round: 0, season: 1, concept: '   ', amount: 100 }];
+    rejected(blankConcept);
+
+    const invalidRound = jsonCopy(newGame(49));
+    invalidRound.finance.ledger = [{ round: 14, season: 1, concept: 'Movimiento', amount: 100 }];
+    rejected(invalidRound);
+  });
+
   it('rechaza semillas persistidas que no sean uint32', () => {
     const corrupt = jsonCopy(newGame(41));
     corrupt.seed = -1;
