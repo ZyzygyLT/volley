@@ -31,6 +31,7 @@ describe('validateMatch', () => {
       const match = createMatch(1);
       match.seed = seed;
       expect(validateMatch(match).some(error => error.startsWith('seed:'))).toBe(true);
+      expect(() => createMatch(seed)).toThrow(/uint32/);
     }
     expect(validateMatch(createMatch(0))).toEqual([]);
     expect(validateMatch(createMatch(0xffff_ffff))).toEqual([]);
