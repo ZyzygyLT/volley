@@ -59,6 +59,17 @@ describe('sesiones con partido en curso', () => {
     const unrelated = structuredClone(live);
     unrelated.teams[0].name = 'Equipo ajeno';
     expect(() => serializeSession(game, unrelated, 'liga')).toThrow(SaveError);
+
+    const foreignRoster = structuredClone(live);
+    const alteredPlayer = foreignRoster.base[0][0];
+    alteredPlayer.age = alteredPlayer.age < 50 ? alteredPlayer.age + 1 : alteredPlayer.age - 1;
+    const lineupPlayer = foreignRoster.teams[0].lineup.find(p => p.id === alteredPlayer.id)!;
+    lineupPlayer.age = alteredPlayer.age;
+    expect(() => serializeSession(game, foreignRoster, 'liga')).toThrow(SaveError);
+
+    const importedForeignRoster = JSON.parse(serializeSession(game, live, 'liga'));
+    importedForeignRoster.liveMatch = foreignRoster;
+    expect(() => deserializeSession(JSON.stringify(importedForeignRoster))).toThrow(SaveError);
   });
 
   it('rechaza participantes invertidos o una modalidad que no corresponde', () => {
