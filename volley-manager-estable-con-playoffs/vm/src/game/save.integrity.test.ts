@@ -63,6 +63,12 @@ describe('integridad semántica de guardados: fase regular', () => {
     expect(deserialize(JSON.stringify(legacy)).results[0].setScores).toEqual([]);
   });
 
+  it('rechaza semillas persistidas que no sean uint32', () => {
+    const corrupt = jsonCopy(newGame(41));
+    corrupt.seed = -1;
+    rejected(corrupt);
+    expect(() => serialize(corrupt)).toThrow(SaveError);
+  });
   it('deserialize rechaza los mismos datos incoherentes que validateGame', () => {
     const corrupt = jsonCopy(regular(2));
     corrupt.results.pop();

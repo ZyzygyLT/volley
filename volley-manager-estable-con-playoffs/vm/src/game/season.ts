@@ -7,6 +7,7 @@ import { autoLineup, lineupToSquad, makeFreeAgents, makeRoster, type Lineup } fr
 import { runOffseason, type ProgressEntry } from './offseason';
 import { ECON, roundCashflow, type Finance } from './economy';
 import type { Player } from '../engine/types';
+import { validateMatchAgainst } from '../engine/validation';
 
 export const GAME_VERSION = 5;
 const TEAM_NAMES = ['Río Plata', 'Andes', 'Pampa', 'Costa Azul', 'Patagonia', 'Delta', 'Sierras', 'Quebrada', 'Litoral', 'Cuyo', 'Atlántico', 'Mesopotamia'];
@@ -45,6 +46,9 @@ export function leaguePoints(sets: [number, number]): [number, number] {
 }
 
 export function newGame(seed: number, userTeam = 0, nTeams = 8): GameState {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff) throw new Error('La semilla de la partida debe ser un entero uint32');
+  if (!Number.isInteger(nTeams) || nTeams < 2 || nTeams > 32 || nTeams % 2 !== 0) throw new Error('La liga debe tener entre 2 y 32 equipos, en número par');
+  if (!Number.isInteger(userTeam) || userTeam < 0 || userTeam >= nTeams) throw new Error('El equipo del usuario no existe');
   const rnd = mulberry32(seed), used = new Set<string>();
   const teams: TeamData[] = Array.from({ length: nTeams }, (_, i) => {
     const boost = gauss(rnd) * TEAM_SD, roster = makeRoster(rnd, boost, i, used);
@@ -81,8 +85,18 @@ export const matchFor = (g: GameState, f: Fixture): MatchState => matchBetween(g
  * Función pura: devuelve un estado nuevo.
  */
 export function finishRound(g: GameState, userMatch?: MatchState): GameState {
-  if (regularSeasonOver(g)) return g;
-  const uf = userFixture(g), results: Result[] = [...g.results]; let career = g.career, userHome = false, userWon = false;
+  if (regularSeasonOver(g)) {
+    if (userMatch) throw new Error('No se puede registrar un partido manual: la fase regular ya terminó');
+    return g;
+  }
+  const uf = userFixture(g);
+  if (userMatch) {
+    if (!uf) throw new Error('No existe un fixture del usuario para esta jornada');
+    if (!userMatch.over) throw new Error('El partido manual todavía no terminó');
+    const errors = validateMatchAgainst(userMatch, matchFor(g, uf));
+    if (errors.length) throw new Error(`Partido manual inválido: ${errors.join('; ')}`);
+  }
+  const results: Result[] = [...g.results]; let career = g.career, userHome = false, userWon = false;
   for (const f of fixturesOfRound(g)) {
     let m: MatchState = f === uf && userMatch ? userMatch : matchFor(g, f);
     if (!m.over) m = playMatch(m);
@@ -108,7 +122,7 @@ export function standings(g: GameState): Standing[] {
     h.pointsFor += r.totals[0]; h.pointsAgainst += r.totals[1]; a.pointsFor += r.totals[1]; a.pointsAgainst += r.totals[0];
     h.points += r.points[0]; a.points += r.points[1];
   }
-  const ratio = (a: number, b: number) => (b ? a / b : a);
+  const ratio = (a: number, b: number) => (b === 0 ? (a === 0 ? 0 : Number.POSITIVE_INFINITY) : a / b);
   // Desempate como en las competencias FIVB: puntos de partido, partidos ganados, cociente de sets, cociente de puntos.
   return s.sort((x, y) => y.points - x.points || y.won - x.won || ratio(y.setsFor, y.setsAgainst) - ratio(x.setsFor, x.setsAgainst) || ratio(y.pointsFor, y.pointsAgainst) - ratio(x.pointsFor, x.pointsAgainst) || x.team - y.team);
 }

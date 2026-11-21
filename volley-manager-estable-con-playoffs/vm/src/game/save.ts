@@ -7,6 +7,7 @@ import { ECON } from './economy';
 import type { MatchState, Player, Role } from '../engine/types';
 import { rollAge } from './ages';
 import { mulberry32 } from '../engine/rng';
+import { validateMatch } from '../engine/validation';
 
 export class SaveError extends Error {}
 export interface SaveMeta { slot: string; savedAt: string; team: string; round: number }
@@ -148,6 +149,7 @@ function check(input: unknown, e: string[]): void {
   if (!isObj(input)) { e.push('No es un objeto'); return; }
   const g = input as Record<string, unknown>;
   if (g.version !== GAME_VERSION) e.push(`Versión no soportada: ${String(g.version)}`);
+  if (!isInt(g.seed, 0, 0xffff_ffff)) e.push('Semilla de partida inválida: debe ser un entero uint32');
   const teams = g.teams;
   if (!Array.isArray(teams) || teams.length < 2 || teams.length > 32 || teams.length % 2) { e.push('Equipos inválidos'); return; }
   const n = teams.length, seen = new Set<string>();
@@ -245,7 +247,8 @@ function validLiveMatch(input: unknown): input is MatchState {
     || (!m.over && ((m.sets as number[])[0] === 3 || (m.sets as number[])[1] === 3))) return false;
   const expectedA = pointsA + (m.over ? 0 : (m.score as number[])[0]);
   const expectedB = pointsB + (m.over ? 0 : (m.score as number[])[1]);
-  return (m.totals as number[])[0] === expectedA && (m.totals as number[])[1] === expectedB;
+  return (m.totals as number[])[0] === expectedA && (m.totals as number[])[1] === expectedB
+    && validateMatch(m).length === 0;
 }
 
 function sessionTeamNames(game: GameState, kind: 'liga' | 'playoff'): [string, string] | null {
@@ -339,6 +342,7 @@ export function deserialize(json: string): GameState {
 
 /** Almacén de partidas (ranuras). Hay una versión en memoria (tests) y otra en IndexedDB (navegador). */
 export interface SaveStore {
+  readonly persistent: boolean;
   list(): Promise<SaveMeta[]>;
   get(slot: string): Promise<string | null>;
   put(slot: string, json: string, meta: SaveMeta): Promise<void>;
@@ -349,6 +353,7 @@ export function metaOf(slot: string, g: GameState, savedAt: string): SaveMeta { 
 export function memoryStore(): SaveStore {
   const data = new Map<string, { json: string; meta: SaveMeta }>();
   return {
+    persistent: false,
     async list() { return [...data.values()].map(v => v.meta).sort((a, b) => a.slot.localeCompare(b.slot)); },
     async get(slot) { return data.get(slot)?.json ?? null; },
     async put(slot, json, meta) { data.set(slot, { json, meta }); },
@@ -384,6 +389,7 @@ export function indexedDbStore(dbName = 'volley-manager'): SaveStore {
   };
   type Row = { slot: string; json: string; meta: SaveMeta };
   return {
+    persistent: true,
     async list() { const rows = await run<Row[]>('readonly', s => s.getAll() as IDBRequest<Row[]>); return rows.map(r => r.meta).sort((a, b) => a.slot.localeCompare(b.slot)); },
     async get(slot) { const r = await run<Row | undefined>('readonly', s => s.get(slot) as IDBRequest<Row | undefined>); return r?.json ?? null; },
     async put(slot, json, meta) { await run('readwrite', s => s.put({ slot, json, meta })); },

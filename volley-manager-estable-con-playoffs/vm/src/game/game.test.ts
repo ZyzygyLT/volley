@@ -36,6 +36,19 @@ describe('plantel y alineación', () => {
   });
 });
 
+describe('semillas de partida', () => {
+  it('acepta uint32 y rechaza semillas fuera de rango al crear una partida', () => {
+    expect(newGame(0).seed).toBe(0);
+    expect(newGame(0xffff_ffff).seed).toBe(0xffff_ffff);
+    for (const seed of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 0x1_0000_0000]) {
+      expect(() => newGame(seed)).toThrow(/uint32/);
+    }
+    expect(() => newGame(1, 0, 1)).toThrow(/entre 2 y 32/);
+    expect(() => newGame(1, 0, 3)).toThrow(/entre 2 y 32/);
+    expect(() => newGame(1, 32, 8)).toThrow(/equipo del usuario/);
+  });
+});
+
 describe('temporada', () => {
   it('es determinista y los puntos de liga suman 3 por partido', () => {
     const a = playSeason(5), b = playSeason(5);
@@ -44,10 +57,51 @@ describe('temporada', () => {
     expect(a.results.length).toBe(4 * totalRounds(a));
     for (const r of a.results) { const w = r.sets[0] > r.sets[1] ? 0 : 1; expect(r.totals[w]).toBeGreaterThanOrEqual(r.sets[w] === 3 && r.sets[1 - w] === 2 ? 65 : 75); }
   });
+  it('trata como infinito el cociente con sets a favor y cero en contra', () => {
+    const g = {
+      ...newGame(77),
+      results: [
+        { round: 0, home: 0, away: 1, sets: [3, 0] as [number, number],
+          setScores: [[25, 20], [25, 20], [25, 20]] as [number, number][],
+          points: [3, 0] as [number, number], totals: [75, 60] as [number, number], seed: 1 },
+        { round: 0, home: 2, away: 3, sets: [3, 1] as [number, number],
+          setScores: [[25, 0], [25, 0], [0, 25], [25, 0]] as [number, number][],
+          points: [3, 0] as [number, number], totals: [75, 25] as [number, number], seed: 2 },
+      ],
+    };
+    expect(standings(g).slice(0, 2).map(x => x.team)).toEqual([0, 2]);
+  });
   it('el partido del usuario jugado a mano se registra igual que simulado', () => {
     const g = newGame(9), f = userFixture(g)!;
     const manual = finishRound(g, playMatch(matchFor(g, f))), auto = finishRound(g);
     expect(manual.results).toEqual(auto.results);
+  });
+  it('permite cambiar táctica y alineación para el siguiente partido mientras el actual sigue en curso', () => {
+    const g = newGame(29), f = userFixture(g)!;
+    const manual = playMatch(matchFor(g, f));
+    const changedTeams = g.teams.map(team => {
+      if (team.id !== f.home) return team;
+      const replacement = team.roster.find(p => p.role === 'OH' && !team.lineup.OH.includes(p.id))!;
+      return { ...team, risk: 15, lineup: { ...team.lineup, OH: [team.lineup.OH[0], replacement.id] as [string, string] } };
+    });
+    const changed = { ...g, teams: changedTeams };
+    const originalResult = finishRound(g, manual).results.find(r => r.home === f.home && r.away === f.away);
+    const changedResult = finishRound(changed, manual).results.find(r => r.home === f.home && r.away === f.away);
+    expect(changedResult).toEqual(originalResult);
+  });
+  it('rechaza partidos manuales incompletos, de otro fixture o con semilla alterada sin modificar la jornada', () => {
+    const g = newGame(19), f = userFixture(g)!;
+    const incomplete = matchFor(g, f);
+    expect(() => finishRound(g, incomplete)).toThrow(/todavía no terminó/);
+
+    const altered = playMatch(matchFor(g, f));
+    altered.seed = (altered.seed + 1) >>> 0;
+    expect(() => finishRound(g, altered)).toThrow(/semilla|fixture/);
+
+    const other = fixturesOfRound(g).find(x => x !== f)!;
+    expect(() => finishRound(g, playMatch(matchFor(g, other)))).toThrow(/fixture/);
+    expect(g.round).toBe(0);
+    expect(g.results).toHaveLength(0);
   });
   it('acumula estadísticas individuales de los titulares', () => {
     const g = finishRound(newGame(2));

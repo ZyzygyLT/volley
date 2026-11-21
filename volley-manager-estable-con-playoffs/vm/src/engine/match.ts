@@ -74,6 +74,7 @@ const emptyStats = () => ({ ace: 0, kill: 0, blk: 0, err: 0 });
 export interface MatchOpts { benches?: [Player[], Player[]]; names?: [string, string]; boostA?: number; boostB?: number; sd?: number; riskB?: number; params?: Params; squads?: [Player[], Player[]] }
 
 export function createMatch(seed: number, myRisk = 50, opts: MatchOpts = {}): MatchState {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff) throw new Error('La semilla del partido debe ser un entero uint32');
   const [a, b] = opts.squads ?? makeSquads(seed, opts.boostA ?? 2, opts.boostB ?? 0, opts.sd ?? RATING_SD);
   const mk = (name: string, sq: Player[], risk: number): Team => ({ name, lineup: sq.slice(0, 6), libero: sq[6], risk });
   return { params: opts.params, seed, teams: [mk(opts.names?.[0] ?? 'Tu equipo', a, myRisk), mk(opts.names?.[1] ?? 'Rival', b, opts.riskB ?? 50)], base: [a, b],
