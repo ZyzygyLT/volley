@@ -47,10 +47,9 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
       expect(migrated.version).toBe(5);
       expect(migrated.teams).toHaveLength(current.teams.length);
       expect(migrated.fixtures).toEqual(current.fixtures);
-      expect(migrated.results).toEqual(current.results.map((result: Record<string, unknown>) => ({
-        ...result,
-        setScores: [],
-      })));
+      expect(migrated.results).toEqual(current.results.map((result: Record<string, unknown>) =>
+        version <= 2 ? { ...result, setScores: [] } : result,
+      ));
       expect(migrated.playoffs).toBeNull();
       expect(migrated.news).toEqual([]);
       expect(migrated.progressLog).toEqual([]);
