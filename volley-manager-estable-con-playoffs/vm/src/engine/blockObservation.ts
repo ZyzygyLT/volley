@@ -198,6 +198,16 @@ export function validateBlockObservationContext(
 ): BlockObservationIssue[] {
   const issues: BlockObservationIssue[] = [];
 
+  if (!isRecord(observation)) {
+    return [{ code: 'invalid-observation', message: 'La observación debe ser un objeto válido.' }];
+  }
+  if (observation.status !== 'unavailable' && observation.status !== 'observed') {
+    return [{ code: 'invalid-observation-status', message: 'El estado de la observación no está reconocido.' }];
+  }
+  if (observation.status === 'observed' && !Array.isArray(observation.eligibleBlockerIds)) {
+    return [{ code: 'invalid-eligible-blocker-list', message: 'La lista de elegibles debe ser un arreglo.' }];
+  }
+
   if ((observation.attackingTeam !== 0 && observation.attackingTeam !== 1) ||
       (observation.defendingTeam !== 0 && observation.defendingTeam !== 1) ||
       observation.attackingTeam === observation.defendingTeam) {
