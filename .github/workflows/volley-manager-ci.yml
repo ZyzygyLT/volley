@@ -77,3 +77,4 @@ jobs:
           python scripts/ui-test-season.py
           python scripts/ui-test-extras.py
           python scripts/ui-test-multitab.py
+          python scripts/ui-test-save-file.py
