@@ -144,8 +144,29 @@ export default function App() {
     else return;
     setMsg(''); setTab('partido');
   };
-  const close = () => { if (!live) return; setGame(liveKind === 'playoff' ? finishPlayoffDay(game, live) : finishRound(game, live)); setLive(null); setTab('liga'); };
-  const simulate = () => { if (lineupErrors.length) return; setGame(regOver ? finishPlayoffDay(game) : finishRound(game)); setLive(null); };
+  const close = () => {
+    if (!live) return;
+    try {
+      const next = liveKind === 'playoff' ? finishPlayoffDay(game, live) : finishRound(game, live);
+      setGame(next);
+      setLive(null);
+      setTab('liga');
+      setMsg('Partido registrado correctamente');
+    } catch (e) {
+      setMsg(`No se pudo registrar el partido: ${(e as Error).message}. El partido sigue abierto y no se modificó la jornada.`);
+    }
+  };
+  const simulate = () => {
+    if (lineupErrors.length) return;
+    try {
+      const next = regOver ? finishPlayoffDay(game) : finishRound(game);
+      setGame(next);
+      setLive(null);
+      setMsg('Jornada simulada correctamente');
+    } catch (e) {
+      setMsg(`No se pudo simular la jornada: ${(e as Error).message}. La partida no se modificó.`);
+    }
+  };
   const name = (i: number) => game.teams[i].name;
   const attempt = (f: () => GameState, ok: string) => { try { setGame(f()); setMsg(ok); } catch (e) { setMsg((e as Error).message); } };
 
