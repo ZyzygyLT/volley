@@ -50,6 +50,12 @@ function validatePlayer(value: unknown, path: string, errors: string[]): value i
   return valid;
 }
 
+function samePlayer(a: Player, b: Player): boolean {
+  return a.id === b.id && a.name === b.name && a.role === b.role && a.serveType === b.serveType
+    && a.srv === b.srv && a.rec === b.rec && a.set === b.set && a.atk === b.atk
+    && a.blk === b.blk && a.def === b.def && a.cons === b.cons && a.age === b.age;
+}
+
 function validateParams(value: unknown, errors: string[]): value is Params {
   if (!isRecord(value)) { errors.push('params: estructura inválida'); return false; }
   let valid = true;
@@ -193,7 +199,7 @@ export function validateMatch(input: unknown): string[] {
         if (player.role === 'L') errors.push(`teams[${side}].lineup[${i}]: el líbero no puede ocupar una plaza de titular`);
         const basePlayer = local.get(player.id);
         if (!basePlayer) errors.push(`teams[${side}].lineup[${i}]: jugador ausente del plantel base`);
-        else if (JSON.stringify(basePlayer) !== JSON.stringify(player)) errors.push(`teams[${side}].lineup[${i}]: datos diferentes de base`);
+        else if (!samePlayer(basePlayer, player)) errors.push(`teams[${side}].lineup[${i}]: datos diferentes de base`);
         if (lineupIds[side].has(player.id)) errors.push(`teams[${side}].lineup: jugador duplicado (${player.id})`);
         lineupIds[side].add(player.id);
       }
@@ -204,7 +210,7 @@ export function validateMatch(input: unknown): string[] {
     if (!validatePlayer(team.libero, `teams[${side}].libero`, errors) || team.libero.role !== 'L') errors.push(`teams[${side}].libero: líbero inválido`);
     else {
       const baseLibero = base[6];
-      if (!isRecord(baseLibero) || baseLibero.id !== team.libero.id || JSON.stringify(baseLibero) !== JSON.stringify(team.libero)) errors.push(`teams[${side}].libero: no coincide con el líbero de base`);
+      if (!isRecord(baseLibero) || baseLibero.id !== team.libero.id || !samePlayer(baseLibero as Player, team.libero)) errors.push(`teams[${side}].libero: no coincide con el líbero de base`);
     }
     if (isRecord(stats)) {
       for (const key of STAT_KEYS) if (!isInteger(stats[key]) || (stats[key] as number) < 0) errors.push(`stats[${side}].${key}: valor inválido`);
