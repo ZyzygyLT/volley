@@ -288,6 +288,13 @@ export function validateMatch(input: unknown): string[] {
       }
     }
   }
+  if (m.playedIds !== undefined) {
+    if (!Array.isArray(m.playedIds) || m.playedIds.some(id => !isId(id)) || new Set(m.playedIds).size !== m.playedIds.length) {
+      errors.push('playedIds: historial de participación inválido');
+    } else {
+      for (const id of m.playedIds) if (!sideByPlayerId.has(id)) errors.push(`playedIds: jugador ajeno al partido (${id})`);
+    }
+  }
   for (const side of [0, 1] as const) {
     const teamStats = teamStatsBySide[side];
     if (isRecord(teamStats)) for (const key of STAT_KEYS) {
