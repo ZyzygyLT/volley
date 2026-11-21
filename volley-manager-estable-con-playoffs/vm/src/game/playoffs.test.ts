@@ -16,7 +16,9 @@ describe('playoffs', () => {
     const manual = playMatch(matchForSeries(game, series));
     const user = game.teams[game.userTeam];
     const originalStarter = user.lineup.OH[1];
+    const originalGp = game.career[originalStarter]?.gp ?? 0;
     const replacement = user.roster.find(player => player.role === 'OH' && !user.lineup.OH.includes(player.id))!;
+    const replacementGp = game.career[replacement.id]?.gp ?? 0;
     const changed = {
       ...game,
       teams: game.teams.map(team => team.id === game.userTeam
@@ -24,8 +26,8 @@ describe('playoffs', () => {
         : team),
     };
     const next = finishPlayoffDay(changed, manual);
-    expect(next.career[originalStarter]?.gp).toBe(1);
-    expect(next.career[replacement.id]?.gp ?? 0).toBe(0);
+    expect(next.career[originalStarter]?.gp).toBe(originalGp + 1);
+    expect(next.career[replacement.id]?.gp ?? 0).toBe(replacementGp);
   });
 
   it('no empiezan antes de terminar la fase regular ni dos veces', () => {
