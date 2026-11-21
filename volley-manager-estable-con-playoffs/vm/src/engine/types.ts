@@ -57,6 +57,7 @@ export interface MatchState {
   score: [number, number]; totals: [number, number]; sets: [number, number]; setScores: [number, number][]; setNo: number;
   serving: Side; over: boolean; stats: [Stats, Stats]; box: Record<string, PStats>; log: string[];
   benches: [Player[], Player[]]; subState: [SubState, SubState]; // suplentes y control de sustituciones del set actual
+  playedIds?: string[]; // suplentes que ingresaron en cualquier set; opcional para sesiones antiguas
 }
 /** Control de sustituciones de un equipo en el set (reglas FIVB: máx. 6; un titular solo es reemplazado una vez y vuelve a su posición). */
 export interface SubState { count: number; swaps: Record<string, string>; replaced: string[]; usedIn: string[] }
