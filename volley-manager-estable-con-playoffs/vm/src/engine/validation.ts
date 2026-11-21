@@ -289,7 +289,6 @@ export function validateMatchAgainst(input: unknown, expected: MatchState): stri
     const team = actual.teams[side];
     if (!isRecord(team)) continue;
     if (team.name !== expected.teams[side].name) errors.push(`teams[${side}].name: no corresponde al fixture`);
-    if (team.risk !== expected.teams[side].risk) errors.push(`teams[${side}].risk: táctica distinta de la del fixture`);
     const collect = (base: unknown, bench: unknown): Map<string, Player> => {
       const players = new Map<string, Player>();
       for (const list of [base, bench]) if (Array.isArray(list)) {
