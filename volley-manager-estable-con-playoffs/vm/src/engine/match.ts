@@ -21,6 +21,27 @@ export function sideForPlayers(match: MatchState, playerIds: ReadonlySet<string>
   const home = belongs(0), away = belongs(1);
   return home === away ? null : home ? 0 : 1;
 }
+
+/** Reconstruye los siete titulares originales, aunque el plantel base haya sido mutado por sustituciones. */
+export function startingPlayerIds(match: MatchState): string[] {
+  const base: [string[], string[]] = [
+    match.base[0].map(player => player.id),
+    match.base[1].map(player => player.id),
+  ];
+  const benches: [string[], string[]] = [
+    match.benches[0].map(player => player.id),
+    match.benches[1].map(player => player.id),
+  ];
+  for (let i = (match.subHistory ?? []).length - 1; i >= 0; i--) {
+    const event = match.subHistory![i];
+    const baseIndex = base[event.side].indexOf(event.inId);
+    const benchIndex = benches[event.side].indexOf(event.outId);
+    if (baseIndex < 0 || benchIndex < 0) continue;
+    base[event.side][baseIndex] = event.outId;
+    benches[event.side][benchIndex] = event.inId;
+  }
+  return [...new Set([...base[0], ...base[1]])];
+}
 export const roleOfId = (id: string): Role => ROLES7[+id.slice(1) % 7];
 type Base = Omit<Player, 'id' | 'name' | 'role' | 'serveType'>;
 // Valoraciones medias por rol. Las diferencias de rendimiento entre posiciones (p. ej. el ataque del central) viven en
