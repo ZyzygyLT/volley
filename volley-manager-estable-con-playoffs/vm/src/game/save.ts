@@ -342,6 +342,7 @@ export function deserialize(json: string): GameState {
 
 /** Almacén de partidas (ranuras). Hay una versión en memoria (tests) y otra en IndexedDB (navegador). */
 export interface SaveStore {
+  readonly persistent: boolean;
   list(): Promise<SaveMeta[]>;
   get(slot: string): Promise<string | null>;
   put(slot: string, json: string, meta: SaveMeta): Promise<void>;
@@ -352,6 +353,7 @@ export function metaOf(slot: string, g: GameState, savedAt: string): SaveMeta { 
 export function memoryStore(): SaveStore {
   const data = new Map<string, { json: string; meta: SaveMeta }>();
   return {
+    persistent: false,
     async list() { return [...data.values()].map(v => v.meta).sort((a, b) => a.slot.localeCompare(b.slot)); },
     async get(slot) { return data.get(slot)?.json ?? null; },
     async put(slot, json, meta) { data.set(slot, { json, meta }); },
@@ -387,6 +389,7 @@ export function indexedDbStore(dbName = 'volley-manager'): SaveStore {
   };
   type Row = { slot: string; json: string; meta: SaveMeta };
   return {
+    persistent: true,
     async list() { const rows = await run<Row[]>('readonly', s => s.getAll() as IDBRequest<Row[]>); return rows.map(r => r.meta).sort((a, b) => a.slot.localeCompare(b.slot)); },
     async get(slot) { const r = await run<Row | undefined>('readonly', s => s.get(slot) as IDBRequest<Row | undefined>); return r?.json ?? null; },
     async put(slot, json, meta) { await run('readwrite', s => s.put({ slot, json, meta })); },
