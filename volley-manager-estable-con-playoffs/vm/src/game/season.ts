@@ -46,6 +46,7 @@ export function leaguePoints(sets: [number, number]): [number, number] {
 }
 
 export function newGame(seed: number, userTeam = 0, nTeams = 8): GameState {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff) throw new Error('La semilla de la partida debe ser un entero uint32');
   const rnd = mulberry32(seed), used = new Set<string>();
   const teams: TeamData[] = Array.from({ length: nTeams }, (_, i) => {
     const boost = gauss(rnd) * TEAM_SD, roster = makeRoster(rnd, boost, i, used);
