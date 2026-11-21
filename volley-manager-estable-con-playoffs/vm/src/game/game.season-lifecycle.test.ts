@@ -69,7 +69,7 @@ describe('parciales, equipo y cierre de temporada', () => {
   it('el guardado funciona tras cerrar la temporada y se migran partidas de versiones anteriores', () => {
     const g2 = endSeason(playSeason(7)); expect(deserialize(serialize(g2))).toEqual(g2);
     const old = JSON.parse(serialize(finishRound(newGame(4)))); old.version = 2; delete old.season; delete old.history; delete old.allTime; old.results.forEach((r: { setScores?: unknown }) => delete r.setScores);
-    const m = deserialize(JSON.stringify(old)); expect([m.version, m.season, m.history.length, m.results[0].setScores.length]).toEqual([5, 1, 0, 0]);
+    const m = deserialize(JSON.stringify(old)); expect([m.version, m.season, m.history.length, m.results[0].setScores.length]).toEqual([6, 1, 0, 0]);
   });
   it('addBoxes suma sin mutar', () => {
     const a = { x: { ...emptyP(), kills: 2, gp: 1 } }, b = { x: { ...emptyP(), kills: 3, gp: 1 }, y: { ...emptyP(), aces: 1 } }, c = addBoxes(a, b);
