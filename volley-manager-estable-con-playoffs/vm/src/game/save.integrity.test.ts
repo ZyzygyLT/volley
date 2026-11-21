@@ -97,7 +97,7 @@ describe('integridad semántica de guardados: fase regular', () => {
     rejected(blankConcept);
 
     const invalidRound = jsonCopy(newGame(49));
-    invalidRound.finance.ledger = [{ round: 14, season: 1, concept: 'Movimiento', amount: 100 }];
+    invalidRound.finance.ledger = [{ round: 15, season: 1, concept: 'Movimiento', amount: 100 }];
     rejected(invalidRound);
   });
 
