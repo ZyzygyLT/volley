@@ -52,6 +52,7 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
         version <= 2 ? { ...result, setScores: [] } : result,
       ));
       expect(migrated.playoffs).toBeNull();
+      expect(migrated.retiredPlayers).toEqual([]);
       expect(migrated.news).toEqual([]);
       expect(migrated.progressLog).toEqual([]);
       expect(validateGame(migrated)).toEqual([]);
@@ -96,7 +97,7 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
     delete legacy.playoffs;
 
     const migrated = deserialize(JSON.stringify(legacy));
-    expect(migrated.version).toBe(5);
+    expect(migrated.version).toBe(6);
     expect(migrated.season).toBe(2);
     expect(migrated.history).toEqual(legacy.history);
     expect(migrated.allTime).toEqual(legacy.allTime);
@@ -118,7 +119,7 @@ describe('compatibilidad con partidas de versiones anteriores', () => {
     for (const player of legacy.market) delete player.age;
 
     const migrated = deserialize(JSON.stringify(legacy));
-    expect(migrated.version).toBe(5);
+    expect(migrated.version).toBe(6);
     expect(migrated.season).toBe(2);
     expect(migrated.history).toEqual(legacy.history);
     expect(migrated.allTime).toEqual(legacy.allTime);
