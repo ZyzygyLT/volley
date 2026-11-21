@@ -70,7 +70,7 @@ describe('temporada', () => {
       champion: completed.teams[completed.playoffs!.champion!].name,
       userRank: completed.playoffs!.ranking!.indexOf(completed.userTeam) + 1,
       userPoints: standings(completed).find(x => x.team === completed.userTeam)!.points,
-      prize: next.history[0].prize,
+      prize: ECON.prizeByRank[Math.min(completed.playoffs!.ranking!.indexOf(completed.userTeam), ECON.prizeByRank.length - 1)],
     });
     expect(next.allTime).toEqual(completed.career);
     // El nuevo estado no puede volver a cerrar la misma temporada.\n    expect(() => endSeason(next)).toThrow(/todavía no terminó/);
