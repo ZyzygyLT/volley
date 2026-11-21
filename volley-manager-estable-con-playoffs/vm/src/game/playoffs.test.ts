@@ -11,6 +11,11 @@ describe('playoffs', () => {
   it('no empiezan antes de terminar la fase regular ni dos veces', () => {
     expect(() => startPlayoffs(newGame(1))).toThrow(/no terminó/); const g = startPlayoffs(regular(1)); expect(() => startPlayoffs(g)).toThrow(/ya empezaron/);
   });
+  it('no permite iniciar playoffs con menos de cuatro equipos', () => {
+    let g = newGame(17, 0, 2);
+    while (!regularSeasonOver(g)) g = finishRound(g);
+    expect(() => startPlayoffs(g)).toThrow(/al menos 4 equipos/);
+  });
   it('las semifinales enfrentan 1°-4° y 2°-3° de la fase regular, al mejor de 3', () => {
     const g = regular(2), t = standings(g).map(s => s.team), p = startPlayoffs(g).playoffs!;
     expect(p.stage).toBe('semi'); expect(p.series.map(s => [s.id, s.high, s.low, s.bestOf])).toEqual([['SF1', t[0], t[3], 3], ['SF2', t[1], t[2], 3]]);
