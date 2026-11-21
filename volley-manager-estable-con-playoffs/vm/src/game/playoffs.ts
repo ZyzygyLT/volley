@@ -23,6 +23,13 @@ export function startPlayoffs(g: GameState): GameState {
   if (!regularSeasonOver(g)) throw new Error('La fase regular todavía no terminó');
   if (g.playoffs) throw new Error('Los playoffs ya empezaron');
   if (g.teams.length < QUALIFIED) throw new Error(`Se necesitan al menos ${QUALIFIED} equipos para los playoffs`);
+  const fixtureKeys = new Set(g.fixtures.map(f => `${f.round}/${f.home}/${f.away}`));
+  const resultKeys = new Set(g.results.map(r => `${r.round}/${r.home}/${r.away}`));
+  if (g.round !== totalRounds(g) || fixtureKeys.size !== g.fixtures.length
+    || g.results.length !== g.fixtures.length || resultKeys.size !== g.results.length
+    || [...fixtureKeys].some(key => !resultKeys.has(key))) {
+    throw new Error('No se pueden iniciar los playoffs: la fase regular tiene resultados incompletos o duplicados');
+  }
   const t = standings(g).slice(0, QUALIFIED).map(x => x.team);
   return { ...g, playoffs: { stage: 'semi', series: [mk('SF1', t[0], t[3], 3), mk('SF2', t[1], t[2], 3)] } };
 }
