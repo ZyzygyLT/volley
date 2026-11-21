@@ -183,7 +183,8 @@ function assertSeasonCanClose(g: GameState): void {
     }
     return winsA === sets[0] && winsB === sets[1] && sumA === totals[0] && sumB === totals[1];
   };
-  if (results.size !== g.fixtures.length || [...fixtures].some(key => !results.has(key))
+  if (fixtures.size !== g.fixtures.length || g.results.length !== g.fixtures.length
+    || results.size !== g.fixtures.length || [...fixtures].some(key => !results.has(key))
     || g.results.some(r => !scoreMatches(r.sets, r.setScores, r.totals, true)
       || r.points[0] !== leaguePoints(r.sets)[0] || r.points[1] !== leaguePoints(r.sets)[1]
       || !Number.isInteger(r.seed) || r.seed < 0 || r.seed > 0xffff_ffff)) {
