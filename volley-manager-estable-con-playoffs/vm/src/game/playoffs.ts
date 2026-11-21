@@ -22,6 +22,7 @@ const seedOf = (g: GameState, s: Series, gameNo: number) => (((g.seed ^ Math.imu
 export function startPlayoffs(g: GameState): GameState {
   if (!regularSeasonOver(g)) throw new Error('La fase regular todavía no terminó');
   if (g.playoffs) throw new Error('Los playoffs ya empezaron');
+  if (g.teams.length < QUALIFIED) throw new Error(`Se necesitan al menos ${QUALIFIED} equipos para los playoffs`);
   const t = standings(g).slice(0, QUALIFIED).map(x => x.team);
   return { ...g, playoffs: { stage: 'semi', series: [mk('SF1', t[0], t[3], 3), mk('SF2', t[1], t[2], 3)] } };
 }
