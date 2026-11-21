@@ -192,6 +192,25 @@ describe('integridad semántica de guardados: fase regular', () => {
     expect(validateGame(sold)).toEqual([]);
   });
 
+  it('valida la identidad y los metadatos del archivo de retirados', () => {
+    const activeDuplicate = jsonCopy(newGame(431));
+    const player = activeDuplicate.teams[0].roster[0];
+    activeDuplicate.retiredPlayers.push({ ...player, retiredSeason: 1, lastTeam: 'Río Plata' });
+    rejected(activeDuplicate);
+
+    const invalidSeason = jsonCopy(newGame(432));
+    invalidSeason.retiredPlayers.push({ ...invalidSeason.market[0], retiredSeason: 2, lastTeam: 'Agente libre' });
+    rejected(invalidSeason);
+
+    const blankTeam = jsonCopy(newGame(433));
+    blankTeam.retiredPlayers.push({ ...blankTeam.market[0], retiredSeason: 1, lastTeam: '   ' });
+    rejected(blankTeam);
+
+    const valid = jsonCopy(newGame(434));
+    valid.retiredPlayers.push({ ...valid.market[0], retiredSeason: 1, lastTeam: 'Agente libre' });
+    expect(validateGame(valid)).toEqual([]);
+  });
+
   it('acepta asistencias acreditadas al colocador aunque no tenga kills', () => {
     const game = jsonCopy(regular(1));
     const id = Object.keys(game.career)[0];
