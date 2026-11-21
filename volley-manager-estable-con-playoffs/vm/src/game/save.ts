@@ -158,7 +158,8 @@ function check(input: unknown, e: string[]): void {
     if (!isObj(t) || t.id !== i || !isStr(t.name, 60) || !isNum(t.risk, 0, 100) || !isNum(t.clubBoost, -50, 50)) { e.push(`${w}: datos inválidos`); return; }
     const roster = t.roster;
     if (!Array.isArray(roster) || roster.length < 7 || roster.length > MAX_ROSTER) { e.push(`${w}: el plantel debe tener entre 7 y ${MAX_ROSTER} jugadores`); return; }
-    let ok = true; for (const p of roster) { if (!checkPlayer(p, w, e)) { ok = false; break; } if (seen.has((p as Player).id)) { e.push(`${w}: id repetido ${(p as Player).id}`); ok = false; break; } seen.add((p as Player).id);\n      if (!(p as Player).name.trim() || seenNames.has((p as Player).name)) { e.push(`${w}: nombre vacío o repetido ${(p as Player).name}`); ok = false; break; } seenNames.add((p as Player).name); }
+    let ok = true; for (const p of roster) { if (!checkPlayer(p, w, e)) { ok = false; break; } if (seen.has((p as Player).id)) { e.push(`${w}: id repetido ${(p as Player).id}`); ok = false; break; } seen.add((p as Player).id);
+      if (!(p as Player).name.trim() || seenNames.has((p as Player).name)) { e.push(`${w}: nombre vacío o repetido ${(p as Player).name}`); ok = false; break; } seenNames.add((p as Player).name); }
     if (!ok) return;
     for (const role of Object.keys(MIN_BY_ROLE) as Role[]) if ((roster as Player[]).filter(p => p.role === role).length < MIN_BY_ROLE[role]) { e.push(`${w}: faltan jugadores de la posición ${role}`); ok = false; }
     const l = t.lineup;
@@ -166,8 +167,8 @@ function check(input: unknown, e: string[]): void {
     else e.push(...validateLineup(roster as Player[], l as unknown as Lineup).map(m => `${w}: ${m}`));
   });
   if (!isInt(g.userTeam, 0, n - 1)) e.push('Equipo del usuario inválido');
-  if (!Array.isArray(g.market) || g.market.length > 80) e.push('Mercado inválido');
-  else for (const p of g.market) { if (!checkPlayer(p, 'Mercado', e)) break; if (seen.has((p as Player).id)) { e.push(`Mercado: id repetido ${(p as Player).id}`); break; } seen.add((p as Player).id); }
+  if (!Array.isArray(g.market) || g.market.length > ECON.maxMarket) e.push(`Mercado inválido: máximo ${ECON.maxMarket} agentes libres`);
+  else for (const p of g.market) { if (!checkPlayer(p, 'Mercado', e)) break; if (seen.has((p as Player).id)) { e.push(`Mercado: id repetido ${(p as Player).id}`); break; } seen.add((p as Player).id); if (!(p as Player).name.trim() || seenNames.has((p as Player).name)) { e.push(`Mercado: nombre vacío o repetido ${(p as Player).name}`); break; } seenNames.add((p as Player).name); }
   // calendario: debe ser exactamente la doble vuelta estándar de ese número de equipos
   const fx = roundRobin(n), rounds = 2 * (n - 1);
   if (!Array.isArray(g.fixtures) || g.fixtures.length !== fx.length || g.fixtures.some((f: unknown, i: number) => !isObj(f) || f.round !== fx[i].round || f.home !== fx[i].home || f.away !== fx[i].away)) e.push('Calendario inválido');
