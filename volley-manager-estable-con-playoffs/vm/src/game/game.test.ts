@@ -49,6 +49,20 @@ describe('temporada', () => {
     const manual = finishRound(g, playMatch(matchFor(g, f))), auto = finishRound(g);
     expect(manual.results).toEqual(auto.results);
   });
+  it('rechaza partidos manuales incompletos, de otro fixture o con semilla alterada sin modificar la jornada', () => {
+    const g = newGame(19), f = userFixture(g)!;
+    const incomplete = matchFor(g, f);
+    expect(() => finishRound(g, incomplete)).toThrow(/todavía no terminó/);
+
+    const altered = playMatch(matchFor(g, f));
+    altered.seed = (altered.seed + 1) >>> 0;
+    expect(() => finishRound(g, altered)).toThrow(/semilla|fixture/);
+
+    const other = fixturesOfRound(g).find(x => x !== f)!;
+    expect(() => finishRound(g, playMatch(matchFor(g, other)))).toThrow(/fixture/);
+    expect(g.round).toBe(0);
+    expect(g.results).toHaveLength(0);
+  });
   it('acumula estadísticas individuales de los titulares', () => {
     const g = finishRound(newGame(2));
     expect(Object.keys(g.career).length).toBe(8 * 7);
