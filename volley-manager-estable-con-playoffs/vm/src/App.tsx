@@ -1,5 +1,5 @@
 import { Component, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { legalSubs, MAX_SUBS, playMatch, sideForTeam, stepPoint, substitute } from './engine/match';
+import { legalSubs, MAX_SUBS, playMatch, sideForPlayers, stepPoint, substitute } from './engine/match';
 import { effective } from './engine/rally';
 import { emptyP, hitEff, pct, points } from './engine/stats';
 import type { MatchState, PStats, Player, Side } from './engine/types';
@@ -267,7 +267,8 @@ export default function App() {
 
   // Boxscore: la plantilla actual y los suplentes que tuvieron acciones.
   const squadsOf = (m: MatchState) => [0, 1].map(i => [...m.base[i], ...m.benches[i].filter(b => (m.playedIds ?? []).includes(b.id) || m.box[b.id])]);
-  const mySide = live ? sideForTeam(live, me.name) : null;
+  const myPlayerIds = useMemo(() => new Set(me.roster.map(p => p.id)), [me.roster]);
+  const mySide = live ? sideForPlayers(live, myPlayerIds) : null;
   const subOpts = live && mySide !== null ? legalSubs(live, mySide) : [];
   const doSub = () => {
     if (!live || mySide === null) { setMsg('No se pudo identificar tu equipo en este partido; no se aplicó ningún cambio.'); return; }
