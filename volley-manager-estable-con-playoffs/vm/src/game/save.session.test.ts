@@ -62,7 +62,7 @@ describe('sesiones con partido en curso', () => {
 
     const foreignRoster = structuredClone(live);
     const alteredPlayer = foreignRoster.base[0][0];
-    alteredPlayer.age = alteredPlayer.age < 50 ? alteredPlayer.age + 1 : alteredPlayer.age - 1;
+    alteredPlayer.age = (alteredPlayer.age ?? 20) + 1;
     const lineupPlayer = foreignRoster.teams[0].lineup.find(p => p.id === alteredPlayer.id)!;
     lineupPlayer.age = alteredPlayer.age;
     expect(() => serializeSession(game, foreignRoster, 'liga')).toThrow(SaveError);
