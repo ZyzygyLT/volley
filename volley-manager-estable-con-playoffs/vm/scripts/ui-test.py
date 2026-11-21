@@ -76,3 +76,6 @@ with sync_playwright() as p:
     m=b.new_context(viewport={'width':390,'height':844},device_scale_factor=2).new_page(); m.goto(URL); m.wait_for_selector('h1'); m.click('nav >> text=Plantel'); chk('vista móvil sin desbordamiento horizontal',m.evaluate('document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1')); m.screenshot(path='dist/shot_mobile.png')
     b.close()
 print('errores de consola:',errs or 'ninguno'); print(f'RESULTADO: {sum(res)}/{len(res)}')
+
+if not all(res) or errs:
+    raise SystemExit(1)
