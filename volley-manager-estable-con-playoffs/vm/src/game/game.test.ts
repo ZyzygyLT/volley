@@ -44,6 +44,20 @@ describe('temporada', () => {
     expect(a.results.length).toBe(4 * totalRounds(a));
     for (const r of a.results) { const w = r.sets[0] > r.sets[1] ? 0 : 1; expect(r.totals[w]).toBeGreaterThanOrEqual(r.sets[w] === 3 && r.sets[1 - w] === 2 ? 65 : 75); }
   });
+  it('trata como infinito el cociente con sets a favor y cero en contra', () => {
+    const g = {
+      ...newGame(77),
+      results: [
+        { round: 0, home: 0, away: 1, sets: [3, 0] as [number, number],
+          setScores: [[25, 20], [25, 20], [25, 20]] as [number, number][],
+          points: [3, 0] as [number, number], totals: [75, 60] as [number, number], seed: 1 },
+        { round: 0, home: 2, away: 3, sets: [3, 1] as [number, number],
+          setScores: [[25, 0], [25, 0], [0, 25], [25, 0]] as [number, number][],
+          points: [3, 0] as [number, number], totals: [75, 25] as [number, number], seed: 2 },
+      ],
+    };
+    expect(standings(g).slice(0, 2).map(x => x.team)).toEqual([0, 2]);
+  });
   it('el partido del usuario jugado a mano se registra igual que simulado', () => {
     const g = newGame(9), f = userFixture(g)!;
     const manual = finishRound(g, playMatch(matchFor(g, f))), auto = finishRound(g);
