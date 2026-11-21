@@ -219,6 +219,9 @@ function check(input: unknown, e: string[]): void {
   if (!Array.isArray(g.news) || g.news.length > 200 || g.news.some((x: unknown) => !isStr(x, 400))) e.push('Noticias inválidas');
   if (!Array.isArray(g.progressLog) || g.progressLog.length > 100 || g.progressLog.some((x: unknown) => !isObj(x) || !isStr(x.id, 40) || !isStr(x.name, 60) || !ROLES.includes(x.role as never) || !isInt(x.age, 15, 50) || !isNum(x.from, 0, 200) || !isNum(x.to, 0, 200))) e.push('Evolución inválida');
   checkBox(g.career, 'Estadísticas de la temporada', e); checkBox(g.allTime, 'Estadísticas históricas', e);
+  // Durante una temporada, un jugador puede estar en un plantel o en el mercado (si fue vendido), pero no desaparecer.
+  if (isObj(g.career)) for (const id of Object.keys(g.career)) if (!seen.has(id))
+    e.push('Estadísticas de la temporada: jugador inexistente en planteles y mercado (' + id + ')');
   checkPlayoffs(g.playoffs, n, g.round === rounds, teams, g.results as unknown[], e);
 }
 
