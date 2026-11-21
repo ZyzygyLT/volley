@@ -294,6 +294,67 @@ export function validateMatch(input: unknown): string[] {
       }
     }
   }
+  if (m.subHistory !== undefined) {
+    if (!Array.isArray(m.subHistory)) {
+      errors.push('subHistory: historial de sustituciones inválido');
+    } else {
+      const incomingIds = new Set<string>();
+      let previousSet = 0;
+      const currentBySide: [UnknownRecord[], UnknownRecord[]] = [[], []];
+      for (let i = 0; i < m.subHistory.length; i++) {
+        const event = m.subHistory[i];
+        if (!isRecord(event) || !isInteger(event.setNo) || event.setNo < 1 || event.setNo > (isInteger(m.setNo) ? m.setNo : 5)
+          || !isSide(event.side) || !isId(event.outId) || !isId(event.inId) || typeof event.isLibero !== 'boolean') {
+          errors.push(`subHistory[${i}]: evento inválido`);
+          continue;
+        }
+        if (event.setNo < previousSet) errors.push(`subHistory[${i}]: orden de sets inválido`);
+        previousSet = Math.max(previousSet, event.setNo);
+        const roster = rosterBySide[event.side];
+        const outgoing = roster.get(event.outId), incoming = roster.get(event.inId);
+        if (!outgoing || !incoming || event.outId === event.inId) {
+          errors.push(`subHistory[${i}]: participantes ajenos o repetidos`);
+          continue;
+        }
+        if (outgoing.role !== incoming.role || event.isLibero !== (outgoing.role === 'L')) {
+          errors.push(`subHistory[${i}]: tipo o posición de sustitución incoherente`);
+        }
+        incomingIds.add(event.inId);
+        if (event.setNo === m.setNo) currentBySide[event.side].push(event);
+      }
+      if (Array.isArray(m.playedIds)) {
+        const actual = new Set(m.playedIds.filter(isId));
+        if (actual.size !== incomingIds.size || [...incomingIds].some(id => !actual.has(id))) {
+          errors.push('playedIds: no coincide con las entradas del historial persistente');
+        }
+      } else if (incomingIds.size) {
+        errors.push('playedIds: falta el historial de participación asociado a subHistory');
+      }
+      for (const side of [0, 1] as const) {
+        const raw = subStates[side];
+        if (!isRecord(raw)) continue;
+        const ordinary = currentBySide[side].filter(event => event.isLibero === false);
+        if (isInteger(raw.count) && ordinary.length !== raw.count) {
+          errors.push(`subHistory: cantidad de cambios ordinarios no coincide con subState[${side}]`);
+        }
+        const replaced = Array.isArray(raw.replaced) ? raw.replaced : [];
+        const usedIn = Array.isArray(raw.usedIn) ? raw.usedIn : [];
+        const returned = new Set<string>();
+        for (const event of ordinary) {
+          const pairIndex = replaced.findIndex((id, i) => id === event.outId && usedIn[i] === event.inId);
+          if (pairIndex >= 0) {
+            if (returned.has(event.outId)) errors.push(`subHistory: titular sustituido más de una vez en set actual (${event.outId})`);
+            returned.add(event.outId);
+            continue;
+          }
+          const originalIndex = usedIn.indexOf(event.outId);
+          if (originalIndex < 0 || replaced[originalIndex] !== event.inId) {
+            errors.push(`subHistory: cambio no corresponde a las parejas de subState[${side}]`);
+          }
+        }
+      }
+    }
+  }
   if (m.playedIds !== undefined) {
     if (!Array.isArray(m.playedIds) || m.playedIds.some(id => !isId(id)) || new Set(m.playedIds).size !== m.playedIds.length) {
       errors.push('playedIds: historial de participación inválido');
