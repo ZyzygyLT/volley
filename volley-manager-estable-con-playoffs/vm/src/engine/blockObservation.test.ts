@@ -101,7 +101,8 @@ describe('observación explícita de intento de bloqueo', () => {
   it('rechaza entradas nulas o estados desconocidos sin lanzar una excepción', () => {
     expect(validateBlockObservation(null as unknown as BlockObservation).map(issue => issue.code))
       .toContain('invalid-observation');
-    expect(validateBlockObservation(observed({ status: 'unknown' } as unknown as Partial<ObservedBlockAttempt> as Partial<ObservedBlockAttempt> & { status: 'observed' })).map(issue => issue.code))
+    const unknownStatus = { ...observed(), status: 'unknown' } as unknown as BlockObservation;
+    expect(validateBlockObservation(unknownStatus).map(issue => issue.code))
       .toContain('invalid-observation-status');
   });
 
