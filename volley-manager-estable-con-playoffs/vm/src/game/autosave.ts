@@ -1,26 +1,31 @@
 import { deserializeSession, type SaveMeta, type SaveSession, type SaveStore } from './save';
 
-export interface AutoRecovery {
-  session: SaveSession | null;
-  source: 'auto' | 'auto-backup' | 'none';
-}
-
 /** Preserves the previous valid autosave before replacing it. Call inside the write queue. */
 export async function writeAutoWithBackup(store: SaveStore, json: string, meta: SaveMeta): Promise<void> {
   const current = await store.get('auto');
+  let currentIsValid = false;
   if (current !== null) {
     try {
       deserializeSession(current);
-      const previousMeta = (await store.list()).find(item => item.slot === 'auto');
-      const backupMeta: SaveMeta = previousMeta
-        ? { ...previousMeta, slot: 'auto-backup' }
-        : { ...meta, slot: 'auto-backup' };
-      await store.put('auto-backup', current, backupMeta);
+      currentIsValid = true;
     } catch {
-      // Do not replace a known-good backup with a corrupt primary slot.
+      // A corrupt primary slot is not a recovery point.
     }
   }
+  if (current !== null && currentIsValid) {
+    // Fail closed: if the backup cannot be written, keep the current primary untouched.
+    const previousMeta = (await store.list()).find(item => item.slot === 'auto');
+    const backupMeta: SaveMeta = previousMeta
+      ? { ...previousMeta, slot: 'auto-backup' }
+      : { ...meta, slot: 'auto-backup' };
+    await store.put('auto-backup', current, backupMeta);
+  }
   await store.put('auto', json, meta);
+}
+
+export interface AutoRecovery {
+  session: SaveSession | null;
+  source: 'auto' | 'auto-backup' | 'none';
 }
 
 /** Reads the newest valid autosave; repairs the primary slot when backup was needed. */
