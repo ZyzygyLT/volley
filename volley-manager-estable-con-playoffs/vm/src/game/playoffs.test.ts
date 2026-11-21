@@ -11,7 +11,7 @@ const regular = (seed: number): GameState => { let g = newGame(seed); while (!re
 describe('playoffs', () => {
   it('acredita el partido manual de playoffs a la alineación con la que comenzó, no a la siguiente', () => {
     const regularSeason = regular(711);
-    const game = startPlayoffs(regularSeason);
+    const game = startPlayoffs({ ...regularSeason, userTeam: standings(regularSeason)[0].team });
     const series = userSeries(game)!;
     const manual = playMatch(matchForSeries(game, series));
     const user = game.teams[game.userTeam];
