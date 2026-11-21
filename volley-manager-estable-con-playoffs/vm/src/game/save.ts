@@ -202,7 +202,11 @@ function check(input: unknown, e: string[]): void {
   if (!(isInt(g.season, 1, 1000))) e.push('Temporada inválida');
   if (!isObj(g.finance) || !isNum(g.finance.budget, -1e12, 1e12) || !Array.isArray(g.finance.ledger) || g.finance.ledger.length > 60
     || g.finance.ledger.some((x: unknown) => !isObj(x) || !isInt(x.round, 0, rounds) || !isStr(x.concept, 120) || !x.concept.trim() || !isNum(x.amount, -1e12, 1e12) || (x.season !== undefined && (!isInt(x.season, 1, 1000) || x.season > (g.season as number))))) e.push('Finanzas inválidas');
-  if (!Array.isArray(g.history) || g.history.length > 1000 || g.history.some((h: unknown) => !isObj(h) || !isInt(h.season, 1, 1000) || !isStr(h.champion, 60) || !isInt(h.userRank, 1, 32) || !isInt(h.userPoints, 0, 1000) || !isNum(h.prize, 0, 1e12))) e.push('Historial inválido');
+  if (!Array.isArray(g.history) || g.history.length > 1000
+    || (isInt(g.season, 1, 1000) && g.history.length !== g.season - 1)
+    || g.history.some((h: unknown, i: number) => !isObj(h) || h.season !== i + 1
+      || !isStr(h.champion, 60) || !h.champion.trim() || !isInt(h.userRank, 1, n)
+      || !isInt(h.userPoints, 0, 6 * (n - 1)) || !isNum(h.prize, 0, 1e12))) e.push('Historial inválido');
   if (!Array.isArray(g.news) || g.news.length > 200 || g.news.some((x: unknown) => !isStr(x, 400))) e.push('Noticias inválidas');
   if (!Array.isArray(g.progressLog) || g.progressLog.length > 100 || g.progressLog.some((x: unknown) => !isObj(x) || !isStr(x.id, 40) || !isStr(x.name, 60) || !ROLES.includes(x.role as never) || !isInt(x.age, 15, 50) || !isNum(x.from, 0, 200) || !isNum(x.to, 0, 200))) e.push('Evolución inválida');
   checkBox(g.career, 'Estadísticas de la temporada', e); checkBox(g.allTime, 'Estadísticas históricas', e);
