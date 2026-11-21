@@ -101,6 +101,18 @@ describe('integridad semántica de guardados: fase regular', () => {
     rejected(invalidRound);
   });
 
+  it('exige registros completos y sin campos desconocidos en las estadísticas acumuladas', () => {
+    const missing = jsonCopy(regular(1));
+    const playerId = Object.keys(missing.career)[0];
+    expect(playerId).toBeDefined();
+    delete (missing.career[playerId] as Partial<typeof missing.career[string]>).aces;
+    rejected(missing);
+
+    const extra = jsonCopy(regular(1));
+    const extraId = Object.keys(extra.career)[0];
+    (extra.career[extraId] as typeof extra.career[string] & { unexpected?: number }).unexpected = 1;
+    rejected(extra);
+  });
   it('rechaza semillas persistidas que no sean uint32', () => {
     const corrupt = jsonCopy(newGame(41));
     corrupt.seed = -1;
