@@ -150,6 +150,20 @@ describe('temporada', () => {
     expect(Object.keys(g.career).length).toBe(8 * 7);
     expect(leaders(g, 'kills', 3)[0].value).toBeGreaterThan(0);
   });
+  it('mantiene en los líderes a un jugador vendido durante la temporada', () => {
+    const played = finishRound(newGame(2));
+    const team = played.teams[played.userTeam];
+    const player = team.roster.find(p => p.id === team.lineup.OH[0])!;
+    expect(played.career[player.id]).toBeDefined();
+
+    const transferred = sell(played, player.id);
+    const entry = leaders(transferred, 'kills', 100).find(x => x.player.id === player.id);
+    expect(entry).toEqual({
+      player: transferred.market.find(p => p.id === player.id),
+      team: 'Agente libre',
+      value: transferred.career[player.id].kills,
+    });
+  });
 });
 
 describe('guardado', () => {
