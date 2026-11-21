@@ -148,6 +148,27 @@ describe('integridad semántica de guardados: fase regular', () => {
     rejected(invalidPoints);
   });
 
+  it('conserva las estadísticas históricas y reinicia solo el acumulado de temporada', () => {
+    const firstSeason = simulateSeason(newGame(61));
+    expect(Object.keys(firstSeason.career).length).toBeGreaterThan(0);
+    const firstCareer = jsonCopy(firstSeason.career);
+    const afterFirst = endSeason(firstSeason);
+    expect(afterFirst.career).toEqual({});
+    expect(afterFirst.allTime).toEqual(firstCareer);
+    for (const id of Object.keys(firstCareer)) expect(afterFirst.allTime[id]).toEqual(firstCareer[id]);
+
+    const secondSeason = simulateSeason(afterFirst);
+    const secondCareer = jsonCopy(secondSeason.career);
+    const afterSecond = endSeason(secondSeason);
+    expect(afterSecond.career).toEqual({});
+    for (const [id, stats] of Object.entries(secondCareer)) {
+      const prior = firstCareer[id] ?? Object.fromEntries(Object.keys(stats).map(k => [k, 0]));
+      for (const key of Object.keys(stats) as (keyof typeof stats)[])
+        expect(afterSecond.allTime[id][key]).toBe(prior[key] + stats[key]);
+    }
+    expect(validateGame(afterSecond)).toEqual([]);
+  });
+
   it('rechaza semillas persistidas que no sean uint32', () => {
     const corrupt = jsonCopy(newGame(41));
     corrupt.seed = -1;
