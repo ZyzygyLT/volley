@@ -73,7 +73,8 @@ describe('temporada', () => {
       prize: ECON.prizeByRank[Math.min(completed.playoffs!.ranking!.indexOf(completed.userTeam), ECON.prizeByRank.length - 1)],
     });
     expect(next.allTime).toEqual(completed.career);
-    // El nuevo estado no puede volver a cerrar la misma temporada.\n    expect(() => endSeason(next)).toThrow(/todavía no terminó/);
+    // El nuevo estado no puede volver a cerrar la misma temporada.
+    expect(() => endSeason(next)).toThrow(/todavía no terminó/);
   });
 
   it('rechaza el cierre si falta un resultado de la fase regular', () => {
