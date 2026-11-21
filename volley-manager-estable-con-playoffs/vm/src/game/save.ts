@@ -43,9 +43,10 @@ function checkBox(b: unknown, where: string, e: string[]): void {
       e.push(where + ': ' + id + '.' + k + ' inválido'); return;
     }
     // Relaciones garantizadas por applyEvents(): los resultados de cada contacto son excluyentes.
+    // Las asistencias se acreditan al colocador, no necesariamente al jugador que anota el kill.
     if (s.aces + s.serveErr > s.serves
       || s.recErr > s.recs || s.recPos > s.recs - s.recErr || s.recPerf > s.recPos
-      || s.kills + s.atkErr + s.blocked > s.atks || s.assists > s.kills) {
+      || s.kills + s.atkErr + s.blocked > s.atks) {
       e.push(where + ': relaciones estadísticas imposibles para ' + id); return;
     }
   }
