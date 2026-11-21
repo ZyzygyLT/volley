@@ -10,6 +10,7 @@ import { matchSummary } from './game/summary';
 import { chooseTeam, endSeason, finishRound, fixturesOfRound, isSeasonOver, leaders, matchFor, newGame, regularSeasonOver, seasonSummary, standings, totalRounds, userFixture, type GameState, type Series } from './game/season';
 import { finishPlayoffDay, matchForSeries, simulateSeason, startPlayoffs, userSeries, winsOf } from './game/playoffs';
 import { deserializeSession, indexedDbStore, memoryStore, metaOf, serializeSession, type SaveMeta } from './game/save';
+import { createWriteQueue } from './game/writeQueue';
 
 type Tab = 'liga' | 'plantel' | 'partido' | 'mercado' | 'finanzas' | 'stats' | 'guardar' | 'acerca';
 const TABS: [Tab, string][] = [['liga', 'Liga'], ['plantel', 'Plantel'], ['partido', 'Partido'], ['mercado', 'Mercado'], ['finanzas', 'Finanzas'], ['stats', 'Estadísticas'], ['guardar', 'Guardar'], ['acerca', 'Acerca de']];
@@ -102,6 +103,7 @@ export default function App() {
   const [pending, setPending] = useState<SaveMeta | null>(null);
   const [autoOn, setAutoOn] = useState(false);
   const store = useMemo(() => { try { return typeof indexedDB !== 'undefined' ? indexedDbStore() : memoryStore(); } catch { return memoryStore(); } }, []);
+  const writeQueue = useMemo(() => createWriteQueue(), []);
   const me = game.teams[game.userTeam], uf = userFixture(game), over = isSeasonOver(game);
   const refresh = () => store.list().then(setSaves).catch(() => setMsg('No se pudo leer el almacenamiento del navegador'));
   useEffect(() => { refresh(); }, []);
@@ -109,15 +111,15 @@ export default function App() {
   useEffect(() => { store.list().then(l => { const m = l.find(x => x.slot === 'auto'); if (m) setPending(m); else setAutoOn(true); }).catch(() => { setMsg('No se pudo comprobar el autoguardado. No se sobrescribirá ningún dato; revisá el almacenamiento y recargá para reintentar.'); setAutoOn(false); }); }, []);
   useEffect(() => {
     if (!autoOn) return;
-    const t = setTimeout(() => { try { store.put('auto', serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString())).catch(e => setMsg(`No se pudo completar el autoguardado: ${(e as Error).message}`)); } catch (e) { setMsg(`No se pudo preparar el autoguardado: ${(e as Error).message}`); } }, 400);
+    const t = setTimeout(() => { try { writeQueue(() => store.put('auto', serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString()))).catch(e => setMsg(`No se pudo completar el autoguardado: ${(e as Error).message}`)); } catch (e) { setMsg(`No se pudo preparar el autoguardado: ${(e as Error).message}`); } }, 400);
     return () => clearTimeout(t);
-  }, [game, live, liveKind, autoOn]);
+  }, [game, live, liveKind, autoOn, writeQueue]);
   // Si la pestaña se oculta o se cierra antes del debounce, intentamos persistir el último estado.
   useEffect(() => {
     if (!autoOn) return;
     const flush = () => {
       try {
-        store.put('auto', serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString()))
+        writeQueue(() => store.put('auto', serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString())))
           .catch(e => setMsg(`No se pudo completar el autoguardado al salir: ${(e as Error).message}`));
       } catch (e) {
         setMsg(`No se pudo preparar el autoguardado al salir: ${(e as Error).message}`);
@@ -130,7 +132,7 @@ export default function App() {
       window.removeEventListener('pagehide', flush);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [game, live, liveKind, autoOn, store]);
+  }, [game, live, liveKind, autoOn, store, writeQueue]);
   const continueAuto = async () => { try { const j = await store.get('auto'); if (j) { const restored = deserializeSession(j); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Continuás la partida automática'); } else setMsg('La partida automática ya no está disponible'); setPending(null); setAutoOn(true); } catch (e) { setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar.`); } };
 
   const setLineup = (l: Lineup) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, lineup: l } : t)) }));
@@ -172,9 +174,9 @@ export default function App() {
   const name = (i: number) => game.teams[i].name;
   const attempt = (f: () => GameState, ok: string) => { try { setGame(f()); setMsg(ok); } catch (e) { setMsg((e as Error).message); } };
 
-  const save = async (slot: string) => { try { await store.put(slot, serializeSession(game, live, liveKind), metaOf(slot, game, new Date().toISOString())); setMsg(`Partida guardada en la ranura ${slot}`); refresh(); } catch (e) { setMsg(String(e)); } };
+  const save = async (slot: string) => { try { await writeQueue(() => store.put(slot, serializeSession(game, live, liveKind), metaOf(slot, game, new Date().toISOString()))); setMsg(`Partida guardada en la ranura ${slot}`); refresh(); } catch (e) { setMsg(String(e)); } };
   const load = async (slot: string) => { try { const j = await store.get(slot); if (!j) return setMsg('Ranura vacía'); const restored = deserializeSession(j); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg(`Partida cargada (ranura ${slot})`); } catch (e) { setMsg(String(e)); } };
-  const remove = async (slot: string) => { try { await store.remove(slot); setMsg(`Ranura ${slot} borrada`); refresh(); } catch (e) { setMsg(String(e)); } };
+  const remove = async (slot: string) => { try { await writeQueue(() => store.remove(slot)); setMsg(`Ranura ${slot} borrada`); refresh(); } catch (e) { setMsg(String(e)); } };
   const importText = () => { try { const restored = deserializeSession(text); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Partida importada'); } catch (e) { setMsg((e as Error).message); } };
   const importFile = async (file: File | undefined) => { if (!file) return; try { const restored = deserializeSession(await file.text()); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Partida importada'); } catch (e) { setMsg((e as Error).message); } };
   const exportFile = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([serializeSession(game, live, liveKind)], { type: 'application/json' })); a.download = `volley-manager-jornada${game.round}.json`; a.click(); URL.revokeObjectURL(a.href); };
