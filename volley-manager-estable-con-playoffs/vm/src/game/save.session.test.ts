@@ -46,6 +46,9 @@ describe('sesiones con partido en curso', () => {
     const corrupt = structuredClone(live);
     corrupt.totals[0] += 1;
     expect(() => serializeSession(game, corrupt, 'liga')).toThrow(SaveError);
+    const inconsistentStats = structuredClone(live);
+    inconsistentStats.stats[0].ace++;
+    expect(() => serializeSession(game, inconsistentStats, 'liga')).toThrow(SaveError);
     const unrelated = structuredClone(live);
     unrelated.teams[0].name = 'Equipo ajeno';
     expect(() => serializeSession(game, unrelated, 'liga')).toThrow(SaveError);
