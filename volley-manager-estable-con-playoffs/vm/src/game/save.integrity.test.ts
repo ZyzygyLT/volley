@@ -99,6 +99,14 @@ describe('integridad semántica de guardados: fase regular', () => {
     const invalidRound = jsonCopy(newGame(49));
     invalidRound.finance.ledger = [{ round: 15, season: 1, concept: 'Movimiento', amount: 100 }];
     rejected(invalidRound);
+
+    const futureSeason = jsonCopy(newGame(50));
+    futureSeason.finance.ledger = [{ round: 0, season: 2, concept: 'Movimiento futuro', amount: 100 }];
+    rejected(futureSeason);
+
+    const legacyWithoutSeason = jsonCopy(newGame(51));
+    legacyWithoutSeason.finance.ledger = [{ round: 0, concept: 'Movimiento antiguo', amount: 100 }];
+    expect(validateGame(legacyWithoutSeason)).toEqual([]);
   });
 
   it('exige registros completos y sin campos desconocidos en las estadísticas acumuladas', () => {
