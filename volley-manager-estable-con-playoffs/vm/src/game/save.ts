@@ -42,11 +42,13 @@ function checkBox(b: unknown, where: string, e: string[]): void {
     for (const k of STAT_KEYS) if (!(k === 'recQSum' ? isNum(s[k], 0, 1e7) : isInt(s[k], 0, 1e7))) {
       e.push(where + ': ' + id + '.' + k + ' inválido'); return;
     }
+    // Las keys y tipos ya se validaron arriba; aquí se comparan sus valores numéricos.
+    const stats = s as Record<string, number>;
     // Relaciones garantizadas por applyEvents(): los resultados de cada contacto son excluyentes.
     // Las asistencias se acreditan al colocador, no necesariamente al jugador que anota el kill.
-    if (s.aces + s.serveErr > s.serves
-      || s.recErr > s.recs || s.recPos > s.recs - s.recErr || s.recPerf > s.recPos
-      || s.kills + s.atkErr + s.blocked > s.atks) {
+    if (stats.aces + stats.serveErr > stats.serves
+      || stats.recErr > stats.recs || stats.recPos > stats.recs - stats.recErr || stats.recPerf > stats.recPos
+      || stats.kills + stats.atkErr + stats.blocked > stats.atks) {
       e.push(where + ': relaciones estadísticas imposibles para ' + id); return;
     }
   }
