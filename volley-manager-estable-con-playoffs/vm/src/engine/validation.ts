@@ -112,6 +112,18 @@ function validateSubState(value: unknown, side: Side, roster: Map<string, Player
     && count !== 2 * replaced.length - Object.keys(swaps).length) fail('count: no concuerda con el historial');
   if (Array.isArray(replaced)) for (const id of replaced) if (typeof id === 'string' && !roster.has(id)) fail(`replaced: jugador desconocido (${id})`);
   if (Array.isArray(usedIn)) for (const id of usedIn) if (typeof id === 'string' && !roster.has(id)) fail(`usedIn: jugador desconocido (${id})`);
+  if (Array.isArray(replaced) && Array.isArray(usedIn)) {
+    const replacedSet = new Set(replaced.filter(isId));
+    const usedInSet = new Set(usedIn.filter(isId));
+    for (const id of replacedSet) if (usedInSet.has(id)) fail(`historiales: jugador figura como saliente y entrante (${id})`);
+    for (let i = 0; i < Math.min(replaced.length, usedIn.length); i++) {
+      const outgoing = roster.get(replaced[i] as string);
+      const incoming = roster.get(usedIn[i] as string);
+      if (outgoing && incoming && outgoing.role !== incoming.role) {
+        fail(`historiales[${i}]: pareja de sustitución con posiciones diferentes`);
+      }
+    }
+  }
   const incomingIds = new Set<string>(), outgoingIds = new Set<string>();
   for (const [incoming, outgoing] of Object.entries(swaps)) {
     if (!isId(incoming) || !isId(outgoing)) { fail('swaps: identificador inválido'); continue; }
@@ -123,6 +135,8 @@ function validateSubState(value: unknown, side: Side, roster: Map<string, Player
     if (!lineup.has(incoming) || !bench.has(outgoing)) fail('swaps: jugadores fuera de sus ubicaciones esperadas');
     if (Array.isArray(usedIn) && !usedIn.includes(incoming)) fail('swaps: entrante ausente de usedIn');
     if (Array.isArray(replaced) && !replaced.includes(outgoing)) fail('swaps: saliente ausente de replaced');
+    if (Array.isArray(usedIn) && Array.isArray(replaced)
+      && usedIn.indexOf(incoming) !== replaced.indexOf(outgoing)) fail('swaps: pareja activa no coincide con el historial');
   }
   return valid;
 }
