@@ -43,6 +43,9 @@ describe('semillas de partida', () => {
     for (const seed of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 0x1_0000_0000]) {
       expect(() => newGame(seed)).toThrow(/uint32/);
     }
+    expect(() => newGame(1, 0, 1)).toThrow(/entre 2 y 32/);
+    expect(() => newGame(1, 0, 3)).toThrow(/entre 2 y 32/);
+    expect(() => newGame(1, 32, 8)).toThrow(/equipo del usuario/);
   });
 });
 
