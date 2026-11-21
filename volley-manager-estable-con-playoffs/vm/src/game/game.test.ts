@@ -120,7 +120,10 @@ describe('temporada', () => {
   });
   it('permite cambiar táctica y alineación para el siguiente partido mientras el actual sigue en curso', () => {
     const g = newGame(29), f = userFixture(g)!;
-    const manual = playMatch(matchFor(g, f));
+    const side = f.home === g.userTeam ? 0 : 1;
+    const initial = matchFor(g, f);
+    const sub = legalSubs(initial, side).find(option => !option.isLibero)!;
+    const manual = playMatch(substitute(initial, side, sub.out.id, sub.inn.id));
     const changedTeams = g.teams.map(team => {
       if (team.id !== f.home) return team;
       const replacement = team.roster.find(p => p.role === 'OH' && !team.lineup.OH.includes(p.id))!;
