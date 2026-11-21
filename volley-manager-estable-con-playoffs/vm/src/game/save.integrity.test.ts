@@ -49,6 +49,20 @@ describe('integridad semántica de guardados: fase regular', () => {
     rejected(wrongPoints);
   });
 
+  it('rechaza semillas de resultados de liga que no sean uint32', () => {
+    const negative = jsonCopy(regular(1));
+    negative.results[0].seed = -1;
+    rejected(negative);
+
+    const fractional = jsonCopy(regular(1));
+    fractional.results[0].seed = 1.5;
+    rejected(fractional);
+
+    const overflow = jsonCopy(regular(1));
+    overflow.results[0].seed = 0x1_0000_0000;
+    rejected(overflow);
+  });
+
   it('valida marcadores de sets y parciales sin romper saves antiguos sin parciales', () => {
     const impossible = jsonCopy(regular(1));
     impossible.results[0].sets = [3, 3];
@@ -267,6 +281,20 @@ describe('integridad semántica de guardados: playoffs', () => {
     const final = extra.playoffs!.series[2];
     final.games.push({ ...final.games[final.games.length - 1], game: final.games.length + 1 });
     rejected(extra);
+  });
+
+  it('rechaza semillas de partidos de playoffs que no sean uint32', () => {
+    const negative = jsonCopy(completed());
+    negative.playoffs!.series[0].games[0].seed = -1;
+    rejected(negative);
+
+    const fractional = jsonCopy(completed());
+    fractional.playoffs!.series[0].games[0].seed = 2.5;
+    rejected(fractional);
+
+    const overflow = jsonCopy(completed());
+    overflow.playoffs!.series[0].games[0].seed = 0x1_0000_0000;
+    rejected(overflow);
   });
 
   it('rechaza localía no alternada y campeón/ranking incoherentes', () => {
