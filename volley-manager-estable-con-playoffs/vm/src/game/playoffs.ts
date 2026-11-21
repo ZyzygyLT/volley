@@ -1,4 +1,5 @@
 import type { MatchState } from '../engine/types';
+import { validateMatchAgainst } from '../engine/validation';
 import { playMatch } from '../engine/match';
 import { mergeBox } from '../engine/stats';
 import { ECON } from './economy';
@@ -57,8 +58,19 @@ function advanceStage(g: GameState, p: PlayoffState): PlayoffState {
  * (si se jugó a mano). Registra estadísticas y finanzas del usuario y avanza de etapa cuando todas las series terminan. Función pura.
  */
 export function finishPlayoffDay(g: GameState, userMatch?: MatchState): GameState {
-  const p0 = g.playoffs; if (!p0 || p0.stage === 'done') return g;
-  const mine = userSeries(g); let career = g.career, budget = g.finance.budget; const ledger = [...g.finance.ledger];
+  const p0 = g.playoffs;
+  if (!p0 || p0.stage === 'done') {
+    if (userMatch) throw new Error('No se puede registrar un partido manual: no hay una serie activa');
+    return g;
+  }
+  const mine = userSeries(g);
+  if (userMatch) {
+    if (!mine) throw new Error('El equipo del usuario no tiene una serie activa');
+    if (!userMatch.over) throw new Error('El partido manual de playoffs todavía no terminó');
+    const errors = validateMatchAgainst(userMatch, matchForSeries(g, mine));
+    if (errors.length) throw new Error(`Partido manual de playoffs inválido: ${errors.join('; ')}`);
+  }
+  let career = g.career, budget = g.finance.budget; const ledger = [...g.finance.ledger];
   const series = p0.series.map(s => {
     if (isDone(s)) return s;
     let m = s === mine && userMatch ? userMatch : matchForSeries(g, s);
