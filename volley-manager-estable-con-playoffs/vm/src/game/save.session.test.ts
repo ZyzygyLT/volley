@@ -31,6 +31,7 @@ describe('sesiones con partido en curso', () => {
     expect(restored.game).toEqual(game);
     expect(restored.liveKind).toBe('liga');
     expect(restored.liveMatch).toEqual(live);
+    expect(restored.liveMatch?.subHistory).toEqual(live.subHistory);
     expect(deserializeSession(serialize(game)).liveMatch).toBeNull();
   });
 
