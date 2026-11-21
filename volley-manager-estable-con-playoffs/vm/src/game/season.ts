@@ -158,8 +158,72 @@ export function seasonSummary(g: GameState): SeasonRecord {
  * evolución por edad, retiros, fichajes de las computadoras, cantera y jóvenes nuevos. Lanza Error si la temporada no terminó.
  * El usuario puede operar en el mercado ANTES de llamarla (ficha primero).
  */
+function assertSeasonCanClose(g: GameState): void {
+  if (!isSeasonOver(g) || !g.playoffs) throw new Error('La temporada todavía no terminó');
+  const rounds = totalRounds(g);
+  if (g.round !== rounds || g.results.length !== g.fixtures.length) {
+    throw new Error('No se puede cerrar la temporada: la fase regular está incompleta');
+  }
+  const fixtures = new Set(g.fixtures.map(f => `${f.round}/${f.home}/${f.away}`));
+  const results = new Set(g.results.map(r => `${r.round}/${r.home}/${r.away}`));
+  if (results.size !== g.fixtures.length || [...fixtures].some(key => !results.has(key))) {
+    throw new Error('No se puede cerrar la temporada: los resultados no coinciden con el calendario');
+  }
+
+  const p = g.playoffs;
+  const expectedIds = ['SF1', 'SF2', 'F', 'B'];
+  if (p.stage !== 'done' || p.series.length !== expectedIds.length
+    || p.series.some((s, i) => s.id !== expectedIds[i] || s.winner === undefined
+      || (s.winner !== s.high && s.winner !== s.low)
+      || s.games.length < (s.bestOf === 3 ? 2 : 3) || s.games.length > s.bestOf)) {
+    throw new Error('No se puede cerrar la temporada: las series de playoffs están incompletas o son inválidas');
+  }
+  for (const s of p.series) {
+    const needed = s.bestOf === 3 ? 2 : 3;
+    let highWins = 0, lowWins = 0;
+    for (let i = 0; i < s.games.length; i++) {
+      const game = s.games[i];
+      const expectedHome = i % 2 === 0 ? s.high : s.low;
+      const expectedAway = expectedHome === s.high ? s.low : s.high;
+      if (game.game !== i + 1 || game.home !== expectedHome || game.away !== expectedAway
+        || game.sets[0] === game.sets[1] || Math.max(...game.sets) !== 3
+        || (game.sets[0] > game.sets[1] ? game.home : game.away) !== s.winner) {
+        // A series may contain wins by both teams; only the winner check is performed below.
+        if (game.game !== i + 1 || game.home !== expectedHome || game.away !== expectedAway
+          || game.sets[0] === game.sets[1] || Math.max(...game.sets) !== 3) {
+          throw new Error(`No se puede cerrar la temporada: partido inválido en la serie ${s.id}`);
+        }
+      }
+      const winner = game.sets[0] > game.sets[1] ? game.home : game.away;
+      if (winner === s.high) highWins++; else if (winner === s.low) lowWins++;
+      else throw new Error(`No se puede cerrar la temporada: participante inválido en la serie ${s.id}`);
+      if (highWins >= needed || lowWins >= needed) {
+        if (i !== s.games.length - 1) throw new Error(`No se puede cerrar la temporada: la serie ${s.id} continuó después de decidirse`);
+      }
+    }
+    const actualWinner = highWins >= needed ? s.high : lowWins >= needed ? s.low : undefined;
+    if (actualWinner !== s.winner) throw new Error(`No se puede cerrar la temporada: ganador incorrecto en la serie ${s.id}`);
+  }
+
+  const final = p.series.find(s => s.id === 'F')!, bronze = p.series.find(s => s.id === 'B')!;
+  const expectedTop = [final.winner!, final.winner === final.high ? final.low : final.high,
+    bronze.winner!, bronze.winner === bronze.high ? bronze.low : bronze.high];
+  const expectedRanking = [...expectedTop, ...standings(g).map(s => s.team).filter(t => !expectedTop.includes(t))];
+  if (p.champion !== final.winner || !p.ranking || p.ranking.length !== g.teams.length
+    || new Set(p.ranking).size !== g.teams.length
+    || p.ranking.some((team, i) => team !== expectedRanking[i])) {
+    throw new Error('No se puede cerrar la temporada: campeón o ranking final incoherente');
+  }
+  if (!Number.isFinite(g.finance.budget) || !Array.isArray(g.finance.ledger)
+    || !Array.isArray(g.history) || g.history.length !== g.season - 1
+    || g.history.some((record, i) => record.season !== i + 1)) {
+    throw new Error('No se puede cerrar la temporada: historial o finanzas inválidos');
+  }
+}
+
+/** Cierra la temporada solo después de verificar calendario, playoffs, ranking, historial y finanzas. */
 export function endSeason(g: GameState): GameState {
-  if (!isSeasonOver(g)) throw new Error('La temporada todavía no terminó');
+  assertSeasonCanClose(g);
   const rec = seasonSummary(g), rnd = mulberry32((g.seed ^ Math.imul(g.season, 0x27d4eb2f)) >>> 0);
   const rankOf = new Map(finalRanking(g).map((team, i) => [team, i + 1]));
   const { g: g1, news, progress } = runOffseason(g, rnd, rankOf);
