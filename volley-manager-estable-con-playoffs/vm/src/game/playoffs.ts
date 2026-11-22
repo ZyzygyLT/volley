@@ -22,8 +22,8 @@ export const legacyPlayoffSeed = (g: GameState, s: Series, gameNo: number) => ((
 /** Identidad completa de serie + número de partido; evita que SF1 y SF2 compartan secuencia aleatoria. */
 export const playoffSeed = (g: GameState, s: Series, gameNo: number) => {
   const seriesKey: Record<Series['id'], number> = { SF1: 1, SF2: 2, F: 3, B: 4 };
-  const gameKey = seriesKey[s.id] * 8 + gameNo;
-  return ((g.seed ^ Math.imul(gameKey, 0x9e3779b1) ^ Math.imul(g.season, 0x85ebca6b) ^ 0x5bd1e995) >>> 0);
+  const gameKey = 0x20000 | (seriesKey[s.id] * 8 + gameNo);
+  return ((g.seed ^ Math.imul(gameKey, 0x9e3779b1) ^ Math.imul((g.season ?? 1) - 1, 0x85ebca6b)) >>> 0);
 };
 
 /** Empieza los playoffs con los 4 mejores de la fase regular. Lanza Error si la fase regular no terminó o ya empezaron. */
