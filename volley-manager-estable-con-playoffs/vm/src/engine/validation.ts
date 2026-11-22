@@ -392,11 +392,11 @@ export function validateMatch(input: unknown): string[] {
  * que el partido inicial esperado. Permite rotaciones y sustituciones legales: compara
  * el conjunto completo de jugadores, no el orden mutable de base/banquillo.
  */
-export function validateMatchAgainst(input: unknown, expected: MatchState): string[] {
+export function validateMatchAgainst(input: unknown, expected: MatchState, legacySeed?: number): string[] {
   const errors = validateMatch(input);
   if (!isRecord(input)) return errors;
   const actual = input;
-  if (actual.seed !== expected.seed) errors.push('seed: no corresponde al fixture o serie');
+  if (actual.seed !== expected.seed && actual.seed !== legacySeed) errors.push('seed: no corresponde al fixture o serie');
   if (!Array.isArray(actual.teams) || actual.teams.length !== 2
     || !Array.isArray(actual.base) || actual.base.length !== 2
     || !Array.isArray(actual.benches) || actual.benches.length !== 2) return errors;
