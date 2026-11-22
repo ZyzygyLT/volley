@@ -9,7 +9,7 @@ import { addBoxes } from './engine/stats';
 import { matchSummary } from './game/summary';
 import { chooseTeam, endSeason, finishRound, fixturesOfRound, isSeasonOver, leaders, matchFor, newGame, regularSeasonOver, seasonSummary, standings, totalRounds, userFixture, type GameState, type Series } from './game/season';
 import { finishPlayoffDay, matchForSeries, simulateSeason, startPlayoffs, userSeries, winsOf } from './game/playoffs';
-import { deserializeSession, indexedDbStore, memoryStore, metaOf, serializeSession, type SaveMeta } from './game/save';
+import { deserializeSession, indexedDbStore, memoryStore, metaOf, serializeSession, MAX_SAVE_CHARS, type SaveMeta } from './game/save';
 import { createWriteQueue } from './game/writeQueue';
 import { recoverAuto, writeAutoWithBackup } from './game/autosave';
 
@@ -262,7 +262,7 @@ export default function App() {
   const load = async (slot: string) => { try { const j = await writeQueue(() => store.get(slot)); if (!j) return setMsg('Ranura vacía'); const restored = deserializeSession(j); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg(`Partida cargada (ranura ${slot})`); } catch (e) { setMsg(String(e)); } };
   const remove = async (slot: string) => { try { await writeQueue(() => store.remove(slot)); setMsg(`Ranura ${slot} borrada`); refresh(); } catch (e) { setMsg(String(e)); } };
   const importText = () => { try { const restored = deserializeSession(text); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Partida importada'); } catch (e) { setMsg((e as Error).message); } };
-  const importFile = async (file: File | undefined) => { if (!file) return; try { const restored = deserializeSession(await file.text()); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Partida importada'); } catch (e) { setMsg((e as Error).message); } };
+  const importFile = async (file: File | undefined) => { if (!file) return; if (file.size > MAX_SAVE_CHARS * 4) { setMsg('El archivo supera el tamaño máximo permitido'); return; } try { const restored = deserializeSession(await file.text()); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Partida importada'); } catch (e) { setMsg((e as Error).message); } };
   const exportFile = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([serializeSession(game, live, liveKind)], { type: 'application/json' })); a.download = `volley-manager-jornada${game.round}.json`; a.click(); URL.revokeObjectURL(a.href); };
 
   // Boxscore: la plantilla actual y los suplentes que tuvieron acciones.
