@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { playMatch } from '../engine/match';
+import { playMatch, legalSubs, substitute } from '../engine/match';
 import { ECON } from './economy';
 import { deserialize, serialize } from './save';
 import { endSeason, finalRanking, finishRound, isSeasonOver, newGame, regularSeasonOver, seasonSummary, standings, type GameState } from './season';
@@ -46,6 +46,19 @@ describe('playoffs', () => {
     while (!isSeasonOver(g)) g = advance(g);
     const rec = seasonSummary(g), rank = finalRanking(g); expect(rec.userRank).toBe(rank.indexOf(g.userTeam) + 1); expect(rec.champion).toBe(g.teams[rank[0]].name);
     expect(rec.prize).toBe(ECON.prizeByRank[rec.userRank - 1]); const n = endSeason(g); expect(n.playoffs).toBeNull(); expect(n.history[0].champion).toBe(rec.champion);
+  });
+  it('un suplente que estuvo en cancha suma GP aunque no genere eventos estadísticos', () => {
+    let g = startPlayoffs(regular(17));
+    const s = g.playoffs!.series[0];
+    g = { ...g, userTeam: s.high };
+    let m = matchForSeries(g, s);
+    const option = legalSubs(m, 0).find(x => x.out.role === 'OH')!;
+    const id = option.inn.id, before = g.career[id]?.gp ?? 0;
+    m = playMatch(substitute(m, 0, option.out.id, option.inn.id));
+    expect(m.onCourt[id]).toBeGreaterThan(0);
+    delete m.box[id];
+    const after = finishPlayoffDay(g, m);
+    expect(after.career[id]?.gp).toBe(before + 1);
   });
   it('el usuario cobra entradas y premio de victoria en sus partidos de playoffs', () => {
     for (let seed = 1; seed <= 30; seed++) {
