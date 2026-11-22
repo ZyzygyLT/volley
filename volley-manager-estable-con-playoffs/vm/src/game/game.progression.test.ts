@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { newGame, endSeason, roundRobin, fixtureSeed } from './season';
+import { newGame, endSeason, roundRobin, fixtureSeed, legacyFixtureSeed, matchFor } from './season';
 import { simulateSeason } from './playoffs';
 import { validateLineup, MIN_BY_ROLE, ROSTER_SLOTS, MAX_ROSTER, lineupToSquad, overall } from './roster';
 import { ECON } from './economy';
 import { AGE, retireProb } from './ages';
 import { makeYouth, progressPlayer, seasonalAgentRoles } from './offseason';
 import { mulberry32 } from '../engine/rng';
-import { deserialize, serialize } from './save';
+import { deserialize, serialize, serializeSession, deserializeSession } from './save';
+import { validateMatchAgainst } from '../engine/validation';
 describe('semillas de fixtures', () => {
   it('asigna semillas distintas a todos los partidos admitidos, incluidos los de ligas de 32 equipos', () => {
     for (const nTeams of [8, 16, 32]) {
@@ -15,6 +16,26 @@ describe('semillas de fixtures', () => {
       expect(seeds.every(seed => Number.isInteger(seed) && seed >= 0 && seed <= 0xffff_ffff)).toBe(true);
       expect(new Set(seeds).size).toBe(game.fixtures.length);
       expect(game.fixtures).toEqual(roundRobin(nTeams));
+    }
+  });
+
+  it('recupera sesiones en curso con la semilla histórica de un fixture', () => {
+    const base = newGame(0x1234abcd, 0, 32);
+    const seen = new Set<number>();
+    const fixture = base.fixtures.find(item => {
+      const legacy = legacyFixtureSeed(base, item);
+      if (seen.has(legacy)) return true;
+      seen.add(legacy);
+      return false;
+    })!;
+    const game = { ...base, userTeam: fixture.home };
+    const liveMatch = matchFor(game, fixture);
+    liveMatch.seed = legacyFixtureSeed(game, fixture);
+
+    expect(validateMatchAgainst(liveMatch, matchFor(game, fixture), legacyFixtureSeed(game, fixture))).toEqual([]);
+    const restored = deserializeSession(serializeSession(game, liveMatch, 'liga'));
+    expect(restored.game).toEqual(game);
+    expect(restored.liveMatch?.seed).toBe(liveMatch.seed);
     }
   });
 });
