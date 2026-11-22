@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { legalSubs, sideForTeam, stepPoint, substitute } from '../engine/match';
+import { legalSubs, playMatch, sideForTeam, stepPoint, substitute } from '../engine/match';
 import { finishRound, matchFor, newGame, regularSeasonOver } from './season';
 import { finishPlayoffDay, matchForSeries, startPlayoffs, userSeries } from './playoffs';
 import { deserializeSession, serialize, serializeSession, SaveError, memoryStore, indexedDbStore } from './save';
@@ -32,6 +32,7 @@ describe('sesiones con partido en curso', () => {
     expect(restored.liveKind).toBe('liga');
     expect(restored.liveMatch).toEqual(live);
     expect(restored.liveMatch?.subHistory).toEqual(live.subHistory);
+    expect(playMatch(restored.liveMatch!)).toEqual(playMatch(live));
     expect(deserializeSession(serialize(game)).liveMatch).toBeNull();
   });
 
@@ -45,6 +46,7 @@ describe('sesiones con partido en curso', () => {
     expect(restored.game).toEqual(game);
     expect(restored.liveKind).toBe('playoff');
     expect(restored.liveMatch).toEqual(live);
+    expect(playMatch(restored.liveMatch!)).toEqual(playMatch(live));
   });
 
   it('rechaza un partido alterado o que no pertenece a los participantes de la partida', () => {
