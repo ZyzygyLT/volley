@@ -15,20 +15,16 @@ describe('semillas de fixtures', () => {
       const seeds = game.fixtures.map(fixture => fixtureSeed(game, fixture));
       expect(seeds.every(seed => Number.isInteger(seed) && seed >= 0 && seed <= 0xffff_ffff)).toBe(true);
       expect(new Set(seeds).size).toBe(game.fixtures.length);
+      const oldSeeds = game.fixtures.map(fixture => legacyFixtureSeed(game, fixture));
+      if (nTeams > 8) expect(new Set(oldSeeds).size).toBeLessThan(game.fixtures.length);
       expect(game.fixtures).toEqual(roundRobin(nTeams));
     }
   });
 
   it('recupera sesiones en curso con la semilla histórica de un fixture', () => {
     const base = newGame(0x1234abcd, 0, 32);
-    const seen = new Set<number>();
-    const fixture = base.fixtures.find(item => {
-      const legacy = legacyFixtureSeed(base, item);
-      if (seen.has(legacy)) return true;
-      seen.add(legacy);
-      return false;
-    })!;
-    const game = { ...base, userTeam: fixture.home };
+    const fixture = base.fixtures.find(item => item.round === 0 && (item.home === base.userTeam || item.away === base.userTeam))!;
+    const game = base;
     const liveMatch = matchFor(game, fixture);
     liveMatch.seed = legacyFixtureSeed(game, fixture);
 
