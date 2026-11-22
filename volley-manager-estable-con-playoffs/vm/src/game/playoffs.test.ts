@@ -1,15 +1,78 @@
 import { describe, it, expect } from 'vitest';
-import { playMatch } from '../engine/match';
+import { playMatch, legalSubs, substitute } from '../engine/match';
 import { ECON } from './economy';
-import { deserialize, serialize } from './save';
-import { endSeason, finalRanking, finishRound, isSeasonOver, newGame, regularSeasonOver, seasonSummary, standings, type GameState } from './season';
-import { advance, finishPlayoffDay, matchForSeries, simulateSeason, startPlayoffs, userSeries, winsOf } from './playoffs';
+import { deserialize, serialize, serializeSession, deserializeSession } from './save';
+import { endSeason, finalRanking, finishRound, fixtureSeed, isSeasonOver, newGame, regularSeasonOver, seasonSummary, standings, type GameState } from './season';
+import { advance, finishPlayoffDay, legacyPlayoffSeed, matchForSeries, playoffSeed, simulateSeason, startPlayoffs, userSeries, winsOf } from './playoffs';
 
 const regular = (seed: number): GameState => { let g = newGame(seed); while (!regularSeasonOver(g)) g = finishRound(g); return g; };
 
 describe('playoffs', () => {
+  it('acredita el partido manual de playoffs a la alineación con la que comenzó, no a la siguiente', () => {
+    const regularSeason = regular(711);
+    const game = startPlayoffs({ ...regularSeason, userTeam: standings(regularSeason)[0].team });
+    const series = userSeries(game)!;
+    const manual = playMatch(matchForSeries(game, series));
+    const user = game.teams[game.userTeam];
+    const originalStarter = user.lineup.OH[1];
+    const originalGp = game.career[originalStarter]?.gp ?? 0;
+    const replacement = user.roster.find(player => player.role === 'OH' && !user.lineup.OH.includes(player.id))!;
+    const replacementGp = game.career[replacement.id]?.gp ?? 0;
+    const changed = {
+      ...game,
+      teams: game.teams.map(team => team.id === game.userTeam
+        ? { ...team, lineup: { ...team.lineup, OH: [team.lineup.OH[0], replacement.id] as [string, string] } }
+        : team),
+    };
+    const next = finishPlayoffDay(changed, manual);
+    expect(next.career[originalStarter]?.gp).toBe(originalGp + 1);
+    expect(next.career[replacement.id]?.gp ?? 0).toBe(replacementGp);
+  });
+
+  it('acredita GP al suplente de playoffs aunque no registre acciones estadísticas', () => {
+    const regularSeason = regular(712);
+    const game = startPlayoffs({ ...regularSeason, userTeam: standings(regularSeason)[0].team });
+    const series = userSeries(game)!;
+    let manual = matchForSeries(game, series);
+    const option = legalSubs(manual, 0).find(candidate => candidate.out.role === 'OH')!;
+    const before = game.career[option.inn.id]?.gp ?? 0;
+    manual = playMatch(substitute(manual, 0, option.out.id, option.inn.id));
+    // El suplente entró y jugó, aunque el registro estadístico no tenga eventos.
+    manual.box = {};
+    manual.stats = [{ ace: 0, kill: 0, blk: 0, err: 0 }, { ace: 0, kill: 0, blk: 0, err: 0 }];
+    const after = finishPlayoffDay(game, manual);
+    expect(after.career[option.inn.id]?.gp).toBe(before + 1);
+  });
+
+  it('usa semillas independientes para SF1 y SF2 y recupera sesiones de playoffs antiguas', () => {
+    const regularSeason = regular(88);
+    const game = startPlayoffs({ ...regularSeason, userTeam: standings(regularSeason)[0].team });
+    const [sf1, sf2] = game.playoffs!.series;
+    const playoffSeeds: number[] = [];
+    for (let gameNo = 1; gameNo <= 5; gameNo++) {
+      expect(playoffSeed(game, sf1, gameNo)).not.toBe(playoffSeed(game, sf2, gameNo));
+      expect(legacyPlayoffSeed(game, sf1, gameNo)).toBe(legacyPlayoffSeed(game, sf2, gameNo));
+      playoffSeeds.push(playoffSeed(game, sf1, gameNo), playoffSeed(game, sf2, gameNo));
+    }
+    const allSeeds = [...game.fixtures.map(fixture => fixtureSeed(game, fixture)), ...playoffSeeds];
+    expect(new Set(allSeeds).size).toBe(allSeeds.length);
+    const series = userSeries(game)!;
+    const liveMatch = matchForSeries(game, series);
+    liveMatch.seed = legacyPlayoffSeed(game, series, 1);
+    delete liveMatch.rngVersion;
+    const restored = deserializeSession(serializeSession(game, liveMatch, 'playoff'));
+    expect(restored.game).toEqual(game);
+    expect(restored.liveMatch?.seed).toBe(liveMatch.seed);
+    expect(restored.liveMatch?.rngVersion).toBeUndefined();
+  });
+
   it('no empiezan antes de terminar la fase regular ni dos veces', () => {
     expect(() => startPlayoffs(newGame(1))).toThrow(/no terminó/); const g = startPlayoffs(regular(1)); expect(() => startPlayoffs(g)).toThrow(/ya empezaron/);
+  });
+  it('no permite iniciar playoffs con menos de cuatro equipos', () => {
+    let g = newGame(17, 0, 2);
+    while (!regularSeasonOver(g)) g = finishRound(g);
+    expect(() => startPlayoffs(g)).toThrow(/al menos 4 equipos/);
   });
   it('las semifinales enfrentan 1°-4° y 2°-3° de la fase regular, al mejor de 3', () => {
     const g = regular(2), t = standings(g).map(s => s.team), p = startPlayoffs(g).playoffs!;
@@ -40,6 +103,23 @@ describe('playoffs', () => {
     }
     throw new Error('ningún equipo 0 clasificó en 30 semillas');
   });
+  it('rechaza partidos manuales incompletos o ajenos a la serie activa', () => {
+    const completed = regular(31);
+    const g = startPlayoffs({ ...completed, userTeam: standings(completed)[0].team });
+    const series = userSeries(g)!;
+    const incomplete = matchForSeries(g, series);
+    expect(() => finishPlayoffDay(g, incomplete)).toThrow(/todavía no terminó/);
+
+    const altered = playMatch(matchForSeries(g, series));
+    altered.seed = (altered.seed + 1) >>> 0;
+    expect(() => finishPlayoffDay(g, altered)).toThrow(/fixture o serie/);
+    expect(g.playoffs?.series.every(s => s.games.length === 0)).toBe(true);
+
+    const eliminated = { ...g, userTeam: standings(g)[7].team };
+    const foreignSeries = eliminated.playoffs!.series[0];
+    expect(() => finishPlayoffDay(eliminated, playMatch(matchForSeries(eliminated, foreignSeries))))
+      .toThrow(/no tiene una serie activa/);
+  });
   it('la temporada solo termina con los playoffs y el premio sale del puesto final', () => {
     let g = regular(8); expect(isSeasonOver(g)).toBe(false); expect(() => endSeason(g)).toThrow(/no terminó/);
     g = startPlayoffs(g); expect(() => endSeason(g)).toThrow(/no terminó/);
@@ -57,7 +137,7 @@ describe('playoffs', () => {
   });
   it('el guardado funciona a mitad de playoffs y las partidas v4 se migran', () => {
     let g = startPlayoffs(regular(9)); g = finishPlayoffDay(g); expect(deserialize(serialize(g))).toEqual(g);
-    const old = JSON.parse(serialize(regular(9))); old.version = 4; delete old.playoffs; const m = deserialize(JSON.stringify(old)); expect([m.version, m.playoffs]).toEqual([5, null]);
+    const old = JSON.parse(serialize(regular(9))); old.version = 4; delete old.playoffs; const m = deserialize(JSON.stringify(old)); expect([m.version, m.playoffs]).toEqual([6, null]);
     expect(() => deserialize(JSON.stringify({ ...JSON.parse(serialize(newGame(2))), playoffs: { stage: 'semi', series: [] } }))).toThrow();
   });
 });

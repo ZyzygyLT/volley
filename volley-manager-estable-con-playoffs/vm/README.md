@@ -66,9 +66,20 @@ La calibración de tasas agregadas no significa que el juego ya reproduzca toda 
 ```powershell
 npm run calibration:report
 npm run calibration:fit
+npm run calibration:extra
+npm run calibration:home
+npm run calibration:teamsd
 ```
 
-El repositorio también conserva pruebas auxiliares de interfaz y temporada en `scripts/`. Algunas requieren Python, Chromium o Playwright y deben ejecutarse según las instrucciones de cada script.
+- `calibration:report`: compara las tasas agregadas del motor con los objetivos publicados.
+- `calibration:fit`: ajusta parámetros y genera un informe; no modifica automáticamente los parámetros versionados.
+- `calibration:extra`: informa la dispersión de rendimiento entre jugadores y la distribución de marcadores simulados.
+- `calibration:home`: compara distintos niveles de ventaja local con la referencia histórica.
+- `calibration:teamsd`: explora la distribución de marcadores con distintas dispersiones de fuerza entre equipos.
+
+Los diagnósticos adicionales son simulaciones informativas; no constituyen por sí solos pruebas de aceptación ni validan causalmente los parámetros. Algunos pueden tardar varios minutos.
+
+Los scripts auxiliares de interfaz y temporada en `scripts/` pueden requerir Python, Chromium o Playwright y deben ejecutarse según las instrucciones de cada script.
 
 ## App móvil
 

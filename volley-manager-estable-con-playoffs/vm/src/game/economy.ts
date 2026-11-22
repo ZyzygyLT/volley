@@ -55,6 +55,7 @@ export function sell(g: GameState, playerId: string): GameState {
   const t = g.teams[g.userTeam], p = t.roster.find(x => x.id === playerId);
   if (!p) throw new Error('Jugador inexistente');
   if (count(t.roster, p.role) <= MIN_BY_ROLE[p.role]) throw new Error(`Necesitás al menos ${MIN_BY_ROLE[p.role]} jugador(es) de esa posición`);
+  if (g.market.length >= ECON.maxMarket) throw new Error(`El mercado está completo (${ECON.maxMarket} jugadores); no se puede vender hasta que haya una plaza libre`);
   const income = Math.round(marketValue(p) * ECON.sellFactor);
   const next = setRoster(g, t.roster.filter(x => x.id !== playerId));
   return { ...next, market: [...g.market, p], finance: withLedger(g, `Venta de ${p.name}`, income) };

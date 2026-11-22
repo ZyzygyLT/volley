@@ -1,12 +1,25 @@
-// Uso: npx tsx scripts/calibrate-cli.ts [report|fit|extra|teamsd]   (necesita tsx y @types/node)
+// Uso: npx tsx scripts/calibrate-cli.ts [report|fit|extra|home|teamsd|scores]   (necesita tsx y @types/node)
 import { P } from '../src/engine/params';
-import { fit, report, playerSpread, scoreDist, homeAdvantage } from '../src/engine/calibrate';
+import { SCORES } from '../src/engine/targets';
+import { fit, report, playerSpread, scoreDist, scoreDistribution, homeAdvantage } from '../src/engine/calibrate';
 
 const MODE = process.argv[2] ?? 'report';
 if (MODE === 'fit') {
   const p = fit(P, 50000, 16);
   console.log('PARAMS_JSON=' + JSON.stringify(p));
   console.log(report(p, 120000).text);
+} else if (MODE === 'scores') {
+  const matches = 2639;
+  const withHome = scoreDistribution(P, matches);
+  const neutral = scoreDistribution(P, matches, withHome.teamSd, 0);
+  console.log(JSON.stringify({
+    historicalSample: matches,
+    historicalTarget: SCORES,
+    method: 'Muestra aleatoria de pares de una liga sintética de 16 equipos; partidos independientes, selección de rivales con reemplazo; semilla fija en scoreDistribution.',
+    limitation: 'No reconstruye el calendario ni las plantillas reales de PlusLiga 2008-2023; comparación exploratoria, no validación histórica definitiva.',
+    withHomeAdvantage: withHome,
+    neutral,
+  }, null, 2));
 } else if (MODE === 'extra') {
   console.log('== DISPERSIÓN ENTRE JUGADORES (desv. típica real de la tasa) ==\n' + playerSpread(P));
   console.log('\n== MARCADORES EN UNA LIGA ==\n' + scoreDist(P));

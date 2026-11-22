@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { chooseTeam, endSeason, finishRound, newGame, seasonSummary } from './season';
 import { serialize, deserialize } from './save';
-import { simulateSeason } from './playoffs';
+import { simulateSeason, startPlayoffs } from './playoffs';
 import { ECON } from './economy';
 import { addBoxes } from '../engine/stats';
 import { emptyP } from '../engine/stats';
@@ -20,6 +20,37 @@ describe('parciales, equipo y cierre de temporada', () => {
     expect(() => chooseTeam(finishRound(g), 2)).toThrow(/antes de jugar/); expect(() => chooseTeam(g, 99)).toThrow(/inexistente/);
   });
   it('cerrar la temporada exige que haya terminado', () => { expect(() => endSeason(newGame(2))).toThrow(/no terminó/); });
+  it('iniciar playoffs exige todos los resultados únicos de la fase regular', () => {
+    const incomplete = structuredClone(newGame(37));
+    incomplete.round = incomplete.fixtures.reduce((max, f) => Math.max(max, f.round), -1) + 1;
+    expect(() => startPlayoffs(incomplete)).toThrow(/resultados incompletos o duplicados/i);
+  });
+  it('el cierre rechaza un cuadro de playoffs que altera el orden de clasificación', () => {
+    const tampered = structuredClone(playSeason(23));
+    const semi = tampered.playoffs!.series[0];
+    [semi.high, semi.low] = [semi.low, semi.high];
+    for (const game of semi.games) {
+      [game.home, game.away] = [game.away, game.home];
+      game.sets = [game.sets[1], game.sets[0]];
+      game.setScores = game.setScores.map(([a, b]) => [b, a]);
+      game.totals = [game.totals[1], game.totals[0]];
+    }
+    expect(() => endSeason(tampered)).toThrow(/clasificación|semifinal|playoffs/i);
+  });
+  it('el cierre rechaza resultados duplicados aunque todos los fixtures estén cubiertos', () => {
+    const tampered = structuredClone(playSeason(31));
+    tampered.results.push(structuredClone(tampered.results[0]));
+    expect(() => endSeason(tampered)).toThrow(/resultados|calendario/i);
+  });
+  it('el cierre rechaza parciales y formato de series de playoffs manipulados', () => {
+    const badScore = structuredClone(playSeason(29));
+    badScore.playoffs!.series[0].games[0].totals[0]++;
+    expect(() => endSeason(badScore)).toThrow(/partido inválido|resultados/i);
+
+    const badFormat = structuredClone(playSeason(29));
+    badFormat.playoffs!.series[2].bestOf = 3;
+    expect(() => endSeason(badFormat)).toThrow(/series de playoffs/i);
+  });
   it('la nueva temporada conserva plantillas y dinero, cobra el premio y archiva estadísticas', () => {
     const g1 = playSeason(7), sum = seasonSummary(g1), g2 = endSeason(g1);
     expect([g2.season, g2.round, g2.results.length, g2.history.length]).toEqual([2, 0, 0, 1]); expect(g2.history[0]).toEqual(sum);
@@ -31,6 +62,19 @@ describe('parciales, equipo y cierre de temporada', () => {
     const names = [...g2.teams.flatMap(t => t.roster), ...g2.market].map(p => p.name); expect(new Set(names).size).toBe(names.length);
     expect(g2.market.length).toBeLessThanOrEqual(ECON.maxMarket); expect(g2.market.some(p => p.id.startsWith('fa2-'))).toBe(true);
   });
+  it('acumula estadísticas históricas exactamente una vez durante varias temporadas y conserva las de retirados', () => {
+    const firstCompleted = playSeason(713);
+    const firstClosed = endSeason(firstCompleted);
+    const secondCompleted = simulateSeason(firstClosed);
+    const secondClosed = endSeason(secondCompleted);
+    const expected = addBoxes(firstCompleted.career, secondCompleted.career);
+    expect(secondClosed.allTime).toEqual(expected);
+    expect(secondClosed.career).toEqual({});
+    for (const retired of secondClosed.retiredPlayers) {
+      if (expected[retired.id]) expect(secondClosed.allTime[retired.id]).toEqual(expected[retired.id]);
+    }
+    expect(deserialize(serialize(secondClosed)).allTime).toEqual(expected);
+  });
   it('la temporada 2 usa otras semillas y sigue siendo determinista', () => {
     const g1 = playSeason(7), a = playSeason2(g1), b = playSeason2(playSeason(7));
     expect(a.results).toEqual(b.results); expect(a.results[0].seed).not.toBe(g1.results[0].seed);
@@ -38,7 +82,7 @@ describe('parciales, equipo y cierre de temporada', () => {
   it('el guardado funciona tras cerrar la temporada y se migran partidas de versiones anteriores', () => {
     const g2 = endSeason(playSeason(7)); expect(deserialize(serialize(g2))).toEqual(g2);
     const old = JSON.parse(serialize(finishRound(newGame(4)))); old.version = 2; delete old.season; delete old.history; delete old.allTime; old.results.forEach((r: { setScores?: unknown }) => delete r.setScores);
-    const m = deserialize(JSON.stringify(old)); expect([m.version, m.season, m.history.length, m.results[0].setScores.length]).toEqual([5, 1, 0, 0]);
+    const m = deserialize(JSON.stringify(old)); expect([m.version, m.season, m.history.length, m.results[0].setScores.length]).toEqual([6, 1, 0, 0]);
   });
   it('addBoxes suma sin mutar', () => {
     const a = { x: { ...emptyP(), kills: 2, gp: 1 } }, b = { x: { ...emptyP(), kills: 3, gp: 1 }, y: { ...emptyP(), aces: 1 } }, c = addBoxes(a, b);

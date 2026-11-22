@@ -1,14 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { legalSubs, sideForTeam, stepPoint, substitute } from '../engine/match';
+import { legalSubs, playMatch, sideForTeam, stepPoint, substitute } from '../engine/match';
 import { finishRound, matchFor, newGame, regularSeasonOver } from './season';
 import { finishPlayoffDay, matchForSeries, startPlayoffs, userSeries } from './playoffs';
-import { deserializeSession, serialize, serializeSession, SaveError } from './save';
+import { deserializeSession, serialize, serializeSession, SaveError, memoryStore, indexedDbStore } from './save';
 
 function completeRegular(seed = 91) {
   let g = newGame(seed);
   while (!regularSeasonOver(g)) g = finishRound(g);
   return g;
 }
+
+describe('tipo de almacenamiento', () => {
+  it('distingue almacenamiento persistente de memoria temporal', () => {
+    expect(memoryStore().persistent).toBe(false);
+    expect(indexedDbStore().persistent).toBe(true);
+  });
+});
 
 describe('sesiones con partido en curso', () => {
   it('guarda y recupera un partido de liga con marcador, rotación, estadísticas y sustituciones', () => {
@@ -24,6 +31,8 @@ describe('sesiones con partido en curso', () => {
     expect(restored.game).toEqual(game);
     expect(restored.liveKind).toBe('liga');
     expect(restored.liveMatch).toEqual(live);
+    expect(restored.liveMatch?.subHistory).toEqual(live.subHistory);
+    expect(playMatch(restored.liveMatch!)).toEqual(playMatch(live));
     expect(deserializeSession(serialize(game)).liveMatch).toBeNull();
   });
 
@@ -37,6 +46,7 @@ describe('sesiones con partido en curso', () => {
     expect(restored.game).toEqual(game);
     expect(restored.liveKind).toBe('playoff');
     expect(restored.liveMatch).toEqual(live);
+    expect(playMatch(restored.liveMatch!)).toEqual(playMatch(live));
   });
 
   it('rechaza un partido alterado o que no pertenece a los participantes de la partida', () => {
@@ -46,9 +56,23 @@ describe('sesiones con partido en curso', () => {
     const corrupt = structuredClone(live);
     corrupt.totals[0] += 1;
     expect(() => serializeSession(game, corrupt, 'liga')).toThrow(SaveError);
+    const inconsistentStats = structuredClone(live);
+    inconsistentStats.stats[0].ace++;
+    expect(() => serializeSession(game, inconsistentStats, 'liga')).toThrow(SaveError);
     const unrelated = structuredClone(live);
     unrelated.teams[0].name = 'Equipo ajeno';
     expect(() => serializeSession(game, unrelated, 'liga')).toThrow(SaveError);
+
+    const foreignRoster = structuredClone(live);
+    const alteredPlayer = foreignRoster.base[0][0];
+    alteredPlayer.age = (alteredPlayer.age ?? 20) + 1;
+    const lineupPlayer = foreignRoster.teams[0].lineup.find(p => p.id === alteredPlayer.id)!;
+    lineupPlayer.age = alteredPlayer.age;
+    expect(() => serializeSession(game, foreignRoster, 'liga')).toThrow(SaveError);
+
+    const importedForeignRoster = JSON.parse(serializeSession(game, live, 'liga'));
+    importedForeignRoster.liveMatch = foreignRoster;
+    expect(() => deserializeSession(JSON.stringify(importedForeignRoster))).toThrow(SaveError);
   });
 
   it('rechaza participantes invertidos o una modalidad que no corresponde', () => {

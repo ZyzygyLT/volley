@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { finishRound, fixturesOfRound, leaguePoints, matchFor, newGame, roundRobin, standings, totalRounds, userFixture, leaders } from './season';
+import { endSeason, finishRound, fixturesOfRound, leaguePoints, matchFor, newGame, roundRobin, standings, totalRounds, userFixture, leaders } from './season';
 import { autoLineup, lineupToSquad, validateLineup, MAX_ROSTER, MIN_BY_ROLE } from './roster';
 import { deserialize, memoryStore, metaOf, SaveError, serialize, validateGame } from './save';
 import { ECON, marketValue, sell, sign, roundWages } from './economy';
@@ -36,6 +36,19 @@ describe('plantel y alineación', () => {
   });
 });
 
+describe('semillas de partida', () => {
+  it('acepta uint32 y rechaza semillas fuera de rango al crear una partida', () => {
+    expect(newGame(0).seed).toBe(0);
+    expect(newGame(0xffff_ffff).seed).toBe(0xffff_ffff);
+    for (const seed of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 0x1_0000_0000]) {
+      expect(() => newGame(seed)).toThrow(/uint32/);
+    }
+    expect(() => newGame(1, 0, 1)).toThrow(/entre 2 y 32/);
+    expect(() => newGame(1, 0, 3)).toThrow(/entre 2 y 32/);
+    expect(() => newGame(1, 32, 8)).toThrow(/equipo del usuario/);
+  });
+});
+
 describe('temporada', () => {
   it('es determinista y los puntos de liga suman 3 por partido', () => {
     const a = playSeason(5), b = playSeason(5);
@@ -44,15 +57,136 @@ describe('temporada', () => {
     expect(a.results.length).toBe(4 * totalRounds(a));
     for (const r of a.results) { const w = r.sets[0] > r.sets[1] ? 0 : 1; expect(r.totals[w]).toBeGreaterThanOrEqual(r.sets[w] === 3 && r.sets[1 - w] === 2 ? 65 : 75); }
   });
+  it('cierra una temporada íntegra, archiva estadísticas y prepara la siguiente', () => {
+    const completed = playSeason(31);
+    const next = endSeason(completed);
+    expect(next.season).toBe(2);
+    expect(next.round).toBe(0);
+    expect(next.results).toEqual([]);
+    expect(next.playoffs).toBeNull();
+    expect(next.history).toHaveLength(1);
+    expect(next.history[0]).toEqual({
+      season: 1,
+      champion: completed.teams[completed.playoffs!.champion!].name,
+      userRank: completed.playoffs!.ranking!.indexOf(completed.userTeam) + 1,
+      userPoints: standings(completed).find(x => x.team === completed.userTeam)!.points,
+      prize: ECON.prizeByRank[Math.min(completed.playoffs!.ranking!.indexOf(completed.userTeam), ECON.prizeByRank.length - 1)],
+    });
+    expect(next.allTime).toEqual(completed.career);
+    // El nuevo estado no puede volver a cerrar la misma temporada.
+    expect(() => endSeason(next)).toThrow(/todavía no terminó/);
+  });
+
+  it('rechaza el cierre si falta un resultado de la fase regular', () => {
+    const completed = playSeason(32);
+    const corrupt = { ...completed, results: completed.results.slice(1) };
+    expect(() => endSeason(corrupt)).toThrow(/fase regular está incompleta/);
+    expect(completed.results).toHaveLength(completed.fixtures.length);
+  });
+
+  it('rechaza el cierre si el ranking final no coincide con las series', () => {
+    const completed = playSeason(33);
+    const ranking = [...completed.playoffs!.ranking!];
+    [ranking[0], ranking[1]] = [ranking[1], ranking[0]];
+    const corrupt = { ...completed, playoffs: { ...completed.playoffs!, ranking } };
+    expect(() => endSeason(corrupt)).toThrow(/ranking final incoherente/);
+  });
+
+  it('rechaza el cierre si una serie no refleja sus victorias reales', () => {
+    const completed = playSeason(34);
+    const series = completed.playoffs!.series.map((s, i) => i === 0 ? { ...s, winner: s.high === s.winner ? s.low : s.high } : s);
+    const corrupt = { ...completed, playoffs: { ...completed.playoffs!, series } };
+    expect(() => endSeason(corrupt)).toThrow(/ganador incorrecto/);
+  });
+
+  it('trata como infinito el cociente con sets a favor y cero en contra', () => {
+    const g = {
+      ...newGame(77),
+      results: [
+        { round: 0, home: 0, away: 1, sets: [3, 0] as [number, number],
+          setScores: [[25, 20], [25, 20], [25, 20]] as [number, number][],
+          points: [3, 0] as [number, number], totals: [75, 60] as [number, number], seed: 1 },
+        { round: 0, home: 2, away: 3, sets: [3, 1] as [number, number],
+          setScores: [[25, 0], [25, 0], [0, 25], [25, 0]] as [number, number][],
+          points: [3, 0] as [number, number], totals: [75, 25] as [number, number], seed: 2 },
+      ],
+    };
+    expect(standings(g).slice(0, 2).map(x => x.team)).toEqual([0, 2]);
+  });
   it('el partido del usuario jugado a mano se registra igual que simulado', () => {
     const g = newGame(9), f = userFixture(g)!;
     const manual = finishRound(g, playMatch(matchFor(g, f))), auto = finishRound(g);
     expect(manual.results).toEqual(auto.results);
   });
+  it('permite cambiar táctica y alineación para el siguiente partido mientras el actual sigue en curso', () => {
+    const g = newGame(29), f = userFixture(g)!;
+    const side = f.home === g.userTeam ? 0 : 1;
+    const initial = matchFor(g, f);
+    const sub = legalSubs(initial, side).find(option => !option.isLibero)!;
+    const manual = playMatch(substitute(initial, side, sub.out.id, sub.inn.id));
+    const replacement = g.teams[f.home].roster.find(p => p.role === 'OH' && !g.teams[f.home].lineup.OH.includes(p.id))!;
+    const changedTeams = g.teams.map(team => {
+      if (team.id !== f.home) return team;
+      return { ...team, risk: 15, lineup: { ...team.lineup, OH: [team.lineup.OH[0], replacement.id] as [string, string] } };
+    });
+    const changed = { ...g, teams: changedTeams };
+    const originalStarter = g.teams[f.home].lineup.OH[1];
+    const originalResult = finishRound(g, manual).results.find(r => r.home === f.home && r.away === f.away);
+    const changedAfter = finishRound(changed, manual);
+    const changedResult = changedAfter.results.find(r => r.home === f.home && r.away === f.away);
+    expect(changedResult).toEqual(originalResult);
+    expect(changedAfter.career[originalStarter]?.gp).toBe(1);
+    expect(changedAfter.career[replacement.id]?.gp ?? 0).toBe(0);
+  });
+  it('rechaza partidos manuales incompletos, de otro fixture o con semilla alterada sin modificar la jornada', () => {
+    const g = newGame(19), f = userFixture(g)!;
+    const incomplete = matchFor(g, f);
+    expect(() => finishRound(g, incomplete)).toThrow(/todavía no terminó/);
+
+    const altered = playMatch(matchFor(g, f));
+    altered.seed = (altered.seed + 1) >>> 0;
+    expect(() => finishRound(g, altered)).toThrow(/semilla|fixture/);
+
+    const other = fixturesOfRound(g).find(x => x !== f)!;
+    expect(() => finishRound(g, playMatch(matchFor(g, other)))).toThrow(/fixture/);
+    expect(g.round).toBe(0);
+    expect(g.results).toHaveLength(0);
+  });
   it('acumula estadísticas individuales de los titulares', () => {
     const g = finishRound(newGame(2));
     expect(Object.keys(g.career).length).toBe(8 * 7);
     expect(leaders(g, 'kills', 3)[0].value).toBeGreaterThan(0);
+  });
+  it('mantiene en los líderes a un jugador vendido durante la temporada', () => {
+    const played = finishRound(newGame(2));
+    const team = played.teams[played.userTeam];
+    const player = team.roster.find(p => p.id === team.lineup.OH[0])!;
+    expect(played.career[player.id]).toBeDefined();
+
+    const transferred = sell(played, player.id);
+    const entry = leaders(transferred, 'kills', 100).find(x => x.player.id === player.id);
+    expect(entry).toEqual({
+      player: transferred.market.find(p => p.id === player.id),
+      team: 'Agente libre',
+      value: transferred.career[player.id].kills,
+    });
+  });
+
+  it('conserva las estadísticas al vender y volver a fichar al mismo jugador', () => {
+    const played = finishRound(newGame(714));
+    const team = played.teams[played.userTeam];
+    const player = team.roster.find(p => p.id === team.lineup.OH[0])!;
+    const careerBeforeTransfer = structuredClone(played.career[player.id]);
+
+    const sold = sell(played, player.id);
+    expect(sold.career[player.id]).toEqual(careerBeforeTransfer);
+    expect(leaders(sold, 'kills', 100).find(x => x.player.id === player.id)?.team).toBe('Agente libre');
+
+    const resigned = sign(sold, player.id);
+    expect(resigned.career[player.id]).toEqual(careerBeforeTransfer);
+    expect(resigned.market.some(p => p.id === player.id)).toBe(false);
+    expect(resigned.teams[resigned.userTeam].roster.some(p => p.id === player.id)).toBe(true);
+    expect(leaders(resigned, 'kills', 100).find(x => x.player.id === player.id)?.team).toBe(team.name);
   });
 });
 
@@ -84,6 +218,16 @@ describe('sustituciones en la liga', () => {
     const after = finishRound(g, m);
     expect(after.career[o.inn.id]?.gp).toBe(1);
   });
+  it('acredita participación al suplente que entra aunque no registre acciones estadísticas', () => {
+    const g = newGame(12), f = userFixture(g)!; let m = matchFor(g, f);
+    const side = f.home === g.userTeam ? 0 : 1, o = legalSubs(m, side).find(x => x.out.role === 'OH')!;
+    m = playMatch(substitute(m, side, o.out.id, o.inn.id));
+    // Simula un jugador que participó pero no generó eventos estadísticos.
+    m.box = {};
+    m.stats = [{ ace: 0, kill: 0, blk: 0, err: 0 }, { ace: 0, kill: 0, blk: 0, err: 0 }];
+    const after = finishRound(g, m);
+    expect(after.career[o.inn.id]?.gp).toBe(1);
+  });
 });
 
 describe('economía y mercado (valores de diseño)', () => {
@@ -111,6 +255,14 @@ describe('economía y mercado (valores de diseño)', () => {
     let h = g; const onlyL = h.teams[h.userTeam].roster.filter(p => p.role === 'L');
     for (let i = 0; i < onlyL.length - MIN_BY_ROLE.L; i++) h = sell(h, onlyL[i].id);
     expect(() => sell(h, onlyL[onlyL.length - 1].id)).toThrow(/al menos/);
+  });
+  it('rechaza vender cuando el mercado está lleno sin alterar plantel, dinero ni mercado', () => {
+    const g = newGame(91), t = g.teams[g.userTeam], player = t.roster.find(p => p.role === 'OH')!;
+    const full = { ...g, market: Array.from({ length: ECON.maxMarket }, (_, i) => ({ ...g.market[i % g.market.length], id: `cap-${i}`, name: `Agente ${i}` })) };
+    expect(() => sell(full, player.id)).toThrow(/mercado está completo/);
+    expect(full.teams[full.userTeam].roster.some(p => p.id === player.id)).toBe(true);
+    expect(full.finance.budget).toBe(g.finance.budget);
+    expect(full.market).toHaveLength(ECON.maxMarket);
   });
   it('cada jornada registra patrocinio, salarios y (si corresponde) entradas y premio', () => {
     const g = newGame(10), n = g.finance.ledger.length, a = finishRound(g), added = a.finance.ledger.slice(n);

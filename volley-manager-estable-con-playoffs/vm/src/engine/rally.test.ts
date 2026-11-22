@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeSquads } from './match';
 import { mulberry32 } from './rng';
-import { MAX_RALLY_EXCHANGES_SAFETY, playRally } from './rally';
+import { MAX_RALLY_EXCHANGES_SAFETY, effective, playRally } from './rally';
 import { P } from './params';
 import type { Team } from './types';
 
@@ -23,6 +23,31 @@ describe('rally: contrato del ciclo actual', () => {
     const second = playRally(roster, 0, mulberry32(991));
 
     expect(second).toEqual(first);
+  });
+
+  it('el líbero ocupa al central de zaga en las seis rotaciones sin convertirse en sacador', () => {
+    const roster = teams(808);
+    const original = roster[0].lineup.slice();
+    for (let offset = 0; offset < 6; offset++) {
+      roster[0].lineup = Array.from(
+        { length: 6 },
+        (_, slot) => original[(slot - offset + 6) % 6],
+      );
+      const court = effective(roster[0]);
+      const liberoSlots = court.flatMap((player, slot) => player.id === roster[0].libero.id ? [slot] : []);
+      expect(liberoSlots).toHaveLength(1);
+      expect(liberoSlots[0]).toBeLessThan(3);
+      expect(roster[0].lineup[0].id).not.toBe(roster[0].libero.id);
+
+      const result = playRally(roster, 0, mulberry32(900 + offset));
+      const serve = result.trace.ev[0];
+      expect(serve?.k).toBe('serve');
+      if (serve?.k === 'serve') expect(serve.p).toBe(roster[0].lineup[0].id);
+      if (roster[0].lineup[0].role === 'MB') {
+        expect(court[0].id).toBe(roster[0].libero.id);
+        expect(serve?.k === 'serve' ? serve.p : null).not.toBe(roster[0].libero.id);
+      }
+    }
   });
 
   it('un saque válido siempre inicia con recepción antes de cualquier ataque', () => {

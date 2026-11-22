@@ -2,11 +2,14 @@ import type { GameState } from './season';
 import { GAME_VERSION } from './season';
 import { validateLineup, MIN_BY_ROLE, MAX_ROSTER, type Lineup } from './roster';
 import { emptyP } from '../engine/stats';
-import { roundRobin, leaguePoints, standings } from './season';
+import { roundRobin, leaguePoints, standings, matchFor } from './season';
+import { legacyPlayoffSeed, matchForSeries, userSeries } from './playoffs';
 import { ECON } from './economy';
 import type { MatchState, Player, Role } from '../engine/types';
 import { rollAge } from './ages';
+import { legacyFixtureSeed } from './season';
 import { mulberry32 } from '../engine/rng';
+import { validateMatch, validateMatchAgainst } from '../engine/validation';
 
 export class SaveError extends Error {}
 export interface SaveMeta { slot: string; savedAt: string; team: string; round: number }
@@ -23,18 +26,36 @@ export const MAX_SAVE_CHARS = 3_000_000;
 
 function checkPlayer(p: unknown, where: string, e: string[]): boolean {
   if (!isObj(p)) { e.push(`${where}: jugador inválido`); return false; }
-  if (!isStr(p.id, 40) || !isStr(p.name, 60)) { e.push(`${where}: id o nombre inválido`); return false; }
+  if (!isStr(p.id, 40) || !p.id.trim() || !isStr(p.name, 60) || !p.name.trim()) { e.push(`${where}: id o nombre vacío o inválido`); return false; }
   if (!ROLES.includes(p.role as never) || !SERVES.includes(p.serveType as never)) { e.push(`${where}: posición o tipo de saque inválido (${p.id})`); return false; }
-  for (const k of ['srv', 'rec', 'set', 'atk', 'blk', 'def', 'cons']) if (!isNum(p[k], 0, 120)) { e.push(`${where}: ${p.id} tiene ${k} inválido`); return false; }
+  for (const k of ['srv', 'rec', 'set', 'atk', 'blk', 'def', 'cons']) {
+    const max = p.role === 'L' && (k === 'atk' || k === 'blk') ? 120 : 100;
+    if (!isNum(p[k], 0, max)) { e.push(`${where}: ${p.id} tiene ${k} inválido`); return false; }
+  }
   if (p.age !== undefined && !isInt(p.age, 15, 50)) { e.push(`${where}: edad inválida (${p.id})`); return false; }
   return true;
 }
 function checkBox(b: unknown, where: string, e: string[]): void {
-  if (!isObj(b)) { e.push(`${where}: estadísticas inválidas`); return; }
+  if (!isObj(b)) { e.push(where + ': estadísticas inválidas'); return; }
   for (const [id, s] of Object.entries(b)) {
-    if (!isObj(s)) { e.push(`${where}: estadísticas inválidas de ${id}`); return; }
-    // contadores enteros (la suma de calidades de recepción puede ser decimal); tope de 10 millones: muy por encima de lo real y sin riesgo de desbordar al seguir jugando
-    for (const k of STAT_KEYS) if (!(k === 'recQSum' ? isNum(s[k], 0, 1e7) : isInt(s[k], 0, 1e7))) { e.push(`${where}: ${id}.${k} inválido`); return; }
+    if (!id.trim() || id.length > 40 || !isObj(s)) { e.push(where + ': estadísticas inválidas de ' + id); return; }
+    const keys = Object.keys(s);
+    if (keys.length !== STAT_KEYS.length || STAT_KEYS.some(k => !Object.prototype.hasOwnProperty.call(s, k))) {
+      e.push(where + ': estructura incompleta de estadísticas de ' + id); return;
+    }
+    // Contadores enteros; recQSum admite decimales.
+    for (const k of STAT_KEYS) if (!(k === 'recQSum' ? isNum(s[k], 0, 1e7) : isInt(s[k], 0, 1e7))) {
+      e.push(where + ': ' + id + '.' + k + ' inválido'); return;
+    }
+    // Las keys y tipos ya se validaron arriba; aquí se comparan sus valores numéricos.
+    const stats = s as Record<string, number>;
+    // Relaciones garantizadas por applyEvents(): los resultados de cada contacto son excluyentes.
+    // Las asistencias se acreditan al colocador, no necesariamente al jugador que anota el kill.
+    if (stats.aces + stats.serveErr > stats.serves
+      || stats.recErr > stats.recs || stats.recPos > stats.recs - stats.recErr || stats.recPerf > stats.recPos
+      || stats.kills + stats.atkErr + stats.blocked > stats.atks) {
+      e.push(where + ': relaciones estadísticas imposibles para ' + id); return;
+    }
   }
 }
 
@@ -97,7 +118,7 @@ function checkPlayoffs(p: unknown, n: number, regularOver: boolean, teams: unkno
       const winner = isPair(game.sets, x => isInt(x, 0, 3))
         ? ((game.sets as number[])[0] > (game.sets as number[])[1] ? game.home : game.away) : -1;
       if (game.game !== k + 1 || game.home !== expectedHome || game.away !== expectedAway
-        || !validMatchScore(game.sets, game.setScores, game.totals) || !isNum(game.seed)
+        || !validMatchScore(game.sets, game.setScores, game.totals) || !isInt(game.seed, 0, 0xffff_ffff)
         || (winner !== high && winner !== low)) gamesValid = false;
       if (winner === high) winsHigh++; else if (winner === low) winsLow++;
     });
@@ -148,15 +169,17 @@ function check(input: unknown, e: string[]): void {
   if (!isObj(input)) { e.push('No es un objeto'); return; }
   const g = input as Record<string, unknown>;
   if (g.version !== GAME_VERSION) e.push(`Versión no soportada: ${String(g.version)}`);
+  if (!isInt(g.seed, 0, 0xffff_ffff)) e.push('Semilla de partida inválida: debe ser un entero uint32');
   const teams = g.teams;
   if (!Array.isArray(teams) || teams.length < 2 || teams.length > 32 || teams.length % 2) { e.push('Equipos inválidos'); return; }
-  const n = teams.length, seen = new Set<string>();
+  const n = teams.length, seen = new Set<string>(), seenNames = new Set<string>();
   teams.forEach((t: unknown, i) => {
     const w = `Equipo ${i}`;
     if (!isObj(t) || t.id !== i || !isStr(t.name, 60) || !isNum(t.risk, 0, 100) || !isNum(t.clubBoost, -50, 50)) { e.push(`${w}: datos inválidos`); return; }
     const roster = t.roster;
     if (!Array.isArray(roster) || roster.length < 7 || roster.length > MAX_ROSTER) { e.push(`${w}: el plantel debe tener entre 7 y ${MAX_ROSTER} jugadores`); return; }
-    let ok = true; for (const p of roster) { if (!checkPlayer(p, w, e)) { ok = false; break; } if (seen.has((p as Player).id)) { e.push(`${w}: id repetido ${(p as Player).id}`); ok = false; break; } seen.add((p as Player).id); }
+    let ok = true; for (const p of roster) { if (!checkPlayer(p, w, e)) { ok = false; break; } if (seen.has((p as Player).id)) { e.push(`${w}: id repetido ${(p as Player).id}`); ok = false; break; } seen.add((p as Player).id);
+      if (!(p as Player).name.trim() || seenNames.has((p as Player).name)) { e.push(`${w}: nombre vacío o repetido ${(p as Player).name}`); ok = false; break; } seenNames.add((p as Player).name); }
     if (!ok) return;
     for (const role of Object.keys(MIN_BY_ROLE) as Role[]) if ((roster as Player[]).filter(p => p.role === role).length < MIN_BY_ROLE[role]) { e.push(`${w}: faltan jugadores de la posición ${role}`); ok = false; }
     const l = t.lineup;
@@ -164,8 +187,18 @@ function check(input: unknown, e: string[]): void {
     else e.push(...validateLineup(roster as Player[], l as unknown as Lineup).map(m => `${w}: ${m}`));
   });
   if (!isInt(g.userTeam, 0, n - 1)) e.push('Equipo del usuario inválido');
-  if (!Array.isArray(g.market) || g.market.length > 80) e.push('Mercado inválido');
-  else for (const p of g.market) { if (!checkPlayer(p, 'Mercado', e)) break; if (seen.has((p as Player).id)) { e.push(`Mercado: id repetido ${(p as Player).id}`); break; } seen.add((p as Player).id); }
+  if (!Array.isArray(g.market) || g.market.length > ECON.maxMarket) e.push(`Mercado inválido: máximo ${ECON.maxMarket} agentes libres`);
+  else for (const p of g.market) { if (!checkPlayer(p, 'Mercado', e)) break; if (seen.has((p as Player).id)) { e.push(`Mercado: id repetido ${(p as Player).id}`); break; } seen.add((p as Player).id); if (!(p as Player).name.trim() || seenNames.has((p as Player).name)) { e.push(`Mercado: nombre vacío o repetido ${(p as Player).name}`); break; } seenNames.add((p as Player).name); }
+  const activeIds = new Set(seen);
+  if (!Array.isArray(g.retiredPlayers) || g.retiredPlayers.length > 100_000) e.push('Archivo de retirados inválido');
+  else for (const retired of g.retiredPlayers) {
+    if (!checkPlayer(retired, 'Archivo de retirados', e)) break;
+    const p = retired as Record<string, unknown>;
+    if (seen.has(p.id as string)) { e.push(`Archivo de retirados: id repetido ${String(p.id)}`); break; }
+    if (!isInt(p.retiredSeason, 1, isInt(g.season, 1, 1000) ? g.season : 1000)
+      || !isStr(p.lastTeam, 60) || !p.lastTeam.trim()) { e.push(`Archivo de retirados: metadatos inválidos (${String(p.id)})`); break; }
+    seen.add(p.id as string);
+  }
   // calendario: debe ser exactamente la doble vuelta estándar de ese número de equipos
   const fx = roundRobin(n), rounds = 2 * (n - 1);
   if (!Array.isArray(g.fixtures) || g.fixtures.length !== fx.length || g.fixtures.some((f: unknown, i: number) => !isObj(f) || f.round !== fx[i].round || f.home !== fx[i].home || f.away !== fx[i].away)) e.push('Calendario inválido');
@@ -185,18 +218,39 @@ function check(input: unknown, e: string[]): void {
       const valid = r.home !== r.away && validMatchScore(r.sets, r.setScores, r.totals)
         && isPair(r.points, x => isInt(x, 0, 3))
         && JSON.stringify(r.points) === JSON.stringify(leaguePoints(r.sets as [number, number]))
-        && isNum(r.seed);
+        && isInt(r.seed, 0, 0xffff_ffff);
       if (!valid) { e.push('Resultado inválido o puntos de liga incoherentes'); break; }
     }
     if (seenResults.size !== expected.size) e.push('Resultados: faltan partidos del calendario completado');
   }
   if (!(isInt(g.season, 1, 1000))) e.push('Temporada inválida');
-  if (!isObj(g.finance) || !isNum(g.finance.budget, -1e12, 1e12) || !Array.isArray(g.finance.ledger) || g.finance.ledger.length > 100
-    || g.finance.ledger.some((x: unknown) => !isObj(x) || !isInt(x.round, -1, 100) || !isStr(x.concept, 120) || !isNum(x.amount, -1e12, 1e12) || (x.season !== undefined && !isInt(x.season, 1, 1000)))) e.push('Finanzas inválidas');
-  if (!Array.isArray(g.history) || g.history.length > 1000 || g.history.some((h: unknown) => !isObj(h) || !isInt(h.season, 1, 1000) || !isStr(h.champion, 60) || !isInt(h.userRank, 1, 32) || !isInt(h.userPoints, 0, 1000) || !isNum(h.prize, 0, 1e12))) e.push('Historial inválido');
+  if (!isObj(g.finance) || !isNum(g.finance.budget, -1e12, 1e12) || !Array.isArray(g.finance.ledger) || g.finance.ledger.length > 60
+    || g.finance.ledger.some((x: unknown) => !isObj(x) || !isInt(x.round, 0, rounds) || !isStr(x.concept, 120) || !x.concept.trim() || !isNum(x.amount, -1e12, 1e12) || (x.season !== undefined && (!isInt(x.season, 1, 1000) || x.season > (g.season as number))))) e.push('Finanzas inválidas');
+  if (!Array.isArray(g.history) || g.history.length > 1000
+    || (isInt(g.season, 1, 1000) && g.history.length !== g.season - 1)
+    || g.history.some((h: unknown, i: number) => !isObj(h) || h.season !== i + 1
+      || !isStr(h.champion, 60) || !h.champion.trim() || !isInt(h.userRank, 1, n)
+      || !isInt(h.userPoints, 0, 6 * (n - 1)) || !isNum(h.prize, 0, 1e12))) e.push('Historial inválido');
   if (!Array.isArray(g.news) || g.news.length > 200 || g.news.some((x: unknown) => !isStr(x, 400))) e.push('Noticias inválidas');
   if (!Array.isArray(g.progressLog) || g.progressLog.length > 100 || g.progressLog.some((x: unknown) => !isObj(x) || !isStr(x.id, 40) || !isStr(x.name, 60) || !ROLES.includes(x.role as never) || !isInt(x.age, 15, 50) || !isNum(x.from, 0, 200) || !isNum(x.to, 0, 200))) e.push('Evolución inválida');
   checkBox(g.career, 'Estadísticas de la temporada', e); checkBox(g.allTime, 'Estadísticas históricas', e);
+  // Durante una temporada, un jugador puede estar en un plantel o en el mercado (si fue vendido), pero no desaparecer.
+  if (isObj(g.career)) for (const id of Object.keys(g.career)) if (!activeIds.has(id))
+    e.push('Estadísticas de la temporada: jugador inexistente en planteles y mercado (' + id + ')');
+  const legacyAllTime = new Set<string>();
+  if (g.legacyAllTimeIds !== undefined) {
+    if (!Array.isArray(g.legacyAllTimeIds) || g.legacyAllTimeIds.length > 100_000
+      || g.legacyAllTimeIds.some((id: unknown) => !isStr(id, 40) || !id.trim())
+      || new Set(g.legacyAllTimeIds).size !== g.legacyAllTimeIds.length) {
+      e.push('Registro de identidades históricas heredadas inválido');
+    } else for (const id of g.legacyAllTimeIds as string[]) {
+      if (!isObj(g.allTime) || !Object.prototype.hasOwnProperty.call(g.allTime, id) || seen.has(id))
+        e.push('Registro histórico heredado incoherente (' + id + ')');
+      else legacyAllTime.add(id);
+    }
+  }
+  if (isObj(g.allTime)) for (const id of Object.keys(g.allTime)) if (!seen.has(id) && !legacyAllTime.has(id))
+    e.push('Estadísticas históricas: jugador inexistente en planteles, mercado y archivo de retirados (' + id + ')');
   checkPlayoffs(g.playoffs, n, g.round === rounds, teams, g.results as unknown[], e);
 }
 
@@ -245,23 +299,27 @@ function validLiveMatch(input: unknown): input is MatchState {
     || (!m.over && ((m.sets as number[])[0] === 3 || (m.sets as number[])[1] === 3))) return false;
   const expectedA = pointsA + (m.over ? 0 : (m.score as number[])[0]);
   const expectedB = pointsB + (m.over ? 0 : (m.score as number[])[1]);
-  return (m.totals as number[])[0] === expectedA && (m.totals as number[])[1] === expectedB;
+  return (m.totals as number[])[0] === expectedA && (m.totals as number[])[1] === expectedB
+    && validateMatch(m).length === 0;
 }
 
-function sessionTeamNames(game: GameState, kind: 'liga' | 'playoff'): [string, string] | null {
+function sessionMatch(game: GameState, kind: 'liga' | 'playoff'): MatchState | null {
   if (kind === 'liga') {
     if (game.playoffs) return null;
     const fixture = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam));
-    if (!fixture) return null;
-    return [game.teams[fixture.home]?.name, game.teams[fixture.away]?.name];
+    return fixture ? matchFor(game, fixture) : null;
   }
-  const playoffs = game.playoffs;
-  if (!playoffs || playoffs.stage === 'done') return null;
-  const series = playoffs.series.find(x => x.winner === undefined && (x.high === game.userTeam || x.low === game.userTeam));
-  if (!series) return null;
-  const home = (series.games.length + 1) % 2 === 1 ? series.high : series.low;
-  const away = home === series.high ? series.low : series.high;
-  return [game.teams[home]?.name, game.teams[away]?.name];
+  const series = userSeries(game);
+  return series ? matchForSeries(game, series) : null;
+}
+
+function sessionLegacySeed(game: GameState, kind: 'liga' | 'playoff'): number | undefined {
+  if (kind === 'liga') {
+    const fixture = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam));
+    return fixture ? legacyFixtureSeed(game, fixture) : undefined;
+  }
+  const series = userSeries(game);
+  return series ? legacyPlayoffSeed(game, series, series.games.length + 1) : undefined;
 }
 
 export interface SaveSession {
@@ -275,11 +333,13 @@ export function serializeSession(game: GameState, liveMatch: MatchState | null, 
   const gameJson = serialize(game);
   if (liveMatch && !validLiveMatch(liveMatch)) throw new SaveError('No se puede guardar: el estado del partido en curso es inválido');
   if (liveMatch) {
-    const expected = sessionTeamNames(game, liveKind);
-    if (!expected || liveMatch.teams[0].name !== expected[0] || liveMatch.teams[1].name !== expected[1])
+    const expected = sessionMatch(game, liveKind);
+    if (!expected || validateMatchAgainst(liveMatch, expected, sessionLegacySeed(game, liveKind)).length)
       throw new SaveError('El partido en curso no corresponde a la partida guardada');
   }
-  return JSON.stringify({ format: 'volley-session-v1', game: JSON.parse(gameJson), liveMatch, liveKind });
+  const json = JSON.stringify({ format: 'volley-session-v1', game: JSON.parse(gameJson), liveMatch, liveKind });
+  if (json.length > MAX_SAVE_CHARS) throw new SaveError('La sesión supera el tamaño máximo permitido para un guardado');
+  return json;
 }
 
 /** Acepta sesiones nuevas y partidas antiguas sin partido en curso. */
@@ -295,8 +355,8 @@ export function deserializeSession(json: string): SaveSession {
   if (!liveKind || (parsed.liveMatch !== null && !validLiveMatch(parsed.liveMatch))) throw new SaveError('La sesión guardada contiene un partido en curso inválido');
   const liveMatch = parsed.liveMatch as MatchState | null;
   if (liveMatch) {
-    const expected = sessionTeamNames(game, liveKind);
-    if (!expected || liveMatch.teams[0].name !== expected[0] || liveMatch.teams[1].name !== expected[1])
+    const expected = sessionMatch(game, liveKind);
+    if (!expected || validateMatchAgainst(liveMatch, expected, sessionLegacySeed(game, liveKind)).length)
       throw new SaveError('El partido guardado no corresponde a la partida o a su modalidad');
   }
   return { game, liveMatch, liveKind };
@@ -305,11 +365,14 @@ export function deserializeSession(json: string): SaveSession {
 export function serialize(g: GameState): string {
   const errs = validateGame(g);
   if (errs.length) throw new SaveError(`No se puede guardar: ${errs[0]}`);
-  return JSON.stringify(g);
+  const json = JSON.stringify(g);
+  if (json.length > MAX_SAVE_CHARS) throw new SaveError('La partida supera el tamaño máximo permitido para un guardado');
+  return json;
 }
 /** Migra partidas de versiones anteriores. */
 function migrate(input: GameState): GameState {
   let g = input as unknown as Record<string, unknown> & { version: number; results?: Record<string, unknown>[] };
+  const sourceVersion = g && typeof g === 'object' ? g.version : GAME_VERSION;
   if (g && typeof g === 'object' && g.version === 1) g = { ...g, version: 2, finance: { budget: ECON.startBudget, ledger: [] }, market: [] };
   if (g && typeof g === 'object' && g.version === 2) g = { ...g, version: 3, season: 1, history: [], allTime: {}, results: (g.results ?? []).map(r => ({ setScores: [], ...r })) };
   if (g && typeof g === 'object' && g.version === 3) { // v4: edades (asignadas de forma determinista por jugador), noticias y evolución
@@ -318,6 +381,19 @@ function migrate(input: GameState): GameState {
     g = { ...g, version: 4, news: [], progressLog: [], teams: gg.teams.map(t => ({ clubBoost: 0, ...t, roster: t.roster.map(addAge) })), market: (gg.market ?? []).map(addAge) } as unknown as typeof g;
   }
   if (g && typeof g === 'object' && g.version === 4) g = { ...g, version: 5, playoffs: null };
+  if (g && typeof g === 'object' && g.version === 5) g = { ...g, version: 6, retiredPlayers: [] };
+  // Antes de v6 no existía un archivo de retirados: conservar IDs de allTime
+  // sin ficha recuperable como legado, sin permitir IDs desconocidos nuevos.
+  if (sourceVersion < 6 && g && typeof g === 'object' && isObj(g.allTime) && Array.isArray(g.teams)) {
+    const known = new Set<string>([
+      ...g.teams.flatMap((t: unknown) => isObj(t) && Array.isArray(t.roster)
+        ? t.roster.flatMap((p: unknown) => isObj(p) && typeof p.id === 'string' ? [p.id] : []) : []),
+      ...(Array.isArray(g.market) ? g.market.flatMap((p: unknown) => isObj(p) && typeof p.id === 'string' ? [p.id] : []) : []),
+      ...(Array.isArray(g.retiredPlayers) ? g.retiredPlayers.flatMap((p: unknown) => isObj(p) && typeof p.id === 'string' ? [p.id] : []) : []),
+    ]);
+    const legacyIds = Object.keys(g.allTime).filter(id => !known.has(id));
+    if (legacyIds.length) g = { ...g, legacyAllTimeIds: legacyIds };
+  }
   return sanitize(g as unknown as GameState);
 }
 /** Limpieza de datos benignos de versiones anteriores: el ataque y el bloqueo del líbero (que no se usan) podían quedar negativos. */
@@ -339,6 +415,7 @@ export function deserialize(json: string): GameState {
 
 /** Almacén de partidas (ranuras). Hay una versión en memoria (tests) y otra en IndexedDB (navegador). */
 export interface SaveStore {
+  readonly persistent: boolean;
   list(): Promise<SaveMeta[]>;
   get(slot: string): Promise<string | null>;
   put(slot: string, json: string, meta: SaveMeta): Promise<void>;
@@ -349,6 +426,7 @@ export function metaOf(slot: string, g: GameState, savedAt: string): SaveMeta { 
 export function memoryStore(): SaveStore {
   const data = new Map<string, { json: string; meta: SaveMeta }>();
   return {
+    persistent: false,
     async list() { return [...data.values()].map(v => v.meta).sort((a, b) => a.slot.localeCompare(b.slot)); },
     async get(slot) { return data.get(slot)?.json ?? null; },
     async put(slot, json, meta) { data.set(slot, { json, meta }); },
@@ -384,6 +462,7 @@ export function indexedDbStore(dbName = 'volley-manager'): SaveStore {
   };
   type Row = { slot: string; json: string; meta: SaveMeta };
   return {
+    persistent: true,
     async list() { const rows = await run<Row[]>('readonly', s => s.getAll() as IDBRequest<Row[]>); return rows.map(r => r.meta).sort((a, b) => a.slot.localeCompare(b.slot)); },
     async get(slot) { const r = await run<Row | undefined>('readonly', s => s.get(slot) as IDBRequest<Row | undefined>); return r?.json ?? null; },
     async put(slot, json, meta) { await run('readwrite', s => s.put({ slot, json, meta })); },

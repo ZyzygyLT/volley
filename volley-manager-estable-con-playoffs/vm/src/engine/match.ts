@@ -1,4 +1,4 @@
-import type { MatchState, Player, PStats, Role, RallyResult, ServeType, Side, SubState, Team } from './types';
+import type { MatchState, Player, PStats, Role, RallyResult, ServeType, Side, SubState, SubstitutionEvent, Team } from './types';
 import { P, RATING_SD, TEAM_SD, type Params } from './params';
 import { mulberry32 } from './rng';
 import { playRally } from './rally';
@@ -7,11 +7,40 @@ import { applyEvents } from './stats';
 /** Orden de un plantel: 6 titulares (S, OH, MB, OP, OH, MB) + líbero. Los ids siguen este orden. */
 export const ROLES7: Role[] = ['S', 'OH', 'MB', 'OP', 'OH', 'MB', 'L'];
 
-/** Devuelve el lado del equipo dentro de un partido; null si no participa. */
+/** Devuelve el lado del equipo dentro de un partido; null si no participa o la identidad es ambigua. */
 export function sideForTeam(match: MatchState, teamName: string): Side | null {
-  if (match.teams[0].name === teamName) return 0;
-  if (match.teams[1].name === teamName) return 1;
-  return null;
+  const home = match.teams[0].name === teamName;
+  const away = match.teams[1].name === teamName;
+  return home === away ? null : home ? 0 : 1;
+}
+
+/** Identifica un equipo por sus IDs de plantilla, que son únicos aunque se repitan los nombres. */
+export function sideForPlayers(match: MatchState, playerIds: ReadonlySet<string>): Side | null {
+  const belongs = (side: Side) =>
+    [...match.base[side], ...match.benches[side]].some(player => playerIds.has(player.id));
+  const home = belongs(0), away = belongs(1);
+  return home === away ? null : home ? 0 : 1;
+}
+
+/** Reconstruye los siete titulares originales, aunque el plantel base haya sido mutado por sustituciones. */
+export function startingPlayerIds(match: MatchState): string[] {
+  const base: [string[], string[]] = [
+    match.base[0].map(player => player.id),
+    match.base[1].map(player => player.id),
+  ];
+  const benches: [string[], string[]] = [
+    match.benches[0].map(player => player.id),
+    match.benches[1].map(player => player.id),
+  ];
+  for (let i = (match.subHistory ?? []).length - 1; i >= 0; i--) {
+    const event = match.subHistory![i];
+    const baseIndex = base[event.side].indexOf(event.inId);
+    const benchIndex = benches[event.side].indexOf(event.outId);
+    if (baseIndex < 0 || benchIndex < 0) continue;
+    base[event.side][baseIndex] = event.outId;
+    benches[event.side][benchIndex] = event.inId;
+  }
+  return [...new Set([...base[0], ...base[1]])];
 }
 export const roleOfId = (id: string): Role => ROLES7[+id.slice(1) % 7];
 type Base = Omit<Player, 'id' | 'name' | 'role' | 'serveType'>;
@@ -74,19 +103,22 @@ const emptyStats = () => ({ ace: 0, kill: 0, blk: 0, err: 0 });
 export interface MatchOpts { benches?: [Player[], Player[]]; names?: [string, string]; boostA?: number; boostB?: number; sd?: number; riskB?: number; params?: Params; squads?: [Player[], Player[]] }
 
 export function createMatch(seed: number, myRisk = 50, opts: MatchOpts = {}): MatchState {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff) throw new Error('La semilla del partido debe ser un entero uint32');
   const [a, b] = opts.squads ?? makeSquads(seed, opts.boostA ?? 2, opts.boostB ?? 0, opts.sd ?? RATING_SD);
   const mk = (name: string, sq: Player[], risk: number): Team => ({ name, lineup: sq.slice(0, 6), libero: sq[6], risk });
-  return { params: opts.params, seed, teams: [mk(opts.names?.[0] ?? 'Tu equipo', a, myRisk), mk(opts.names?.[1] ?? 'Rival', b, opts.riskB ?? 50)], base: [a, b],
+  return { params: opts.params, seed, rngVersion: 2, teams: [mk(opts.names?.[0] ?? 'Tu equipo', a, myRisk), mk(opts.names?.[1] ?? 'Rival', b, opts.riskB ?? 50)], base: [a, b],
     score: [0, 0], totals: [0, 0], sets: [0, 0], setScores: [], setNo: 1, serving: firstServer(seed, 1), over: false, stats: [emptyStats(), emptyStats()], box: {}, log: [],
-    benches: opts.benches ?? [[], []], subState: [emptySub(), emptySub()] };
+    benches: opts.benches ?? [[], []], subState: [emptySub(), emptySub()], playedIds: [], subHistory: [] };
 }
 
 /** Avanza un punto. Devuelve un estado nuevo (el original no se modifica). */
 export function stepPoint(prev: MatchState, onRally?: (r: RallyResult, serving: Side) => void): MatchState {
   if (prev.over) return prev;
   const s: MatchState = structuredClone(prev);
-  // Una RNG por punto, derivada de semilla + nº de punto: reproducible sin guardar el estado interno.
-  const n = s.score[0] + s.score[1] + (s.sets[0] + s.sets[1]) * 1000 + s.log.length * 7;
+  // Los partidos nuevos usan progreso real; las sesiones antiguas conservan su secuencia histórica basada en el log.
+  const n = prev.rngVersion === 2
+    ? s.totals[0] + s.totals[1] + (s.sets[0] + s.sets[1]) * 1000
+    : s.score[0] + s.score[1] + (s.sets[0] + s.sets[1]) * 1000 + s.log.length * 7;
   const res = playRally(s.teams, s.serving, mulberry32((s.seed ^ Math.imul(n + 1, 0x9e3779b1)) >>> 0), s.params);
   onRally?.(res, prev.serving);
   applyEvents(s.box, res.trace.ev, s.params ?? P);
@@ -124,6 +156,9 @@ export function substitute(prev: MatchState, side: Side, outId: string, inId: st
   const opt = legalSubs(prev, side).find(o => o.out.id === outId && o.inn.id === inId);
   if (!opt) throw new Error('Cambio no permitido por el reglamento');
   const s: MatchState = structuredClone(prev), team = s.teams[side], st = s.subState[side];
+  s.playedIds = [...new Set([...(s.playedIds ?? []), opt.inn.id])];
+  const event: SubstitutionEvent = { setNo: s.setNo, side, outId, inId, isLibero: opt.isLibero };
+  s.subHistory = [...(s.subHistory ?? []), event];
   const swap = (p: Player) => (p.id === outId ? opt.inn : p);
   if (opt.isLibero) team.libero = opt.inn; else team.lineup = team.lineup.map(swap);
   s.base[side] = s.base[side].map(swap);

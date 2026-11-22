@@ -1,5 +1,5 @@
 import { Component, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { legalSubs, MAX_SUBS, playMatch, sideForTeam, stepPoint, substitute } from './engine/match';
+import { legalSubs, MAX_SUBS, playMatch, sideForPlayers, stepPoint, substitute } from './engine/match';
 import { effective } from './engine/rally';
 import { emptyP, hitEff, pct, points } from './engine/stats';
 import type { MatchState, PStats, Player, Side } from './engine/types';
@@ -9,7 +9,9 @@ import { addBoxes } from './engine/stats';
 import { matchSummary } from './game/summary';
 import { chooseTeam, endSeason, finishRound, fixturesOfRound, isSeasonOver, leaders, matchFor, newGame, regularSeasonOver, seasonSummary, standings, totalRounds, userFixture, type GameState, type Series } from './game/season';
 import { finishPlayoffDay, matchForSeries, simulateSeason, startPlayoffs, userSeries, winsOf } from './game/playoffs';
-import { deserializeSession, indexedDbStore, memoryStore, metaOf, serializeSession, type SaveMeta } from './game/save';
+import { deserializeSession, indexedDbStore, memoryStore, metaOf, serializeSession, MAX_SAVE_CHARS, type SaveMeta } from './game/save';
+import { createWriteQueue } from './game/writeQueue';
+import { recoverAuto, writeAutoWithBackup } from './game/autosave';
 
 type Tab = 'liga' | 'plantel' | 'partido' | 'mercado' | 'finanzas' | 'stats' | 'guardar' | 'acerca';
 const TABS: [Tab, string][] = [['liga', 'Liga'], ['plantel', 'Plantel'], ['partido', 'Partido'], ['mercado', 'Mercado'], ['finanzas', 'Finanzas'], ['stats', 'Estadísticas'], ['guardar', 'Guardar'], ['acerca', 'Acerca de']];
@@ -73,14 +75,14 @@ function About() {
   </section>;
 }
 
-/** Evita la pantalla en blanco si algo falla al dibujar: muestra el error y recuerda que el autoguardado sigue disponible. */
+/** Evita la pantalla en blanco si algo falla al dibujar y no promete que los últimos cambios estén guardados. */
 export class Boundary extends Component<{ children: ReactNode }, { err: Error | null }> {
   state: { err: Error | null } = { err: null };
   static getDerivedStateFromError(err: Error) { return { err }; }
   render() {
     if (!this.state.err) return this.props.children;
     return <main><h1>Algo salió mal</h1><p className="err">{this.state.err.message}</p>
-      <p>Tu última partida automática sigue guardada en este navegador. Recargá la página para continuarla.</p>
+      <p>El autoguardado puede no incluir los últimos cambios. Recargá para intentar recuperar la última copia disponible; no se puede garantizar que la sesión completa se haya guardado.</p>
       <button onClick={() => location.reload()}>Recargar</button></main>;
   }
 }
@@ -101,23 +103,82 @@ export default function App() {
   const [liveKind, setLiveKind] = useState<'liga' | 'playoff'>('liga');
   const [pending, setPending] = useState<SaveMeta | null>(null);
   const [autoOn, setAutoOn] = useState(false);
+  const [sessionStatus, setSessionStatus] = useState<'waiting' | 'ready' | 'unsupported' | 'error'>('waiting');
   const store = useMemo(() => { try { return typeof indexedDB !== 'undefined' ? indexedDbStore() : memoryStore(); } catch { return memoryStore(); } }, []);
+  const writeQueue = useMemo(() => createWriteQueue(), []);
   const me = game.teams[game.userTeam], uf = userFixture(game), over = isSeasonOver(game);
-  const refresh = () => store.list().then(setSaves).catch(() => setMsg('No se pudo leer el almacenamiento del navegador'));
+  const refresh = () => store.list().then(items => setSaves(items.filter(item => item.slot !== 'auto-backup'))).catch(() => setMsg('No se pudo leer el almacenamiento del navegador'));
   useEffect(() => { refresh(); }, []);
-  // Autoguardado: al abrir se ofrece continuar la última partida automática; mientras se decide no se sobrescribe.
-  useEffect(() => { store.list().then(l => { const m = l.find(x => x.slot === 'auto'); if (m) setPending(m); else setAutoOn(true); }).catch(() => { setMsg('No se pudo comprobar el autoguardado. No se sobrescribirá ningún dato; revisá el almacenamiento y recargá para reintentar.'); setAutoOn(false); }); }, []);
+  // Una sola pestaña controla la sesión. Al adquirir el lock recupera el último estado persistido antes de habilitar el juego.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.locks) {
+      store.list().then(items => {
+        const saved = items.find(item => item.slot === 'auto') ?? items.find(item => item.slot === 'auto-backup');
+        if (saved) setPending({ ...saved, slot: 'auto' });
+      }).catch(() => setMsg('No se pudo comprobar el autoguardado. El autoguardado seguirá desactivado; exportá copias para conservar el progreso.'));
+      setSessionStatus('unsupported');
+      return;
+    }
+    let active = true;
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const controller = new AbortController();
+    const acquire = async () => {
+      try {
+        await navigator.locks.request<Promise<void>>(
+          'volley-manager:active-session',
+          { mode: 'exclusive', signal: controller.signal },
+          async () => {
+            if (!active) return;
+            try {
+              const recovered = await writeQueue(() => recoverAuto(store));
+              const items = await store.list();
+              if (!active) return;
+              const saved = items.find(item => item.slot === 'auto') ?? items.find(item => item.slot === 'auto-backup');
+              if (recovered.session) {
+                const meta = saved ?? metaOf('auto', recovered.session.game, new Date().toISOString());
+                setPending({ ...meta, slot: 'auto' });
+              } else if (saved) {
+                // Hay datos, pero ninguna copia pudo validarse: conservar la decisión explícita del usuario.
+                setPending({ ...saved, slot: 'auto' });
+              } else {
+                setAutoOn(true);
+              }
+              setSessionStatus('ready');
+              await held;
+            } catch (error) {
+              if (active) {
+                setMsg(`No se pudo preparar la sesión: ${(error as Error).message}. El autoguardado permanecerá desactivado.`);
+                setSessionStatus('error');
+              }
+            }
+          }
+        ).then(result => result);
+      } catch (error) {
+        if (active && (error as Error).name !== 'AbortError') {
+          setMsg(`No se pudo obtener el control exclusivo de esta sesión: ${(error as Error).message}. El autoguardado permanecerá desactivado.`);
+          setSessionStatus('error');
+        }
+      }
+    };
+    void acquire();
+    return () => {
+      active = false;
+      controller.abort();
+      release();
+    };
+  }, [store, writeQueue]);
   useEffect(() => {
     if (!autoOn) return;
-    const t = setTimeout(() => { try { store.put('auto', serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString())).catch(e => setMsg(`No se pudo completar el autoguardado: ${(e as Error).message}`)); } catch (e) { setMsg(`No se pudo preparar el autoguardado: ${(e as Error).message}`); } }, 400);
+    const t = setTimeout(() => { try { writeQueue(() => writeAutoWithBackup(store, serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString()))).catch(e => setMsg(`No se pudo completar el autoguardado: ${(e as Error).message}`)); } catch (e) { setMsg(`No se pudo preparar el autoguardado: ${(e as Error).message}`); } }, 400);
     return () => clearTimeout(t);
-  }, [game, live, liveKind, autoOn]);
+  }, [game, live, liveKind, autoOn, writeQueue]);
   // Si la pestaña se oculta o se cierra antes del debounce, intentamos persistir el último estado.
   useEffect(() => {
     if (!autoOn) return;
     const flush = () => {
       try {
-        store.put('auto', serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString()))
+        writeQueue(() => writeAutoWithBackup(store, serializeSession(game, live, liveKind), metaOf('auto', game, new Date().toISOString())))
           .catch(e => setMsg(`No se pudo completar el autoguardado al salir: ${(e as Error).message}`));
       } catch (e) {
         setMsg(`No se pudo preparar el autoguardado al salir: ${(e as Error).message}`);
@@ -130,35 +191,84 @@ export default function App() {
       window.removeEventListener('pagehide', flush);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [game, live, liveKind, autoOn, store]);
-  const continueAuto = async () => { try { const j = await store.get('auto'); if (j) { const restored = deserializeSession(j); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Continuás la partida automática'); } else setMsg('La partida automática ya no está disponible'); setPending(null); setAutoOn(true); } catch (e) { setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar.`); } };
+  }, [game, live, liveKind, autoOn, store, writeQueue]);
+  const continueAuto = async () => {
+    try {
+      const recovered = await writeQueue(() => sessionStatus === 'ready'
+        ? recoverAuto(store)
+        : (async () => {
+          const primary = await store.get('auto');
+          if (primary !== null) {
+            try { return { session: deserializeSession(primary), source: 'auto' as const }; } catch { /* probar la copia anterior sin modificar el almacenamiento */ }
+          }
+          const backup = await store.get('auto-backup');
+          return backup === null
+            ? { session: null, source: 'none' as const }
+            : { session: deserializeSession(backup), source: 'auto-backup' as const };
+        })());
+      if (!recovered.session) throw new Error('No hay una copia válida disponible');
+      const restored = recovered.session;
+      setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind);
+      setTab(restored.liveMatch ? 'partido' : 'liga');
+      setMsg(recovered.source === 'auto-backup'
+        ? (sessionStatus === 'ready' ? 'Partida recuperada desde la copia de seguridad anterior; se restauró el autoguardado principal.' : 'Partida abierta desde la copia de seguridad anterior; no se modificó el almacenamiento.')
+        : 'Continuás la partida automática');
+      setPending(null); setAutoOn(sessionStatus === 'ready'); refresh();
+    } catch (e) {
+      setMsg(`No se pudo recuperar la partida automática: ${(e as Error).message}. No se sobrescribirá; podés reintentar o empezar una partida nueva.`);
+    }
+  };
 
   const setLineup = (l: Lineup) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, lineup: l } : t)) }));
   const setRisk = (risk: number) => setGame(g => ({ ...g, teams: g.teams.map(t => (t.id === g.userTeam ? { ...t, risk } : t)) }));
   const lineupErrors = validateLineup(me.roster, me.lineup);
   const regOver = regularSeasonOver(game), us = userSeries(game);
   const play = () => {
+    if (live) { setMsg('Ya hay un partido en curso. Cerralo antes de iniciar otro.'); setTab('partido'); return; }
     if (lineupErrors.length) return;
     if (regOver && game.playoffs && us) { setLive(matchForSeries(game, us)); setLiveKind('playoff'); }
     else if (uf && !regOver) { setLive(matchFor(game, uf)); setLiveKind('liga'); }
     else return;
     setMsg(''); setTab('partido');
   };
-  const close = () => { if (!live) return; setGame(liveKind === 'playoff' ? finishPlayoffDay(game, live) : finishRound(game, live)); setLive(null); setTab('liga'); };
-  const simulate = () => { if (lineupErrors.length) return; setGame(regOver ? finishPlayoffDay(game) : finishRound(game)); setLive(null); };
+  const close = () => {
+    if (!live) return;
+    try {
+      const next = liveKind === 'playoff' ? finishPlayoffDay(game, live) : finishRound(game, live);
+      setGame(next);
+      setLive(null);
+      setTab('liga');
+      setMsg('Partido registrado correctamente');
+    } catch (e) {
+      setMsg(`No se pudo registrar el partido: ${(e as Error).message}. El partido sigue abierto y no se modificó la jornada.`);
+    }
+  };
+  const simulate = () => {
+    if (live) { setMsg('Terminá y cerrá el partido en curso antes de simular la jornada.'); setTab('partido'); return; }
+    if (lineupErrors.length) return;
+    try {
+      const next = regOver ? finishPlayoffDay(game) : finishRound(game);
+      setGame(next);
+      setLive(null);
+      setMsg('Jornada simulada correctamente');
+    } catch (e) {
+      setMsg(`No se pudo simular la jornada: ${(e as Error).message}. La partida no se modificó.`);
+    }
+  };
   const name = (i: number) => game.teams[i].name;
   const attempt = (f: () => GameState, ok: string) => { try { setGame(f()); setMsg(ok); } catch (e) { setMsg((e as Error).message); } };
 
-  const save = async (slot: string) => { try { await store.put(slot, serializeSession(game, live, liveKind), metaOf(slot, game, new Date().toISOString())); setMsg(`Partida guardada en la ranura ${slot}`); refresh(); } catch (e) { setMsg(String(e)); } };
-  const load = async (slot: string) => { try { const j = await store.get(slot); if (!j) return setMsg('Ranura vacía'); const restored = deserializeSession(j); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg(`Partida cargada (ranura ${slot})`); } catch (e) { setMsg(String(e)); } };
-  const remove = async (slot: string) => { try { await store.remove(slot); setMsg(`Ranura ${slot} borrada`); refresh(); } catch (e) { setMsg(String(e)); } };
+  const save = async (slot: string) => { try { await writeQueue(() => store.put(slot, serializeSession(game, live, liveKind), metaOf(slot, game, new Date().toISOString()))); setMsg(`Partida guardada en la ranura ${slot}`); refresh(); } catch (e) { setMsg(String(e)); } };
+  const load = async (slot: string) => { try { const j = await writeQueue(() => store.get(slot)); if (!j) return setMsg('Ranura vacía'); const restored = deserializeSession(j); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg(`Partida cargada (ranura ${slot})`); } catch (e) { setMsg(String(e)); } };
+  const remove = async (slot: string) => { try { await writeQueue(() => store.remove(slot)); setMsg(`Ranura ${slot} borrada`); refresh(); } catch (e) { setMsg(String(e)); } };
   const importText = () => { try { const restored = deserializeSession(text); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Partida importada'); } catch (e) { setMsg((e as Error).message); } };
-  const importFile = async (file: File | undefined) => { if (!file) return; try { const restored = deserializeSession(await file.text()); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Partida importada'); } catch (e) { setMsg((e as Error).message); } };
+  const importFile = async (file: File | undefined) => { if (!file) return; if (file.size > MAX_SAVE_CHARS * 4) { setMsg('El archivo supera el tamaño máximo permitido'); return; } try { const restored = deserializeSession(await file.text()); setGame(restored.game); setLive(restored.liveMatch); setLiveKind(restored.liveKind); setTab(restored.liveMatch ? 'partido' : 'liga'); setMsg('Partida importada'); } catch (e) { setMsg((e as Error).message); } };
   const exportFile = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([serializeSession(game, live, liveKind)], { type: 'application/json' })); a.download = `volley-manager-jornada${game.round}.json`; a.click(); URL.revokeObjectURL(a.href); };
 
   // Boxscore: la plantilla actual y los suplentes que tuvieron acciones.
-  const squadsOf = (m: MatchState) => [0, 1].map(i => [...m.base[i], ...m.benches[i].filter(b => m.box[b.id])]);
-  const mySide = live ? sideForTeam(live, me.name) : null;
+  const squadsOf = (m: MatchState) => [0, 1].map(i => [...m.base[i], ...m.benches[i].filter(b => (m.playedIds ?? []).includes(b.id) || m.box[b.id])]);
+  const myPlayerIds = useMemo(() => new Set(me.roster.map(p => p.id)), [me.roster]);
+  const mySide = live ? sideForPlayers(live, myPlayerIds) : null;
   const subOpts = live && mySide !== null ? legalSubs(live, mySide) : [];
   const doSub = () => {
     if (!live || mySide === null) { setMsg('No se pudo identificar tu equipo en este partido; no se aplicó ningún cambio.'); return; }
@@ -166,26 +276,33 @@ export default function App() {
     try { setLive(substitute(live, mySide, o, i)); setSubPick(''); setMsg(''); }
     catch (e) { setMsg((e as Error).message); }
   };
-  const allPlayers = [...game.teams.flatMap(t => t.roster), ...game.market];
+  const allPlayers = [...game.teams.flatMap(t => t.roster), ...game.market, ...game.retiredPlayers];
   const card = cardId ? allPlayers.find(p => p.id === cardId) : undefined;
+  const retiredCard = card ? game.retiredPlayers.find(p => p.id === card.id) : undefined;
   const Name = ({ p }: { p: Player }) => <button className="lnk" onClick={() => setCardId(p.id)}>{p.name}</button>;
   const rosterSorted = (ps: Player[]) => ROSTER_ORDER.flatMap(r => ps.filter(p => p.role === r).sort((a, b) => overall(b) - overall(a)));
   const ratings = (p: Player) => <><td>{p.srv}</td><td>{p.rec}</td><td>{p.set}</td><td>{p.role === 'L' ? '–' : p.atk}</td><td>{p.role === 'L' ? '–' : p.blk}</td><td>{p.def}</td><td>{p.cons}</td></>;
   const RH = ['Jugador', 'Rol', 'Edad', 'Saque', 'Gen', 'Sq', 'Rec', 'Col', 'Atq', 'Blq', 'Def', 'Cons'];
+
+  if (sessionStatus === 'waiting') {
+    return <main><h1>Volley Manager</h1><p role="status" className="notice">Otra pestaña está utilizando esta partida. Esta pestaña esperará su turno y, cuando obtenga el control, recuperará la última partida guardada antes de habilitar la edición.</p></main>;
+  }
 
   return (
     <main>
       <h1>Volley Manager <small>— {me.name} · temporada {game.season} · {regOver ? (over ? 'temporada terminada' : 'playoffs') : `jornada ${game.round + 1}/${totalRounds(game)}`} · {money(game.finance.budget)}</small></h1>
       <nav>{TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</nav>
       {msg && <p role="status" className="mu"><i>{msg}</i></p>}
+      {!store.persistent && <p role="alert" className="notice">El almacenamiento persistente no está disponible. Esta partida se conserva solo en memoria y se perderá al cerrar o recargar la pestaña. Exportá una copia desde Guardar para conservarla.</p>}
+      {(sessionStatus === 'unsupported' || sessionStatus === 'error') && <p role="alert" className="notice">No hay control exclusivo entre pestañas. El autoguardado está desactivado para evitar que otra pestaña sobrescriba esta sesión. Exportá copias desde Guardar para conservar el progreso.</p>}
       {pending && <div className="notice" role="alert">Hay una partida automática guardada ({pending.team}, {pending.round} jornadas jugadas, {pending.savedAt ? new Date(pending.savedAt).toLocaleString() : ''}).{' '}
-        <button onClick={continueAuto}>Continuar esa partida</button> <button onClick={() => { setPending(null); setAutoOn(true); }}>Empezar de cero</button></div>}
+        <button onClick={continueAuto}>Continuar esa partida</button> <button onClick={() => { setPending(null); setAutoOn(sessionStatus === 'ready'); }}>Empezar de cero</button></div>}
       {card && <div className="notice card">
         <b>{card.name}</b> <small>{card.role} · {card.age ?? '–'} años · saque {card.serveType} · valoración {overall(card).toFixed(0)}</small>{' '}
         <button onClick={() => setCardId(null)}>Cerrar</button>
         <div className="bars">{([['Saque', card.srv], ['Recepción', card.rec], ['Colocación', card.set], ['Ataque', card.atk], ['Bloqueo', card.blk], ['Defensa', card.def], ['Consistencia', card.cons]] as const).map(([l, v]) =>
           card.role === 'L' && (l === 'Ataque' || l === 'Bloqueo') ? null : <div key={l} className="bar"><span>{l}</span><i style={{ width: `${Math.max(0, Math.min(100, v))}%` }} /><b>{v}</b></div>)}</div>
-        <small className="mu">Valor de mercado {money(marketValue(card))} · salario anual {money(annualWage(card))} (valores de diseño)</small>
+        {retiredCard ? <p><small>Retirado al finalizar la temporada {retiredCard.retiredSeason} · último equipo: {retiredCard.lastTeam}</small></p> : <small className="mu">Valor de mercado {money(marketValue(card))} · salario anual {money(annualWage(card))} (valores de diseño)</small>}
         {(() => { const s = addBoxes(game.allTime, game.career)[card.id]; return s ? <p><small>Histórico: {s.gp} partidos · {s.kills} ataques ganadores · {s.aces} aces · {s.blocks} bloqueos · {s.digs} defensas · {s.assists} asistencias</small></p> : null; })()}
       </div>}
 
@@ -211,8 +328,8 @@ export default function App() {
         {!over && regOver && !game.playoffs && <div className="notice">
           <p><b>Fase regular terminada.</b> Clasifican los 4 mejores: {standings(game).slice(0, 4).map(s => s.name).join(', ')}.</p>
           <p className="mu"><small>Semifinales 1°-4° y 2°-3° al mejor de 3; final al mejor de 5; el mejor clasificado es local en el primer partido y la localía alterna. Formato inspirado en la PlusLiga (adaptado a 8 equipos).</small></p>
-          <button onClick={() => attempt(() => startPlayoffs(game), 'Empiezan los playoffs')}>Empezar playoffs</button>{' '}
-          <button onClick={() => attempt(() => simulateSeason(game), 'Se simularon los playoffs')}>Simular los playoffs</button></div>}
+          <button onClick={() => attempt(() => startPlayoffs(game), 'Empiezan los playoffs')} disabled={!!live}>Empezar playoffs</button>{' '}
+          <button onClick={() => attempt(() => simulateSeason(game), 'Se simularon los playoffs')} disabled={!!live}>Simular los playoffs</button></div>}
         {game.playoffs && <div className="notice">
           <b>Playoffs</b>{' '}<small className="mu">{game.playoffs.stage === 'semi' ? 'semifinales' : game.playoffs.stage === 'final' ? 'final y partido por el bronce' : 'terminados'}</small>
           {game.playoffs.series.map((s: Series) => { const hi = name(s.high), lo = name(s.low), n = s.games.length + 1, nextHome = n % 2 === 1 ? s.high : s.low;
@@ -222,16 +339,16 @@ export default function App() {
               {s.winner === undefined ? <small className="mu"> · próximo: {name(nextHome)} (local) vs {name(nextHome === s.high ? s.low : s.high)}</small> : <small className="okc"> · pasa {name(s.winner)}</small>}</div>; })}
           {!over && <p>
             {lineupErrors.length > 0 && <span className="err">Alineación inválida: {lineupErrors[0]}. </span>}
-            {us ? <button onClick={play} disabled={lineupErrors.length > 0}>Jugar mi partido de playoffs</button> : <small className="mu">Tu equipo no está en juego en esta etapa. </small>}{' '}
-            <button onClick={simulate} disabled={lineupErrors.length > 0}>Simular día de playoffs</button>{' '}
-            <button onClick={() => attempt(() => simulateSeason(game), 'Se simularon los playoffs')}>Simular los playoffs completos</button></p>}
+            {us ? <button onClick={play} disabled={!!live || lineupErrors.length > 0}>Jugar mi partido de playoffs</button> : <small className="mu">Tu equipo no está en juego en esta etapa. </small>}{' '}
+            <button onClick={simulate} disabled={!!live || lineupErrors.length > 0}>Simular día de playoffs</button>{' '}
+            <button onClick={() => attempt(() => simulateSeason(game), 'Se simularon los playoffs')} disabled={!!live}>Simular los playoffs completos</button></p>}
         </div>}
         {!over && !regOver && <>
           <h3>Jornada {game.round + 1}</h3>
           <ul>{fixturesOfRound(game).map((f, i) => <li key={i}><b>{f === uf ? '▶ ' : ''}</b>{name(f.home)} vs {name(f.away)}</li>)}</ul>
           {lineupErrors.length > 0 && <p className="err">Alineación inválida: {lineupErrors[0]}</p>}
-          <button onClick={play} disabled={lineupErrors.length > 0}>Jugar mi partido</button>{' '}
-          <button onClick={simulate} disabled={lineupErrors.length > 0}>Simular jornada</button>
+          <button onClick={play} disabled={!!live || lineupErrors.length > 0}>Jugar mi partido</button>{' '}
+          <button onClick={simulate} disabled={!!live || lineupErrors.length > 0}>Simular jornada</button>
         </>}
         {game.news.length > 0 && <>
           <h3>Noticias del mercado</h3>
@@ -344,9 +461,18 @@ export default function App() {
           <h3>{l}</h3>
           <ol>{leaders(game, k, 5).map(x => <li key={x.player.id}>{x.player.name} <small>({x.team}, {x.player.role})</small> — <b>{x.value}</b></li>)}</ol></div>)}
         <h3>Mi equipo — temporada {game.season}</h3>
-        <Box title="" players={lineupToSquad(me.roster, me.lineup)} box={game.career} />
+        <Box title="" players={rosterSorted(me.roster)} box={game.career} />
         <h3>Mi equipo — histórico (todas las temporadas)</h3>
-        <Box title="" players={lineupToSquad(me.roster, me.lineup)} box={addBoxes(game.allTime, game.career)} />
+        <Box title="" players={rosterSorted(me.roster)} box={addBoxes(game.allTime, game.career)} />
+        <h3>Archivo de jugadores retirados ({game.retiredPlayers.length})</h3>
+        {game.retiredPlayers.length === 0 ? <p className="mu">Todavía no hay jugadores retirados registrados.</p> : <div className="wrap"><table>
+          <thead><tr><th>Jugador</th><th>Rol</th><th>Edad</th><th>Último equipo</th><th>Retiro</th><th>Valoración</th></tr></thead>
+          <tbody>{[...game.retiredPlayers].sort((a, b) => b.retiredSeason - a.retiredSeason || a.name.localeCompare(b.name)).map(p => <tr key={p.id}><td><Name p={p} /></td><td>{p.role}</td><td>{p.age ?? '–'}</td><td>{p.lastTeam}</td><td>T{p.retiredSeason}</td><td>{overall(p).toFixed(0)}</td></tr>)}</tbody>
+        </table></div>}
+        {game.retiredPlayers.length > 0 && <>
+          <h3>Estadísticas históricas de jugadores retirados</h3>
+          <Box title="" players={[...game.retiredPlayers].sort((a, b) => b.retiredSeason - a.retiredSeason || a.name.localeCompare(b.name))} box={game.allTime} />
+        </>}
         <h3>Historial de temporadas</h3>
         {game.history.length === 0 ? <p className="mu">Todavía no terminaste ninguna temporada.</p> : <div className="wrap"><table>
           <thead><tr><th>Temporada</th><th>Campeón</th><th>Mi puesto</th><th>Mis puntos</th><th>Premio</th></tr></thead>

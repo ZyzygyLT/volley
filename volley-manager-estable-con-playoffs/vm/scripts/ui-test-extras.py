@@ -55,3 +55,6 @@ with sync_playwright() as p:
     pg.screenshot(path='dist/shot_t4.png'); b.close()
 errs=[e for e in errs if 'error de prueba' not in e and 'Boundary' not in e and 'The above error occurred' not in e]
 print('errores de consola:',errs or 'ninguno'); print(f'RESULTADO: {sum(res)}/{len(res)}')
+
+if not all(res) or errs:
+    raise SystemExit(1)

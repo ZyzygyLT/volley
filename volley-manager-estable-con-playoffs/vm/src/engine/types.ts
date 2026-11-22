@@ -53,10 +53,14 @@ export interface PStats {
 }
 import type { Params } from './params';
 export interface MatchState {
-  seed: number; params?: Params; teams: [Team, Team]; base: [Player[], Player[]];
+  seed: number; rngVersion?: 2; params?: Params; teams: [Team, Team]; base: [Player[], Player[]];
   score: [number, number]; totals: [number, number]; sets: [number, number]; setScores: [number, number][]; setNo: number;
   serving: Side; over: boolean; stats: [Stats, Stats]; box: Record<string, PStats>; log: string[];
   benches: [Player[], Player[]]; subState: [SubState, SubState]; // suplentes y control de sustituciones del set actual
+  playedIds?: string[]; // jugadores que ingresaron desde el banco; opcional para sesiones antiguas
+  subHistory?: SubstitutionEvent[]; // historial completo entre sets; ausente en sesiones antiguas
 }
+/** Cambio de jugador registrado de forma persistente durante todo el partido. */
+export interface SubstitutionEvent { setNo: number; side: Side; outId: string; inId: string; isLibero: boolean }
 /** Control de sustituciones de un equipo en el set (reglas FIVB: máx. 6; un titular solo es reemplazado una vez y vuelve a su posición). */
 export interface SubState { count: number; swaps: Record<string, string>; replaced: string[]; usedIn: string[] }

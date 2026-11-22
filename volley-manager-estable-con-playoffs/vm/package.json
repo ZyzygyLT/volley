@@ -15,6 +15,10 @@
     "build:single": "node scripts/build-single.mjs dist/volley-manager.html",
     "calibration:report": "tsx scripts/calibrate-cli.ts report",
     "calibration:fit": "tsx scripts/calibrate-cli.ts fit",
+    "calibration:extra": "tsx scripts/calibrate-cli.ts extra",
+    "calibration:home": "tsx scripts/calibrate-cli.ts home",
+    "calibration:teamsd": "tsx scripts/calibrate-cli.ts teamsd",
+    "calibration:scores": "tsx scripts/calibrate-cli.ts scores",
     "setter-policy:report": "tsx scripts/set-policy-report.ts",
     "attack-value:report": "tsx scripts/attack-value-report.ts"
   },

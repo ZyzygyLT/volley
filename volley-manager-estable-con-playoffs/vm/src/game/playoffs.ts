@@ -1,5 +1,6 @@
 import type { MatchState } from '../engine/types';
-import { playMatch } from '../engine/match';
+import { validateMatchAgainst } from '../engine/validation';
+import { playMatch, startingPlayerIds } from '../engine/match';
 import { mergeBox } from '../engine/stats';
 import { ECON } from './economy';
 import { lineupToSquad } from './roster';
@@ -15,12 +16,28 @@ const isDone = (s: Series) => s.winner !== undefined;
 /** Localía alterna: los partidos impares los juega de local el mejor clasificado. */
 const homeOf = (s: Series, gameNo: number) => (gameNo % 2 === 1 ? s.high : s.low);
 const mk = (id: Series['id'], high: number, low: number, bestOf: 3 | 5): Series => ({ id, high, low, bestOf, games: [] });
-const seedOf = (g: GameState, s: Series, gameNo: number) => (((g.seed ^ Math.imul(s.id.charCodeAt(0) * 31 + s.id.length + gameNo * 977 + g.season * 7919, 0x9e3779b1)) ^ 0x5bd1e995) >>> 0);
+/** Fórmula anterior: conserva la recuperación de partidos de playoffs ya guardados. */
+export const legacyPlayoffSeed = (g: GameState, s: Series, gameNo: number) => (((g.seed ^ Math.imul(s.id.charCodeAt(0) * 31 + s.id.length + gameNo * 977 + g.season * 7919, 0x9e3779b1)) ^ 0x5bd1e995) >>> 0);
+
+/** Identidad completa de serie + número de partido; evita que SF1 y SF2 compartan secuencia aleatoria. */
+export const playoffSeed = (g: GameState, s: Series, gameNo: number) => {
+  const seriesKey: Record<Series['id'], number> = { SF1: 1, SF2: 2, F: 3, B: 4 };
+  const gameKey = 0x20000 | (seriesKey[s.id] * 8 + gameNo);
+  return ((g.seed ^ Math.imul(gameKey, 0x9e3779b1) ^ Math.imul((g.season ?? 1) - 1, 0x85ebca6b)) >>> 0);
+};
 
 /** Empieza los playoffs con los 4 mejores de la fase regular. Lanza Error si la fase regular no terminó o ya empezaron. */
 export function startPlayoffs(g: GameState): GameState {
   if (!regularSeasonOver(g)) throw new Error('La fase regular todavía no terminó');
   if (g.playoffs) throw new Error('Los playoffs ya empezaron');
+  if (g.teams.length < QUALIFIED) throw new Error(`Se necesitan al menos ${QUALIFIED} equipos para los playoffs`);
+  const fixtureKeys = new Set(g.fixtures.map(f => `${f.round}/${f.home}/${f.away}`));
+  const resultKeys = new Set(g.results.map(r => `${r.round}/${r.home}/${r.away}`));
+  if (g.round !== totalRounds(g) || fixtureKeys.size !== g.fixtures.length
+    || g.results.length !== g.fixtures.length || resultKeys.size !== g.results.length
+    || [...fixtureKeys].some(key => !resultKeys.has(key))) {
+    throw new Error('No se pueden iniciar los playoffs: la fase regular tiene resultados incompletos o duplicados');
+  }
   const t = standings(g).slice(0, QUALIFIED).map(x => x.team);
   return { ...g, playoffs: { stage: 'semi', series: [mk('SF1', t[0], t[3], 3), mk('SF2', t[1], t[2], 3)] } };
 }
@@ -33,7 +50,7 @@ export function userSeries(g: GameState): Series | undefined {
 /** Partido que sigue en una serie, con su localía y semilla. */
 export function matchForSeries(g: GameState, s: Series): MatchState {
   const n = s.games.length + 1, home = homeOf(s, n), away = home === s.high ? s.low : s.high;
-  return matchBetween(g, home, away, seedOf(g, s, n));
+  return matchBetween(g, home, away, playoffSeed(g, s, n));
 }
 
 function advanceStage(g: GameState, p: PlayoffState): PlayoffState {
@@ -57,14 +74,28 @@ function advanceStage(g: GameState, p: PlayoffState): PlayoffState {
  * (si se jugó a mano). Registra estadísticas y finanzas del usuario y avanza de etapa cuando todas las series terminan. Función pura.
  */
 export function finishPlayoffDay(g: GameState, userMatch?: MatchState): GameState {
-  const p0 = g.playoffs; if (!p0 || p0.stage === 'done') return g;
-  const mine = userSeries(g); let career = g.career, budget = g.finance.budget; const ledger = [...g.finance.ledger];
+  const p0 = g.playoffs;
+  if (!p0 || p0.stage === 'done') {
+    if (userMatch) throw new Error('No se puede registrar un partido manual: no hay una serie activa');
+    return g;
+  }
+  const mine = userSeries(g);
+  if (userMatch) {
+    if (!mine) throw new Error('El equipo del usuario no tiene una serie activa');
+    if (!userMatch.over) throw new Error('El partido manual de playoffs todavía no terminó');
+    const errors = validateMatchAgainst(userMatch, matchForSeries(g, mine), legacyPlayoffSeed(g, mine, mine.games.length + 1));
+    if (errors.length) throw new Error(`Partido manual de playoffs inválido: ${errors.join('; ')}`);
+  }
+  let career = g.career, budget = g.finance.budget; const ledger = [...g.finance.ledger];
   const series = p0.series.map(s => {
     if (isDone(s)) return s;
     let m = s === mine && userMatch ? userMatch : matchForSeries(g, s);
     if (!m.over) m = playMatch(m);
     const n = s.games.length + 1, home = homeOf(s, n), away = home === s.high ? s.low : s.high;
-    const played = [...new Set([...lineupToSquad(g.teams[home].roster, g.teams[home].lineup), ...lineupToSquad(g.teams[away].roster, g.teams[away].lineup)].map(x => x.id).concat(Object.keys(m.box)))];
+    const starters = s === mine && userMatch
+      ? startingPlayerIds(m)
+      : [...lineupToSquad(g.teams[home].roster, g.teams[home].lineup), ...lineupToSquad(g.teams[away].roster, g.teams[away].lineup)].map(x => x.id);
+    const played = [...new Set([...starters, ...(m.playedIds ?? []), ...Object.keys(m.box)])];
     career = mergeBox(career, m.box, played);
     const game: PlayoffGame = { game: n, home, away, sets: [m.sets[0], m.sets[1]], setScores: m.setScores.map(x => [x[0], x[1]] as [number, number]), totals: [m.totals[0], m.totals[1]], seed: m.seed };
     const next: Series = { ...s, games: [...s.games, game] };

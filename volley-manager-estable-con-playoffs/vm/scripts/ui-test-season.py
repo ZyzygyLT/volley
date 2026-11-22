@@ -52,3 +52,6 @@ with sync_playwright() as p:
     pg.screenshot(path='dist/shot_t2.png')
     b.close()
 print('errores de consola:',errs or 'ninguno'); print(f'RESULTADO: {sum(res)}/{len(res)}')
+
+if not all(res) or errs:
+    raise SystemExit(1)
