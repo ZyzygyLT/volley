@@ -161,9 +161,12 @@ describe('estadísticas individuales', () => {
         expect(sum('kills')).toBe(team.kill);
         expect(sum('blocks')).toBe(team.blk);
         expect(sum('serveErr') + sum('atkErr') + sum('otherErr')).toBe(team.err);
-        expect(team.ace + team.kill + team.blk + team.err).toBe(m.totals[side]);
-        expect(players.reduce((total, stats) => total + points(stats) + stats.serveErr + stats.atkErr + stats.otherErr, 0))
-          .toBe(m.totals[side]);
+        // err cuenta faltas cometidas por este equipo; esos puntos los recibe el rival.
+        expect(team.ace + team.kill + team.blk + m.stats[1 - side].err).toBe(m.totals[side]);
+        expect(players.reduce((total, stats) => total + points(stats), 0))
+          .toBe(team.ace + team.kill + team.blk);
+        expect(players.reduce((total, stats) => total + stats.serveErr + stats.atkErr + stats.otherErr, 0))
+          .toBe(team.err);
       }
     }
   });
