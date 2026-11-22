@@ -53,7 +53,7 @@ export interface PStats {
 }
 import type { Params } from './params';
 export interface MatchState {
-  seed: number; params?: Params; teams: [Team, Team]; base: [Player[], Player[]];
+  seed: number; rngVersion?: 2; params?: Params; teams: [Team, Team]; base: [Player[], Player[]];
   score: [number, number]; totals: [number, number]; sets: [number, number]; setScores: [number, number][]; setNo: number;
   serving: Side; over: boolean; stats: [Stats, Stats]; box: Record<string, PStats>; log: string[];
   benches: [Player[], Player[]]; subState: [SubState, SubState]; // suplentes y control de sustituciones del set actual
