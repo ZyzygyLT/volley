@@ -27,11 +27,13 @@ describe('semillas de fixtures', () => {
     const game = base;
     const liveMatch = matchFor(game, fixture);
     liveMatch.seed = legacyFixtureSeed(game, fixture);
+    delete liveMatch.rngVersion;
 
     expect(validateMatchAgainst(liveMatch, matchFor(game, fixture), legacyFixtureSeed(game, fixture))).toEqual([]);
     const restored = deserializeSession(serializeSession(game, liveMatch, 'liga'));
     expect(restored.game).toEqual(game);
     expect(restored.liveMatch?.seed).toBe(liveMatch.seed);
+    expect(restored.liveMatch?.rngVersion).toBeUndefined();
   });
 });
 const playSeason = (seed: number) => simulateSeason(newGame(seed));
