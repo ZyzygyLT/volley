@@ -33,6 +33,19 @@ describe('motor', () => {
     const m = playMatch(createMatch(7));
     expect(m.over).toBe(true); expect(Math.max(...m.sets)).toBe(3); expect(Math.min(...m.sets)).toBeLessThan(3);
   });
+  it('la secuencia aleatoria no depende de la longitud del registro visible', () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const initial = createMatch(seed);
+      const normal = stepPoint(initial);
+      const withDisplayNoise = stepPoint({ ...initial, log: ['mensaje de interfaz ajeno al partido'] });
+      expect(withDisplayNoise.score).toEqual(normal.score);
+      expect(withDisplayNoise.totals).toEqual(normal.totals);
+      expect(withDisplayNoise.sets).toEqual(normal.sets);
+      expect(withDisplayNoise.serving).toBe(normal.serving);
+      expect(withDisplayNoise.stats).toEqual(normal.stats);
+      expect(withDisplayNoise.box).toEqual(normal.box);
+    }
+  });
   it('stepPoint no muta el estado anterior', () => {
     const m = createMatch(1); const snap = JSON.stringify(m); stepPoint(m);
     expect(JSON.stringify(m)).toBe(snap);
