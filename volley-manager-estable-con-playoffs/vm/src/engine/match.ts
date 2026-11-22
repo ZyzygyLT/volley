@@ -115,8 +115,8 @@ export function createMatch(seed: number, myRisk = 50, opts: MatchOpts = {}): Ma
 export function stepPoint(prev: MatchState, onRally?: (r: RallyResult, serving: Side) => void): MatchState {
   if (prev.over) return prev;
   const s: MatchState = structuredClone(prev);
-  // Una RNG por punto, derivada de semilla + nº de punto: reproducible sin guardar el estado interno.
-  const n = s.score[0] + s.score[1] + (s.sets[0] + s.sets[1]) * 1000 + s.log.length * 7;
+  // Una RNG por punto, derivada de semilla + progreso real; el registro visible no influye en el azar.
+  const n = s.totals[0] + s.totals[1] + (s.sets[0] + s.sets[1]) * 1000;
   const res = playRally(s.teams, s.serving, mulberry32((s.seed ^ Math.imul(n + 1, 0x9e3779b1)) >>> 0), s.params);
   onRally?.(res, prev.serving);
   applyEvents(s.box, res.trace.ev, s.params ?? P);
