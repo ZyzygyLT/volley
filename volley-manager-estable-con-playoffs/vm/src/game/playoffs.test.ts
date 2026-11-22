@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { playMatch } from '../engine/match';
 import { ECON } from './economy';
-import { deserialize, serialize } from './save';
+import { deserialize, serialize, serializeSession, deserializeSession } from './save';
 import { endSeason, finalRanking, finishRound, isSeasonOver, newGame, regularSeasonOver, seasonSummary, standings, type GameState } from './season';
-import { advance, finishPlayoffDay, matchForSeries, simulateSeason, startPlayoffs, userSeries, winsOf } from './playoffs';
+import { advance, finishPlayoffDay, legacyPlayoffSeed, matchForSeries, playoffSeed, simulateSeason, startPlayoffs, userSeries, winsOf } from './playoffs';
 
 const regular = (seed: number): GameState => { let g = newGame(seed); while (!regularSeasonOver(g)) g = finishRound(g); return g; };
 
@@ -27,6 +27,22 @@ describe('playoffs', () => {
     const next = finishPlayoffDay(changed, manual);
     expect(next.career[originalStarter]?.gp).toBe(originalGp + 1);
     expect(next.career[replacement.id]?.gp ?? 0).toBe(replacementGp);
+  });
+
+  it('usa semillas independientes para SF1 y SF2 y recupera sesiones de playoffs antiguas', () => {
+    const regularSeason = regular(88);
+    const game = startPlayoffs({ ...regularSeason, userTeam: standings(regularSeason)[0].team });
+    const [sf1, sf2] = game.playoffs!.series;
+    for (let gameNo = 1; gameNo <= 5; gameNo++) {
+      expect(playoffSeed(game, sf1, gameNo)).not.toBe(playoffSeed(game, sf2, gameNo));
+      expect(legacyPlayoffSeed(game, sf1, gameNo)).toBe(legacyPlayoffSeed(game, sf2, gameNo));
+    }
+    const series = userSeries(game)!;
+    const liveMatch = matchForSeries(game, series);
+    liveMatch.seed = legacyPlayoffSeed(game, series, 1);
+    const restored = deserializeSession(serializeSession(game, liveMatch, 'playoff'));
+    expect(restored.game).toEqual(game);
+    expect(restored.liveMatch?.seed).toBe(liveMatch.seed);
   });
 
   it('no empiezan antes de terminar la fase regular ni dos veces', () => {
