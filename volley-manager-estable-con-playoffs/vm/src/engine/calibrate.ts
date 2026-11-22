@@ -1,4 +1,4 @@
-import { TEAM_SD, type Params } from './params';
+import { HOME_BOOST, TEAM_SD, type Params } from './params';
 import { makeSquads, makeLeague, createMatch, playMatch, roleOfId, boostPlayers } from './match';
 import { mulberry32 } from './rng';
 import { playRally } from './rally';
@@ -163,16 +163,17 @@ export interface ScoreDistribution {
   sets: number;
   ralliesPerSet: number;
   teamSd: number;
+  homeBoost: number;
 }
 
 /** Distribución estructurada de marcadores; la semilla fija permite comparar cambios del motor. */
-export function scoreDistribution(p: Params, matches = 600, teamSd = TEAM_SD): ScoreDistribution {
+export function scoreDistribution(p: Params, matches = 600, teamSd = TEAM_SD, homeBoost = HOME_BOOST): ScoreDistribution { 
   if (!Number.isInteger(matches) || matches <= 0) throw new Error('matches debe ser un entero positivo');
   if (!Number.isFinite(teamSd) || teamSd < 0) throw new Error('teamSd debe ser finito y no negativo');
   const lg = makeLeague(16, 77, teamSd), rnd = mulberry32(5), c = [0, 0, 0]; let R = 0, sets = 0;
   for (let i = 0; i < matches; i++) {
     const a = Math.floor(rnd() * 16); let b = Math.floor(rnd() * 15); if (b >= a) b++;
-    const st = playMatch(createMatch(900 + i, 50, { squads: [lg[a], lg[b]], riskB: 50, params: p }), () => { R++; });
+    const st = playMatch(createMatch(900 + i, 50, { squads: [boostPlayers(lg[a], homeBoost), lg[b]], riskB: 50, params: p }), () => { R++; });
     c[Math.min(...st.sets)]++;
     sets += st.sets[0] + st.sets[1];
   }
@@ -185,14 +186,15 @@ export function scoreDistribution(p: Params, matches = 600, teamSd = TEAM_SD): S
     sets,
     ralliesPerSet: R / sets,
     teamSd,
+    homeBoost,
   };
 }
 
 /** Presentación legible del diagnóstico; conserva el formato consumido por la CLI. */
-export function scoreDist(p: Params, matches = 600, teamSd = TEAM_SD) {
-  const result = scoreDistribution(p, matches, teamSd);
+export function scoreDist(p: Params, matches = 600, teamSd = TEAM_SD, homeBoost = HOME_BOOST) {
+  const result = scoreDistribution(p, matches, teamSd, homeBoost);
   const f = ['3-0', '3-1', '3-2'].map(k => result.frequencies[k as keyof typeof result.frequencies]);
-  return `marcadores 3-0 / 3-1 / 3-2: ${f.map(x => (100 * x).toFixed(1)).join(' / ')} %  (PlusLiga: ${[SCORES['3-0'], SCORES['3-1'], SCORES['3-2']].map(x => (100 * x).toFixed(1)).join(' / ')})  | rallies por set ${result.ralliesPerSet.toFixed(1)}  | TEAM_SD ${teamSd}`;
+  return `marcadores 3-0 / 3-1 / 3-2: ${f.map(x => (100 * x).toFixed(1)).join(' / ')} %  (PlusLiga: ${[SCORES['3-0'], SCORES['3-1'], SCORES['3-2']].map(x => (100 * x).toFixed(1)).join(' / ')})  | rallies por set ${result.ralliesPerSet.toFixed(1)}  | TEAM_SD ${teamSd} | HOME_BOOST ${homeBoost}`;
 }
 
 /** Ventaja de local en una liga de equipos de fuerza desigual: % de victorias y % de sets del local, comparables con PlusLiga (54,2 % y 53,4 %). */

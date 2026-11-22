@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { P, TEAM_SD } from './params';
+import { HOME_BOOST, P, TEAM_SD } from './params';
 import { fit, report, scoreDistribution, scoreDist } from './calibrate';
 import { TARGETS, VALIDATION } from './targets';
 
@@ -28,6 +28,8 @@ describe('distribución de marcadores', () => {
     expect(a.rallies).toBeGreaterThan(0);
     expect(a.sets).toBeGreaterThan(0);
     expect(a.ralliesPerSet).toBeCloseTo(a.rallies / a.sets, 12);
+    expect(a.homeBoost).toBe(HOME_BOOST);
+    expect(scoreDistribution(P, 12, TEAM_SD, 0).homeBoost).toBe(0);
   });
 
   it('rechaza tamaños de muestra y dispersiones inválidos', () => {
