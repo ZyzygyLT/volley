@@ -44,9 +44,11 @@ describe('playoffs', () => {
     const series = userSeries(game)!;
     const liveMatch = matchForSeries(game, series);
     liveMatch.seed = legacyPlayoffSeed(game, series, 1);
+    delete liveMatch.rngVersion;
     const restored = deserializeSession(serializeSession(game, liveMatch, 'playoff'));
     expect(restored.game).toEqual(game);
     expect(restored.liveMatch?.seed).toBe(liveMatch.seed);
+    expect(restored.liveMatch?.rngVersion).toBeUndefined();
   });
 
   it('no empiezan antes de terminar la fase regular ni dos veces', () => {
