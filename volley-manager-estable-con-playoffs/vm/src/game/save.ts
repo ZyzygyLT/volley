@@ -7,6 +7,7 @@ import { matchForSeries, userSeries } from './playoffs';
 import { ECON } from './economy';
 import type { MatchState, Player, Role } from '../engine/types';
 import { rollAge } from './ages';
+import { legacyFixtureSeed } from './season';
 import { mulberry32 } from '../engine/rng';
 import { validateMatch, validateMatchAgainst } from '../engine/validation';
 
@@ -324,7 +325,7 @@ export function serializeSession(game: GameState, liveMatch: MatchState | null, 
   if (liveMatch && !validLiveMatch(liveMatch)) throw new SaveError('No se puede guardar: el estado del partido en curso es inválido');
   if (liveMatch) {
     const expected = sessionMatch(game, liveKind);
-    if (!expected || validateMatchAgainst(liveMatch, expected).length)
+    if (!expected || validateMatchAgainst(liveMatch, expected, liveKind === 'liga' ? (() => { const fixture = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam)); return fixture ? legacyFixtureSeed(game, fixture) : undefined; })() : undefined).length)
       throw new SaveError('El partido en curso no corresponde a la partida guardada');
   }
   const json = JSON.stringify({ format: 'volley-session-v1', game: JSON.parse(gameJson), liveMatch, liveKind });
@@ -346,7 +347,7 @@ export function deserializeSession(json: string): SaveSession {
   const liveMatch = parsed.liveMatch as MatchState | null;
   if (liveMatch) {
     const expected = sessionMatch(game, liveKind);
-    if (!expected || validateMatchAgainst(liveMatch, expected).length)
+    if (!expected || validateMatchAgainst(liveMatch, expected, liveKind === 'liga' ? (() => { const fixture = game.fixtures.find(x => x.round === game.round && (x.home === game.userTeam || x.away === game.userTeam)); return fixture ? legacyFixtureSeed(game, fixture) : undefined; })() : undefined).length)
       throw new SaveError('El partido guardado no corresponde a la partida o a su modalidad');
   }
   return { game, liveMatch, liveKind };
