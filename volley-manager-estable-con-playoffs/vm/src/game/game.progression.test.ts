@@ -36,7 +36,6 @@ describe('semillas de fixtures', () => {
     const restored = deserializeSession(serializeSession(game, liveMatch, 'liga'));
     expect(restored.game).toEqual(game);
     expect(restored.liveMatch?.seed).toBe(liveMatch.seed);
-    }
   });
 });
 const playSeason = (seed: number) => simulateSeason(newGame(seed));
