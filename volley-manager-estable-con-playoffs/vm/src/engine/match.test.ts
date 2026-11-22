@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createMatch, playMatch, stepPoint, makeSquads, makePlayer, legalSubs, substitute, MAX_SUBS, sideForTeam, sideForPlayers } from './match';
+import { createMatch, playMatch, stepPoint, makeSquads, makePlayer, legalSubs, substitute, MAX_SUBS, sideForTeam, sideForPlayers, firstServer } from './match';
 import { mulberry32 } from './rng';
 import { mergeBox, points, hitEff } from './stats';
 
@@ -46,6 +46,70 @@ describe('motor', () => {
       expect(withDisplayNoise.box).toEqual(normal.box);
     }
   });
+  it('rota únicamente al equipo receptor cuando recupera el saque', () => {
+    let sawSideOut = false;
+    let sawServeHold = false;
+    for (let seed = 1; seed <= 200 && !(sawSideOut && sawServeHold); seed++) {
+      const before = createMatch(seed);
+      const after = stepPoint(before);
+      const winner: 0 | 1 = after.score[0] > 0 ? 0 : 1;
+      const receiver = (1 - before.serving) as 0 | 1;
+      if (winner === before.serving) {
+        expect(after.serving).toBe(before.serving);
+        expect(after.teams[0].lineup).toEqual(before.teams[0].lineup);
+        expect(after.teams[1].lineup).toEqual(before.teams[1].lineup);
+        sawServeHold = true;
+      } else {
+        const oldLineup = before.teams[receiver].lineup;
+        expect(after.serving).toBe(receiver);
+        expect(after.teams[receiver].lineup).toEqual([oldLineup[5], ...oldLineup.slice(0, 5)]);
+        expect(after.teams[before.serving].lineup).toEqual(before.teams[before.serving].lineup);
+        sawSideOut = true;
+      }
+    }
+    expect(sawSideOut).toBe(true);
+    expect(sawServeHold).toBe(true);
+  });
+
+  it('al comenzar un set alterna el primer saque, salvo el sorteo independiente del quinto', () => {
+    for (let seed = 0; seed < 100; seed++) {
+      expect(firstServer(seed, 2)).toBe(1 - firstServer(seed, 1));
+      expect(firstServer(seed, 3)).toBe(firstServer(seed, 1));
+      expect(firstServer(seed, 4)).toBe(firstServer(seed, 2));
+      expect(firstServer(seed, 5)).toBe(firstServer(seed, 5));
+    }
+  });
+
+  it('reinicia marcador, rotación y sustituciones al cambiar de set sin borrar el historial', () => {
+    const [home, away] = makeSquads(711);
+    const rnd = mulberry32(712);
+    const bench = (offset: number) =>
+      (['S', 'OH', 'OH', 'MB', 'MB', 'OP', 'L'] as const).map((role, index) =>
+        makePlayer(rnd, role, index, `set-b${offset + index}`, `Suplente ${offset + index}`, 0),
+      );
+    let match = createMatch(713, 50, { squads: [home, away], benches: [bench(0), bench(20)] });
+    const sub = legalSubs(match, 0).find(option => !option.isLibero)!;
+    match = substitute(match, 0, sub.out.id, sub.inn.id);
+    match.score = [24, 24];
+    match.totals = [24, 24];
+
+    let safety = 0;
+    while (match.setNo === 1 && safety++ < 200) match = stepPoint(match);
+
+    expect(match.setNo).toBe(2);
+    expect(match.sets[0] + match.sets[1]).toBe(1);
+    expect(match.score).toEqual([0, 0]);
+    expect(match.serving).toBe(firstServer(match.seed, 2));
+    for (const side of [0, 1] as const) {
+      expect(match.teams[side].lineup).toEqual(match.base[side].slice(0, 6));
+      expect(match.teams[side].libero).toEqual(match.base[side][6]);
+      expect(match.subState[side]).toEqual({ count: 0, swaps: {}, replaced: [], usedIn: [] });
+    }
+    expect(match.subHistory).toHaveLength(1);
+    expect(match.subHistory?.[0].setNo).toBe(1);
+    expect(match.playedIds).toContain(sub.inn.id);
+  });
+
   it('stepPoint no muta el estado anterior', () => {
     const m = createMatch(1); const snap = JSON.stringify(m); stepPoint(m);
     expect(JSON.stringify(m)).toBe(snap);
