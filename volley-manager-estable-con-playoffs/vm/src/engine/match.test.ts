@@ -145,11 +145,27 @@ describe('estadísticas individuales', () => {
       }
     }
   });
-  it('cada punto del partido se atribuye a un evento (sin rallies sin explicar)', () => {
-    const m = playMatch(createMatch(3));
-    const total = Object.values(m.box).reduce((s, p) => s + points(p) + p.serveErr + p.atkErr + p.otherErr, 0);
-    const rallies = m.log.filter(l => !l.startsWith('—')).length;
-    expect(total).toBeGreaterThanOrEqual(rallies - 5); expect(total).toBeLessThanOrEqual(rallies);
+  it('cada rally adjudica exactamente un punto y las estadísticas concilian por equipo y jugador', () => {
+    for (let seed = 1; seed <= 25; seed++) {
+      const m = playMatch(createMatch(seed));
+      const rallies = m.totals[0] + m.totals[1];
+      expect(m.setScores.reduce((sum, score) => sum + score[0] + score[1], 0)).toBe(rallies);
+
+      for (const side of [0, 1] as const) {
+        const ids = new Set(m.base[side].map(player => player.id));
+        const players = Object.entries(m.box).filter(([id]) => ids.has(id)).map(([, stats]) => stats);
+        const sum = (key: 'aces' | 'kills' | 'blocks' | 'serveErr' | 'atkErr' | 'otherErr') =>
+          players.reduce((total, stats) => total + stats[key], 0);
+        const team = m.stats[side];
+        expect(sum('aces')).toBe(team.ace);
+        expect(sum('kills')).toBe(team.kill);
+        expect(sum('blocks')).toBe(team.blk);
+        expect(sum('serveErr') + sum('atkErr') + sum('otherErr')).toBe(team.err);
+        expect(team.ace + team.kill + team.blk + team.err).toBe(m.totals[side]);
+        expect(players.reduce((total, stats) => total + points(stats) + stats.serveErr + stats.atkErr + stats.otherErr, 0))
+          .toBe(m.totals[side]);
+      }
+    }
   });
   it('el líbero recibe y defiende, pero nunca saca ni ataca', () => {
     const m = playMatch(createMatch(9));
