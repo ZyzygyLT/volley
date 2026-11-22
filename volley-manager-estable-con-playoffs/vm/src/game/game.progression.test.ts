@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { newGame, endSeason } from './season';
+import { newGame, endSeason, roundRobin, fixtureSeed } from './season';
 import { simulateSeason } from './playoffs';
 import { validateLineup, MIN_BY_ROLE, ROSTER_SLOTS, MAX_ROSTER, lineupToSquad, overall } from './roster';
 import { ECON } from './economy';
@@ -7,6 +7,17 @@ import { AGE, retireProb } from './ages';
 import { makeYouth, progressPlayer, seasonalAgentRoles } from './offseason';
 import { mulberry32 } from '../engine/rng';
 import { deserialize, serialize } from './save';
+describe('semillas de fixtures', () => {
+  it('asigna semillas distintas a todos los partidos admitidos, incluidos los de ligas de 32 equipos', () => {
+    for (const nTeams of [8, 16, 32]) {
+      const game = newGame(0x1234abcd, 0, nTeams);
+      const seeds = game.fixtures.map(fixture => fixtureSeed(game, fixture));
+      expect(seeds.every(seed => Number.isInteger(seed) && seed >= 0 && seed <= 0xffff_ffff)).toBe(true);
+      expect(new Set(seeds).size).toBe(game.fixtures.length);
+      expect(game.fixtures).toEqual(roundRobin(nTeams));
+    }
+  });
+});
 const playSeason = (seed: number) => simulateSeason(newGame(seed));
 const playSeasonFrom = (game: ReturnType<typeof newGame>) => simulateSeason(game);
 describe('distribución de agentes libres por temporada', () => {
