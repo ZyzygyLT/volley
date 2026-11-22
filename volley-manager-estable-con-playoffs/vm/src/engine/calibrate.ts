@@ -155,15 +155,44 @@ export function playerSpread(p: Params, pairs = 70, rallies = 5000) {
   return rows.map(([n, a, b]) => `${String(n).padEnd(12)} motor ${Number.isNaN(a) ? ' n/d ' : a.toFixed(3)}   VNL ${b.toFixed(3)}`).join('\n');
 }
 
-/** Distribución de marcadores en una liga de equipos de fuerza desigual, comparada con PlusLiga (2639 partidos). */
-export function scoreDist(p: Params, matches = 600, teamSd = TEAM_SD) {
+export interface ScoreDistribution {
+  matches: number;
+  counts: { '3-0': number; '3-1': number; '3-2': number };
+  frequencies: { '3-0': number; '3-1': number; '3-2': number };
+  rallies: number;
+  sets: number;
+  ralliesPerSet: number;
+  teamSd: number;
+}
+
+/** Distribución estructurada de marcadores; la semilla fija permite comparar cambios del motor. */
+export function scoreDistribution(p: Params, matches = 600, teamSd = TEAM_SD): ScoreDistribution {
+  if (!Number.isInteger(matches) || matches <= 0) throw new Error('matches debe ser un entero positivo');
+  if (!Number.isFinite(teamSd) || teamSd < 0) throw new Error('teamSd debe ser finito y no negativo');
   const lg = makeLeague(16, 77, teamSd), rnd = mulberry32(5), c = [0, 0, 0]; let R = 0, sets = 0;
   for (let i = 0; i < matches; i++) {
     const a = Math.floor(rnd() * 16); let b = Math.floor(rnd() * 15); if (b >= a) b++;
-    const st = playMatch(createMatch(900 + i, 50, { squads: [lg[a], lg[b]], riskB: 50, params: p }), () => { R++; }); c[Math.min(...st.sets)]++; sets += st.sets[0] + st.sets[1];
+    const st = playMatch(createMatch(900 + i, 50, { squads: [lg[a], lg[b]], riskB: 50, params: p }), () => { R++; });
+    c[Math.min(...st.sets)]++;
+    sets += st.sets[0] + st.sets[1];
   }
-  const f = c.map(x => x / matches);
-  return `marcadores 3-0 / 3-1 / 3-2: ${f.map(x => (100 * x).toFixed(1)).join(' / ')} %  (PlusLiga: ${[SCORES['3-0'], SCORES['3-1'], SCORES['3-2']].map(x => (100 * x).toFixed(1)).join(' / ')})  | rallies por set ${(R / sets).toFixed(1)}  | TEAM_SD ${teamSd}`;
+  const counts = { '3-0': c[0], '3-1': c[1], '3-2': c[2] };
+  return {
+    matches,
+    counts,
+    frequencies: { '3-0': c[0] / matches, '3-1': c[1] / matches, '3-2': c[2] / matches },
+    rallies: R,
+    sets,
+    ralliesPerSet: R / sets,
+    teamSd,
+  };
+}
+
+/** Presentación legible del diagnóstico; conserva el formato consumido por la CLI. */
+export function scoreDist(p: Params, matches = 600, teamSd = TEAM_SD) {
+  const result = scoreDistribution(p, matches, teamSd);
+  const f = ['3-0', '3-1', '3-2'].map(k => result.frequencies[k as keyof typeof result.frequencies]);
+  return `marcadores 3-0 / 3-1 / 3-2: ${f.map(x => (100 * x).toFixed(1)).join(' / ')} %  (PlusLiga: ${[SCORES['3-0'], SCORES['3-1'], SCORES['3-2']].map(x => (100 * x).toFixed(1)).join(' / ')})  | rallies por set ${result.ralliesPerSet.toFixed(1)}  | TEAM_SD ${teamSd}`;
 }
 
 /** Ventaja de local en una liga de equipos de fuerza desigual: % de victorias y % de sets del local, comparables con PlusLiga (54,2 % y 53,4 %). */
