@@ -106,7 +106,7 @@ export function createMatch(seed: number, myRisk = 50, opts: MatchOpts = {}): Ma
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff) throw new Error('La semilla del partido debe ser un entero uint32');
   const [a, b] = opts.squads ?? makeSquads(seed, opts.boostA ?? 2, opts.boostB ?? 0, opts.sd ?? RATING_SD);
   const mk = (name: string, sq: Player[], risk: number): Team => ({ name, lineup: sq.slice(0, 6), libero: sq[6], risk });
-  return { params: opts.params, seed, teams: [mk(opts.names?.[0] ?? 'Tu equipo', a, myRisk), mk(opts.names?.[1] ?? 'Rival', b, opts.riskB ?? 50)], base: [a, b],
+  return { params: opts.params, seed, rngVersion: 2, teams: [mk(opts.names?.[0] ?? 'Tu equipo', a, myRisk), mk(opts.names?.[1] ?? 'Rival', b, opts.riskB ?? 50)], base: [a, b],
     score: [0, 0], totals: [0, 0], sets: [0, 0], setScores: [], setNo: 1, serving: firstServer(seed, 1), over: false, stats: [emptyStats(), emptyStats()], box: {}, log: [],
     benches: opts.benches ?? [[], []], subState: [emptySub(), emptySub()], playedIds: [], subHistory: [] };
 }
@@ -115,8 +115,10 @@ export function createMatch(seed: number, myRisk = 50, opts: MatchOpts = {}): Ma
 export function stepPoint(prev: MatchState, onRally?: (r: RallyResult, serving: Side) => void): MatchState {
   if (prev.over) return prev;
   const s: MatchState = structuredClone(prev);
-  // Una RNG por punto, derivada de semilla + progreso real; el registro visible no influye en el azar.
-  const n = s.totals[0] + s.totals[1] + (s.sets[0] + s.sets[1]) * 1000;
+  // Los partidos nuevos usan progreso real; las sesiones antiguas conservan su secuencia histórica basada en el log.
+  const n = prev.rngVersion === 2
+    ? s.totals[0] + s.totals[1] + (s.sets[0] + s.sets[1]) * 1000
+    : s.score[0] + s.score[1] + (s.sets[0] + s.sets[1]) * 1000 + s.log.length * 7;
   const res = playRally(s.teams, s.serving, mulberry32((s.seed ^ Math.imul(n + 1, 0x9e3779b1)) >>> 0), s.params);
   onRally?.(res, prev.serving);
   applyEvents(s.box, res.trace.ev, s.params ?? P);
