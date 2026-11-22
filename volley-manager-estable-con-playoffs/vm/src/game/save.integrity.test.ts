@@ -340,7 +340,9 @@ describe('integridad semántica de guardados: playoffs', () => {
     const g = completed();
     const premature = jsonCopy(g);
     const semi = premature.playoffs!.series[0];
-    semi.winner = semi.games[0].home;
+    const firstGame = semi.games[0];
+    semi.games = [firstGame];
+    semi.winner = firstGame.sets[0] > firstGame.sets[1] ? firstGame.home : firstGame.away;
     rejected(premature);
 
     const extra = jsonCopy(g);
