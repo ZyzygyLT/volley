@@ -91,6 +91,8 @@ describe('sustituciones en la liga', () => {
     const g = newGame(11), f = userFixture(g)!; let m = matchFor(g, f);
     const side = f.home === g.userTeam ? 0 : 1, o = legalSubs(m, side).find(x => x.out.role === 'OH')!;
     m = playMatch(substitute(m, side, o.out.id, o.inn.id));
+    expect(m.onCourt[o.inn.id]).toBeGreaterThan(0);
+    delete m.box[o.inn.id]; // estuvo en cancha, pero no generó un evento estadístico
     const after = finishRound(g, m);
     expect(after.career[o.inn.id]?.gp).toBe(1);
   });
