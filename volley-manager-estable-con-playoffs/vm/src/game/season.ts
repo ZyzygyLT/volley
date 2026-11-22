@@ -73,7 +73,7 @@ export const userFixture = (g: GameState) => fixturesOfRound(g).find(f => f.home
 export const legacyFixtureSeed = (g: GameState, f: Fixture) => (((g.seed ^ Math.imul(f.round * 131 + f.home * 17 + f.away + 1, 0x9e3779b1)) ^ Math.imul((g.season ?? 1) - 1, 0x85ebca6b)) >>> 0);
 
 export const fixtureSeed = (g: GameState, f: Fixture) => {
-  const fixtureKey = (f.round << 10) | (f.home << 5) | f.away;
+  const fixtureKey = 0x10000 | (f.round << 10) | (f.home << 5) | f.away;
   return ((g.seed ^ Math.imul(fixtureKey, 0x9e3779b1) ^ Math.imul((g.season ?? 1) - 1, 0x85ebca6b)) >>> 0);
 };
 
