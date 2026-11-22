@@ -67,7 +67,12 @@ export const isSeasonOver = (g: GameState) => g.playoffs?.stage === 'done';
 export const fixturesOfRound = (g: GameState, round = g.round) => g.fixtures.filter(f => f.round === round);
 export const userFixture = (g: GameState) => fixturesOfRound(g).find(f => f.home === g.userTeam || f.away === g.userTeam);
 // La temporada 1 conserva la fórmula original (partidas guardadas reproducibles); desde la 2 se mezcla el número de temporada.
-export const fixtureSeed = (g: GameState, f: Fixture) => (((g.seed ^ Math.imul(f.round * 131 + f.home * 17 + f.away + 1, 0x9e3779b1)) ^ Math.imul((g.season ?? 1) - 1, 0x85ebca6b)) >>> 0);
+// Codifica sin solapamientos los campos del fixture (hasta 32 equipos y 62 jornadas).
+// La multiplicación por un impar y XOR conservan la unicidad entre fixtures de una misma temporada.
+export const fixtureSeed = (g: GameState, f: Fixture) => {
+  const fixtureKey = (f.round << 10) | (f.home << 5) | f.away;
+  return ((g.seed ^ Math.imul(fixtureKey, 0x9e3779b1) ^ Math.imul((g.season ?? 1) - 1, 0x85ebca6b)) >>> 0);
+};
 
 /** Partido entre dos equipos con sus alineaciones y tácticas actuales (estado inicial, listo para jugarse punto a punto). */
 export function matchBetween(g: GameState, homeId: number, awayId: number, seed: number): MatchState {
