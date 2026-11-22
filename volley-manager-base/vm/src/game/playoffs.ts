@@ -64,7 +64,7 @@ export function finishPlayoffDay(g: GameState, userMatch?: MatchState): GameStat
     let m = s === mine && userMatch ? userMatch : matchForSeries(g, s);
     if (!m.over) m = playMatch(m);
     const n = s.games.length + 1, home = homeOf(s, n), away = home === s.high ? s.low : s.high;
-    const played = [...new Set([...lineupToSquad(g.teams[home].roster, g.teams[home].lineup), ...lineupToSquad(g.teams[away].roster, g.teams[away].lineup)].map(x => x.id).concat(Object.keys(m.onCourt)))];
+    const played = [...new Set([...lineupToSquad(g.teams[home].roster, g.teams[home].lineup), ...lineupToSquad(g.teams[away].roster, g.teams[away].lineup)].map(x => x.id).concat(Object.keys(m.box)))];
     career = mergeBox(career, m.box, played); playedMatches.push({ m }); involved.add(home); involved.add(away);
     const game: PlayoffGame = { game: n, home, away, sets: [m.sets[0], m.sets[1]], setScores: m.setScores.map(x => [x[0], x[1]] as [number, number]), totals: [m.totals[0], m.totals[1]], seed: m.seed };
     const next: Series = { ...s, games: [...s.games, game] };
