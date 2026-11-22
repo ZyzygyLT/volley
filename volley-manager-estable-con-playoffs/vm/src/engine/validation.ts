@@ -152,6 +152,7 @@ export function validateMatch(input: unknown): string[] {
   const m = input;
 
   if (!isInteger(m.seed) || m.seed < 0 || m.seed > 0xffff_ffff) errors.push('seed: debe ser un entero uint32');
+  if (m.rngVersion !== undefined && m.rngVersion !== 2) errors.push('rngVersion: versión de secuencia aleatoria inválida');
   if (m.params !== undefined) validateParams(m.params, errors);
   if (!Array.isArray(m.teams) || m.teams.length !== 2) errors.push('teams: deben existir dos equipos');
   if (!Array.isArray(m.base) || m.base.length !== 2) errors.push('base: deben existir dos planteles base');
@@ -396,7 +397,9 @@ export function validateMatchAgainst(input: unknown, expected: MatchState, legac
   const errors = validateMatch(input);
   if (!isRecord(input)) return errors;
   const actual = input;
-  if (actual.seed !== expected.seed && actual.seed !== legacySeed) errors.push('seed: no corresponde al fixture o serie');
+  const legacyMatch = legacySeed !== undefined && actual.seed === legacySeed;
+  if (actual.seed !== expected.seed && !legacyMatch) errors.push('seed: no corresponde al fixture o serie');
+  if (actual.rngVersion !== expected.rngVersion && !legacyMatch) errors.push('rngVersion: no corresponde a la versión de simulación esperada');
   if (!Array.isArray(actual.teams) || actual.teams.length !== 2
     || !Array.isArray(actual.base) || actual.base.length !== 2
     || !Array.isArray(actual.benches) || actual.benches.length !== 2) return errors;
