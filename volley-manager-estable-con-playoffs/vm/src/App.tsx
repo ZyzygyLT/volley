@@ -469,6 +469,10 @@ export default function App() {
           <thead><tr><th>Jugador</th><th>Rol</th><th>Edad</th><th>Último equipo</th><th>Retiro</th><th>Valoración</th></tr></thead>
           <tbody>{[...game.retiredPlayers].sort((a, b) => b.retiredSeason - a.retiredSeason || a.name.localeCompare(b.name)).map(p => <tr key={p.id}><td><Name p={p} /></td><td>{p.role}</td><td>{p.age ?? '–'}</td><td>{p.lastTeam}</td><td>T{p.retiredSeason}</td><td>{overall(p).toFixed(0)}</td></tr>)}</tbody>
         </table></div>}
+        {game.retiredPlayers.length > 0 && <>
+          <h3>Estadísticas históricas de jugadores retirados</h3>
+          <Box title="" players={[...game.retiredPlayers].sort((a, b) => b.retiredSeason - a.retiredSeason || a.name.localeCompare(b.name))} box={game.allTime} />
+        </>}
         <h3>Historial de temporadas</h3>
         {game.history.length === 0 ? <p className="mu">Todavía no terminaste ninguna temporada.</p> : <div className="wrap"><table>
           <thead><tr><th>Temporada</th><th>Campeón</th><th>Mi puesto</th><th>Mis puntos</th><th>Premio</th></tr></thead>
