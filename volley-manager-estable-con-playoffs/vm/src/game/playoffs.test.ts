@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { playMatch } from '../engine/match';
+import { playMatch, legalSubs, substitute } from '../engine/match';
 import { ECON } from './economy';
 import { deserialize, serialize, serializeSession, deserializeSession } from './save';
 import { endSeason, finalRanking, finishRound, fixtureSeed, isSeasonOver, newGame, regularSeasonOver, seasonSummary, standings, type GameState } from './season';
@@ -27,6 +27,21 @@ describe('playoffs', () => {
     const next = finishPlayoffDay(changed, manual);
     expect(next.career[originalStarter]?.gp).toBe(originalGp + 1);
     expect(next.career[replacement.id]?.gp ?? 0).toBe(replacementGp);
+  });
+
+  it('acredita GP al suplente de playoffs aunque no registre acciones estadísticas', () => {
+    const regularSeason = regular(712);
+    const game = startPlayoffs({ ...regularSeason, userTeam: standings(regularSeason)[0].team });
+    const series = userSeries(game)!;
+    let manual = matchForSeries(game, series);
+    const option = legalSubs(manual, 0).find(candidate => candidate.out.role === 'OH')!;
+    const before = game.career[option.inn.id]?.gp ?? 0;
+    manual = playMatch(substitute(manual, 0, option.out.id, option.inn.id));
+    // El suplente entró y jugó, aunque el registro estadístico no tenga eventos.
+    manual.box = {};
+    manual.stats = [{ ace: 0, kill: 0, blk: 0, err: 0 }, { ace: 0, kill: 0, blk: 0, err: 0 }];
+    const after = finishPlayoffDay(game, manual);
+    expect(after.career[option.inn.id]?.gp).toBe(before + 1);
   });
 
   it('usa semillas independientes para SF1 y SF2 y recupera sesiones de playoffs antiguas', () => {
