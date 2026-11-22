@@ -72,12 +72,16 @@ describe('motor', () => {
   });
 
   it('al comenzar un set alterna el primer saque, salvo el sorteo independiente del quinto', () => {
+    const fifthSetServers = new Set<number>();
     for (let seed = 0; seed < 100; seed++) {
       expect(firstServer(seed, 2)).toBe(1 - firstServer(seed, 1));
       expect(firstServer(seed, 3)).toBe(firstServer(seed, 1));
       expect(firstServer(seed, 4)).toBe(firstServer(seed, 2));
-      expect(firstServer(seed, 5)).toBe(firstServer(seed, 5));
+      const fifth = firstServer(seed, 5);
+      expect(firstServer(seed, 5)).toBe(fifth);
+      fifthSetServers.add(fifth);
     }
+    expect(fifthSetServers).toEqual(new Set([0, 1]));
   });
 
   it('reinicia marcador, rotación y sustituciones al cambiar de set sin borrar el historial', () => {
