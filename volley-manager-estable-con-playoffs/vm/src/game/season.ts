@@ -66,7 +66,7 @@ export const regularSeasonOver = (g: GameState) => g.round >= totalRounds(g);
 export const isSeasonOver = (g: GameState) => g.playoffs?.stage === 'done';
 export const fixturesOfRound = (g: GameState, round = g.round) => g.fixtures.filter(f => f.round === round);
 export const userFixture = (g: GameState) => fixturesOfRound(g).find(f => f.home === g.userTeam || f.away === g.userTeam);
-// La temporada 1 conserva la fórmula original (partidas guardadas reproducibles); desde la 2 se mezcla el número de temporada.
+// La semilla mezcla temporada y fixture; legacyFixtureSeed conserva la fórmula anterior para sesiones vivas ya guardadas.
 // Codifica sin solapamientos los campos del fixture (hasta 32 equipos y 62 jornadas).
 // La multiplicación por un impar y XOR conservan la unicidad entre fixtures de una misma temporada.
 /** Fórmula anterior: permite recuperar sesiones en curso guardadas antes de evitar colisiones. */
