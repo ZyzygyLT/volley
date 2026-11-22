@@ -69,6 +69,9 @@ export const userFixture = (g: GameState) => fixturesOfRound(g).find(f => f.home
 // La temporada 1 conserva la fórmula original (partidas guardadas reproducibles); desde la 2 se mezcla el número de temporada.
 // Codifica sin solapamientos los campos del fixture (hasta 32 equipos y 62 jornadas).
 // La multiplicación por un impar y XOR conservan la unicidad entre fixtures de una misma temporada.
+/** Fórmula anterior: permite recuperar sesiones en curso guardadas antes de evitar colisiones. */
+export const legacyFixtureSeed = (g: GameState, f: Fixture) => (((g.seed ^ Math.imul(f.round * 131 + f.home * 17 + f.away + 1, 0x9e3779b1)) ^ Math.imul((g.season ?? 1) - 1, 0x85ebca6b)) >>> 0);
+
 export const fixtureSeed = (g: GameState, f: Fixture) => {
   const fixtureKey = (f.round << 10) | (f.home << 5) | f.away;
   return ((g.seed ^ Math.imul(fixtureKey, 0x9e3779b1) ^ Math.imul((g.season ?? 1) - 1, 0x85ebca6b)) >>> 0);
@@ -99,7 +102,7 @@ export function finishRound(g: GameState, userMatch?: MatchState): GameState {
   if (userMatch) {
     if (!uf) throw new Error('No existe un fixture del usuario para esta jornada');
     if (!userMatch.over) throw new Error('El partido manual todavía no terminó');
-    const errors = validateMatchAgainst(userMatch, matchFor(g, uf));
+    const errors = validateMatchAgainst(userMatch, matchFor(g, uf), legacyFixtureSeed(g, uf));
     if (errors.length) throw new Error(`Partido manual inválido: ${errors.join('; ')}`);
   }
   const results: Result[] = [...g.results]; let career = g.career, userHome = false, userWon = false;
