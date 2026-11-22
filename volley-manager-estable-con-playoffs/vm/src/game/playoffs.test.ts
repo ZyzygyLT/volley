@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { playMatch } from '../engine/match';
 import { ECON } from './economy';
 import { deserialize, serialize, serializeSession, deserializeSession } from './save';
-import { endSeason, finalRanking, finishRound, isSeasonOver, newGame, regularSeasonOver, seasonSummary, standings, type GameState } from './season';
+import { endSeason, finalRanking, finishRound, fixtureSeed, isSeasonOver, newGame, regularSeasonOver, seasonSummary, standings, type GameState } from './season';
 import { advance, finishPlayoffDay, legacyPlayoffSeed, matchForSeries, playoffSeed, simulateSeason, startPlayoffs, userSeries, winsOf } from './playoffs';
 
 const regular = (seed: number): GameState => { let g = newGame(seed); while (!regularSeasonOver(g)) g = finishRound(g); return g; };
@@ -33,10 +33,14 @@ describe('playoffs', () => {
     const regularSeason = regular(88);
     const game = startPlayoffs({ ...regularSeason, userTeam: standings(regularSeason)[0].team });
     const [sf1, sf2] = game.playoffs!.series;
+    const playoffSeeds: number[] = [];
     for (let gameNo = 1; gameNo <= 5; gameNo++) {
       expect(playoffSeed(game, sf1, gameNo)).not.toBe(playoffSeed(game, sf2, gameNo));
       expect(legacyPlayoffSeed(game, sf1, gameNo)).toBe(legacyPlayoffSeed(game, sf2, gameNo));
+      playoffSeeds.push(playoffSeed(game, sf1, gameNo), playoffSeed(game, sf2, gameNo));
     }
+    const allSeeds = [...game.fixtures.map(fixture => fixtureSeed(game, fixture)), ...playoffSeeds];
+    expect(new Set(allSeeds).size).toBe(allSeeds.length);
     const series = userSeries(game)!;
     const liveMatch = matchForSeries(game, series);
     liveMatch.seed = legacyPlayoffSeed(game, series, 1);
